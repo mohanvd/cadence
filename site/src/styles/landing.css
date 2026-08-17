@@ -7,10 +7,35 @@
  * of home.css is what stops any of it reaching the installer.
  */
 
+/* ── Undo the application's shell ──
+
+   The player is a fixed frame with a scrolling region inside it, because a
+   window with chrome pinned to its edges has to be: `html` and `body` are
+   locked at full height with overflow hidden, and one inner element scrolls.
+
+   Those rules arrive here with the shared stylesheet and are wrong for a
+   document. A page should scroll as a page: one scrollbar, at the edge of the
+   window, the one every other site has. */
+html,
+body {
+  height: auto;
+  overflow: visible;
+}
+
+/* `.xn-home` is the player's frame: fixed to the viewport, clipped, with a
+   scrolling child. Everything about that is right for a window and wrong for a
+   page, where it pins the document at one screen tall and hides the rest. */
 .ld-page {
-  /* The page scrolls as one document. The app constrains its scroll container
-     because a player has chrome pinned around it; a marketing page does not. */
+  position: static;
+  height: auto;
+  overflow: visible;
   scroll-behavior: smooth;
+}
+
+.ld-page .xn-home__scroll {
+  flex: none;
+  min-height: 0;
+  overflow: visible;
 }
 
 /* ── Hero ── */
@@ -331,7 +356,61 @@
 }
 
 /* The footer wordmark, sized without a measurement pass.
-   See the note in components/Footer.jsx for where 0.408 comes from. */
+   3.838 is the width of "Cadence" in Agbalumo expressed in em, measured once.
+   Dividing the container width by it is what makes the word fill the line.
+   See the note in components/Footer.tsx. */
 .ld-footer__word {
-  font-size: calc(100cqw / 0.408);
+  font-size: calc(100cqw / 3.838);
+}
+
+/* ── The page's scrollbar ──
+
+   The one the browser draws is a pale system bar against a near-black page,
+   and it is the full height of the document, so it is the most persistent
+   light thing on screen. This is the same treatment the player gives its own
+   scrolling regions, a little wider: 6px is fine for a panel a mouse rarely
+   grabs, and mean for a bar someone may actually drag. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
+}
+
+html::-webkit-scrollbar {
+  width: 10px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 99px;
+  /* Inset from the edge so the thumb reads as floating rather than as a rail
+     welded to the side of the window. */
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: var(--text-3);
+  background-clip: content-box;
+}
+
+/* ── The URL row inside the preview ──
+
+   The player draws this field empty: the URL is placeholder text and the
+   button is `disabled` until something is typed. The preview is markup, not a
+   form, so a `<span>` can never be `:disabled` and picks up the active state
+   instead: a bright value and an accent button, a field that looks submitted.
+   These put it back to the state the player actually opens in. */
+.ld-window .xn-url__input {
+  display: flex;
+  align-items: center;
+  color: var(--text-3);
+}
+
+.ld-window .xn-url__go {
+  background: var(--surface-2);
+  color: var(--text-3);
 }
