@@ -11,7 +11,6 @@ export interface PlatformCapabilities {
   webCodecs: boolean;
   /** Chrome-only; enables the true mini-player window. */
   documentPiP: boolean;
-  fileSystemAccess: boolean;
   /** WebCodecs can be driven off the main thread. */
   workerWebCodecs: boolean;
 }
@@ -23,7 +22,6 @@ export function getPlatformCapabilities(): PlatformCapabilities {
       typeof self.VideoDecoder !== 'undefined' &&
       typeof self.AudioDecoder !== 'undefined',
     documentPiP: 'documentPictureInPicture' in self,
-    fileSystemAccess: 'showOpenFilePicker' in self,
     workerWebCodecs:
       typeof self.VideoDecoder !== 'undefined' &&
       typeof self.OffscreenCanvas !== 'undefined',

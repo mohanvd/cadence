@@ -1,12 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { getRecentFiles } from '../utils/storage';
-import {
-  supportsFileSystemAccess,
-  VIDEO_PICKER_OPTIONS,
-  saveFileHandle,
-  warmRecentHandleCache,
-} from '../utils/fileHandles';
-import { openRecentFile } from '../utils/recentFileOpen';
 import { isDesktop, pickVideoFile, onFileDrop } from '../lib/desktop';
 
 export const ACCEPTED_TYPES = ['.mp4', '.webm', '.mkv', '.mov'];
@@ -21,6 +14,14 @@ const URL_PATTERN = /^https?:\/\/.+\.(mp4|webm|mkv|mov)(\?.*)?$/i;
  * screen now spreads those affordances across several sibling components: the
  * card, the URL field and the recent grid all mutate the same error and
  * recent-files state, and a drop is accepted anywhere on the page.
+ *
+ * A file has one identity here: its path. What used to sit alongside it was the
+ * browser's File System Access layer, which handed back a handle instead, and a
+ * handle is a poor substitute: its permission lapses between visits, WebView2
+ * does not implement it at all, and it took an IndexedDB store, a memory cache
+ * and a permission dance to make one nearly as useful as a string. The branches
+ * below that are not path-shaped exist for `npm run dev` in a browser tab,
+ * where there is no shell to ask.
  */
 export function useVideoIntake({
   onFileSelect,
@@ -41,18 +42,13 @@ export function useVideoIntake({
     setRecentFiles(getRecentFiles());
   }, []);
 
-  useEffect(() => {
-    refreshRecent();
-    warmRecentHandleCache();
-  }, [refreshRecent]);
-
   // A load failure reported by the player replaces any local validation error,
   // so the user is never shown two contradictory messages at once.
   useEffect(() => {
     if (urlLoadError) setError('');
   }, [urlLoadError]);
 
-  // A file dropped outside our handlers makes the browser navigate away from
+  // A file dropped outside our handlers makes the webview navigate away from
   // the app and render the raw video, which looks like a crash. Swallow those.
   useEffect(() => {
     const swallow = (e) => e.preventDefault();
@@ -111,44 +107,25 @@ export function useVideoIntake({
   );
 
   const acceptFile = useCallback(
-    (file, handle) => {
+    (file) => {
       if (!validateFile(file)) return;
-      onFileSelect(file, handle);
+      onFileSelect(file);
       refreshRecent();
     },
     [onFileSelect, refreshRecent, validateFile]
   );
 
   const openPicker = useCallback(async () => {
-    /* The desktop shell gets the operating system's own dialog, which hands
-       back a path. That is the better of the two identities a file can have
-       here: a path is still valid after a restart, where a browser file handle
-       has to have its permission granted again, and WebView2 does not
-       implement the handle API at all, so the alternative inside the app is
-       the bare <input> below, which forgets the file the moment it is closed. */
+    // The desktop shell gets the operating system's own dialog, which hands
+    // back a path. In a browser tab there is only the bare input below, which
+    // forgets the file the moment it is closed.
     if (isDesktop()) {
       const path = await pickVideoFile();
       if (path) onPathSelect?.(path);
       return;
     }
-    if (!supportsFileSystemAccess()) {
-      fileInputRef.current?.click();
-      return;
-    }
-    try {
-      const [handle] = await window.showOpenFilePicker(VIDEO_PICKER_OPTIONS);
-      const file = await handle.getFile();
-      if (!validateFile(file)) return;
-      await saveFileHandle({ handle, name: file.name, size: file.size, lastOpened: Date.now() });
-      onFileSelect(file, handle);
-      refreshRecent();
-    } catch (err) {
-      if (err?.name === 'AbortError') return;
-      if (err?.name === 'NotAllowedError') {
-        showToast?.('Permission denied. Try opening the file again.');
-      }
-    }
-  }, [onFileSelect, onPathSelect, refreshRecent, showToast, validateFile]);
+    fileInputRef.current?.click();
+  }, [onPathSelect]);
 
   const handleFileInput = useCallback(
     (e) => {
@@ -173,23 +150,25 @@ export function useVideoIntake({
   }, [urlInput, onUrlSelect, onClearUrlError, refreshRecent, fail]);
 
   const openRecent = useCallback(
-    async (recent) => {
+    (recent) => {
       onClearUrlError?.();
-      await openRecentFile(recent, {
-        onPlayFile: (file, handle) => acceptFile(file, handle),
-        onPlayUrl: (url) => {
-          onUrlSelect(url);
-          refreshRecent();
-        },
-        onPlayPath: (path) => {
-          onPathSelect?.(path);
-          refreshRecent();
-        },
-        onFallbackPicker: openPicker,
-        showToast,
-      });
+      if (recent.url) {
+        onUrlSelect(recent.url);
+        refreshRecent();
+        return;
+      }
+      if (recent.path) {
+        onPathSelect?.(recent.path);
+        refreshRecent();
+        return;
+      }
+      /* No path and no URL. Only reachable in a browser tab, where a file
+         picked through the bare input leaves nothing behind to reopen it
+         with, so the honest response is to ask for it again. */
+      showToast?.(`Pick ${recent.name} again to play it.`);
+      void openPicker();
     },
-    [acceptFile, onUrlSelect, onPathSelect, onClearUrlError, openPicker, refreshRecent, showToast]
+    [onUrlSelect, onPathSelect, onClearUrlError, openPicker, refreshRecent, showToast]
   );
 
   /* Drag counting rather than a boolean: dragenter/dragleave also fire for
@@ -215,26 +194,9 @@ export function useVideoIntake({
         e.stopPropagation();
         dragDepth.current = 0;
         setIsDragging(false);
-
-        /* Both of these must be read before the first await: `dataTransfer` is
-           only valid for the duration of the event handler.
-
-           `getAsFileSystemHandle` is what makes a dropped file re-openable
-           later. Without it a drop yields a bare File, the recent entry gets
-           saved with no handle behind it, and every later click on that entry
-           can only apologise and ask for the file again. */
+        // `dataTransfer` is only valid for the duration of the handler.
         const file = e.dataTransfer.files[0];
-        const item = e.dataTransfer.items?.[0];
-        const handlePromise =
-          item && typeof item.getAsFileSystemHandle === 'function'
-            ? item.getAsFileSystemHandle().catch(() => null)
-            : Promise.resolve(null);
-
-        if (!file) return;
-
-        handlePromise.then((handle) => {
-          acceptFile(file, handle?.kind === 'file' ? handle : undefined);
-        });
+        if (file) acceptFile(file);
       },
     }),
     [acceptFile]
@@ -253,8 +215,7 @@ export function useVideoIntake({
     fileInputRef,
     handleFileInput,
     // The desktop shell never falls back to a bare <input>: it has a real
-    // dialog, even though WebView2 lacks the handle API that would otherwise
-    // be the test for one.
-    needsFallbackInput: !isDesktop() && !supportsFileSystemAccess(),
+    // dialog behind `openPicker`.
+    needsFallbackInput: !isDesktop(),
   };
 }

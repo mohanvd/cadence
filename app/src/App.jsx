@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { addRecentFile, clearBookmarkStorage } from './utils/storage';
 import { capturePoster } from './utils/poster';
-import { saveFileHandle } from './utils/fileHandles';
 import { useToast } from './hooks/useToast';
 import { useAppUpdates } from './hooks/useAppUpdates';
 import { isDesktop, onOpenFile, takeLaunchFile, toPlayableUrl, basename } from './lib/desktop';
@@ -34,13 +33,13 @@ export default function App() {
     clearBookmarkStorage();
   }, []);
 
-  const playFile = useCallback(async (file, handle) => {
+  /* A `File` with no path behind it, which only the browser dev server
+     produces. The recent entry it leaves is a record that the file was
+     watched, not a way back to it. */
+  const playFile = useCallback((file) => {
     setUrlLoadError('');
     setVideoSource({ kind: 'file', file, name: file.name });
     addRecentFile({ name: file.name, size: file.size });
-    if (handle) {
-      await saveFileHandle({ handle, name: file.name, size: file.size, lastOpened: Date.now() });
-    }
     setPlayerOpen(true);
   }, []);
 

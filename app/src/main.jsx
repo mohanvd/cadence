@@ -1,8 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { migrateStorage } from './utils/migrateStorage';
-import { migrateDatabase } from './utils/migrateDatabase';
 import { pruneUnopenableRecents } from './utils/pruneRecents';
 import { initAppearance } from './store/appearanceStore';
 import App from './App';
@@ -19,13 +17,13 @@ if (import.meta.env.DEV) {
   });
 }
 
-// Rename stored keys before any component reads them. The database copy is
-// async and safe to run alongside: reads of the new database simply find it
-// empty until the copy lands.
-migrateStorage();
-void migrateDatabase();
+/* Drops recent entries left over from before a recent file was remembered by
+   path. They render a tile that cannot open anything.
 
-// Runs after the rename, so it reads the list under its current key.
+   The two storage migrations that used to run here went with the browser: they
+   copied data forward from the names this project shipped under before, and the
+   application reads its storage at a different origin than the website ever
+   did, so there is nothing at those old names to find. */
 pruneUnopenableRecents();
 
 // Paint the saved theme onto the root before React's first render, so the app
