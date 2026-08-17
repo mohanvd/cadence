@@ -1,0 +1,22 @@
+/**
+ * The design system, without Tailwind.
+ *
+ * This is the half of `theme.css` that describes what Cadence looks like: the
+ * colour ramp, the two display faces, the section furniture and the drop card.
+ * The other half is Tailwind, which the player's newer components use and the
+ * website does not use at all.
+ *
+ * Splitting them is what lets the website share this. `@import 'tailwindcss'`
+ * resolves against the importing file's own directory, so a website that
+ * imported `theme.css` would go looking for Tailwind in the player's
+ * `node_modules` — which is a different project's, and on a deployment that
+ * builds only the website, is not there at all.
+ *
+ * Anything a component and a marketing page could both need belongs here.
+ * Anything only the player needs belongs in `theme.css` above it.
+ */
+
+@import './fonts.css';
+@import '../index.css';
+/* After index.css, and so wins the ties it deliberately picks with it. */
+@import './home.css';

@@ -2,7 +2,6 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
-import tailwindcss from '@tailwindcss/vite';
 
 // The player's version, read from the same file the installer is versioned
 // from. The page shows it inside the window it draws.
@@ -25,7 +24,6 @@ export default defineConfig({
   site: 'https://cadence.auva.dev',
   integrations: [react()],
   vite: {
-    plugins: [tailwindcss()],
     define: {
       __APP_VERSION__: JSON.stringify(version),
     },

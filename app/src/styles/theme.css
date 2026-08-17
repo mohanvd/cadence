@@ -19,12 +19,11 @@
  * new components win. Both systems coexist until the old screens migrate. */
 @layer theme, base, legacy, components, utilities;
 
-@import './fonts.css';
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import '../index.css' layer(legacy);
-/* After index.css, and so wins the ties it deliberately picks with it. */
-@import './home.css' layer(legacy);
+/* The faces, the tokens and the older screens' styling, which the website
+   imports on its own without any of the Tailwind above. See tokens.css. */
+@import './tokens.css' layer(legacy);
 
 @theme {
   --font-sans:
