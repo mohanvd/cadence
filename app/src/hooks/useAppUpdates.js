@@ -18,6 +18,7 @@ export function useAppUpdates() {
   const [status, setStatus] = useState(/** @type {UpdateStatus} */ ('idle'));
   const [version, setVersion] = useState('');
   const [progress, setProgress] = useState(0);
+  const [error, setError] = useState('');
   const staged = useRef(null);
 
   useEffect(() => {
@@ -59,10 +60,19 @@ export function useAppUpdates() {
         staged.current = update;
         setStatus('ready');
       } catch (err) {
-        // A failed update check is not worth a visible error: the app the user
-        // launched still works, and the next launch will try again.
+        /* Reported rather than swallowed.
+         *
+         * This used to log to a console nobody can open in a shipped build and
+         * set a status nothing rendered, which meant an update channel could
+         * be dead for months and look identical to one with nothing to
+         * deliver. Silence is the one thing it must never do: an application
+         * that updates itself is making a promise, and a broken promise that
+         * cannot be observed is worse than no promise. */
         console.warn('Update check failed:', err);
-        if (!cancelled) setStatus('error');
+        if (!cancelled) {
+          setError(String(err?.message ?? err));
+          setStatus('error');
+        }
       }
     })();
 
@@ -80,6 +90,7 @@ export function useAppUpdates() {
       await relaunch();
     } catch (err) {
       console.warn('Update install failed:', err);
+      setError(String(err?.message ?? err));
       setStatus('error');
     }
   }, []);
@@ -88,6 +99,7 @@ export function useAppUpdates() {
     /** @type {UpdateStatus} */ status,
     version,
     progress,
+    error,
     updateReady: status === 'ready',
     installAndRestart,
   };

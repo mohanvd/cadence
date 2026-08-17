@@ -807,3 +807,11 @@
   }
 }
 
+
+/* Shown only when the update check failed. Dim, because it is not the user's
+   problem to solve, and present, because a broken update channel that looks
+   exactly like a working one is how an application quietly stops being
+   maintained on someone's machine. */
+.xn-appversion__fault {
+  color: #a1544e;
+}

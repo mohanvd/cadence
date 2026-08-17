@@ -22,7 +22,13 @@ export default function App() {
   const [videoSource, setVideoSource] = useState(null);
   const [urlLoadError, setUrlLoadError] = useState('');
   const { toast, showToast } = useToast();
-  const { updateReady, version: updateVersion, installAndRestart } = useAppUpdates();
+  const {
+    updateReady,
+    version: updateVersion,
+    status: updateStatus,
+    error: updateError,
+    installAndRestart,
+  } = useAppUpdates();
 
   useEffect(() => {
     clearBookmarkStorage();
@@ -112,6 +118,8 @@ export default function App() {
         urlLoadError={urlLoadError}
         onClearUrlError={() => setUrlLoadError('')}
         showToast={showToast}
+        updateStatus={updateStatus}
+        updateError={updateError}
       />
 
       {playerOpen && videoSource && (

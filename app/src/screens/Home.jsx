@@ -20,6 +20,8 @@ export default function Home({
   urlLoadError,
   onClearUrlError,
   showToast,
+  updateStatus,
+  updateError,
 }) {
   const intake = useVideoIntake({
     onFileSelect: onPlayFile,
@@ -60,7 +62,18 @@ export default function Home({
             Here it would be an advertisement shown to someone who has already
             bought the thing, so all that survives is the number a bug report
             asks for. */}
-        <p className="xn-appversion">Cadence {__APP_VERSION__}</p>
+        <p className="xn-appversion">
+          Cadence {__APP_VERSION__}
+          {/* Only ever shown when the update channel is broken. Up to date is
+              silence, and an update that is ready gets the banner instead. */}
+          {updateStatus === 'error' && (
+            <span className="xn-appversion__fault">
+              {' · '}
+              could not check for updates
+              {updateError ? `: ${updateError}` : ''}
+            </span>
+          )}
+        </p>
       </main>
 
       {intake.needsFallbackInput && (
