@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>Cadence</title>
+    <!--
+      The player, loaded by the desktop window from a file on disk.
+
+      There is deliberately no open-graph or description metadata here. Nothing
+      ever crawls this page. The website that does get crawled is its own
+      project under `site/`.
+    -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!--
+      Paints the shell before the stylesheet arrives, so the first frame is not
+      a white flash. It has to defer to the chosen theme once that exists:
+      this rule is unlayered and would otherwise outrank every `@layer base`
+      rule in theme.css, pinning the background to the default no matter which
+      theme the user picked. Reading the variable, with the default as its
+      fallback, lets it do its job early and then get out of the way.
+    -->
+    <style>
+      html,
+      body,
+      #root {
+        background-color: var(--color-base, #0a0a0a);
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

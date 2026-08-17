@@ -1,0 +1,39 @@
+name: Bug report
+description: Something in Cadence does not work the way it should.
+labels: ['bug']
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Cadence version
+      description: Printed under the wordmark at the bottom of the home screen.
+      placeholder: '0.1.0'
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: 'Windows 11 24H2'
+    validations:
+      required: true
+
+  - type: textarea
+    id: file
+    attributes:
+      label: The file involved
+      description: >
+        If a specific video triggers this, its container and codecs are usually
+        the whole answer. `ffprobe yourfile.mkv` prints them, or say what you
+        know. "A 4K HDR MKV from a Blu-ray rip" is genuinely useful.
+    validations:
+      required: false

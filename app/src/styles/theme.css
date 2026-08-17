@@ -1,0 +1,166 @@
+/**
+ * Design tokens for the rebuilt UI.
+ *
+ * Colours are authored in OKLCH so that lightness steps are perceptually even:
+ * the surface ramp below actually *looks* evenly spaced, which sRGB hex values
+ * do not manage. A player is viewed in the dark against bright video, so the
+ * chrome is intentionally low-chroma and dim; the only saturated colour in the
+ * system is the accent, reserved for the playhead and active states.
+ */
+
+/* Cascade order, lowest priority first.
+ *
+ * The legacy stylesheet is otherwise unlayered, and unlayered CSS outranks
+ * every layered rule regardless of source order, and its `* { padding: 0 }` reset
+ * was silently cancelling the spacing utilities in the new components.
+ *
+ * `legacy` sits *above* `base` so it still overrides Tailwind's preflight the
+ * way the old screens were written to expect, but *below* `utilities` so the
+ * new components win. Both systems coexist until the old screens migrate. */
+@layer theme, base, legacy, components, utilities;
+
+@import './fonts.css';
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '../index.css' layer(legacy);
+/* After index.css, and so wins the ties it deliberately picks with it. */
+@import './home.css' layer(legacy);
+
+@theme {
+  --font-sans:
+    'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
+    sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+
+  /* Surface ramp: near-black through to the raised menu surface. */
+  --color-base: oklch(0.145 0 0);
+  --color-surface-1: oklch(0.178 0.002 285);
+  --color-surface-2: oklch(0.216 0.003 285);
+  --color-surface-3: oklch(0.262 0.004 285);
+
+  --color-line: oklch(0.28 0.004 285);
+  --color-line-strong: oklch(0.35 0.005 285);
+
+  --color-fg: oklch(0.985 0 0);
+  --color-fg-muted: oklch(0.72 0.005 285);
+  --color-fg-subtle: oklch(0.55 0.006 285);
+
+  /* The single saturated hue: playhead, active toggles, focus rings. */
+  --color-accent: oklch(0.72 0.17 250);
+  --color-accent-hover: oklch(0.78 0.16 250);
+  --color-accent-fg: oklch(0.145 0 0);
+
+  --color-danger: oklch(0.63 0.21 25);
+  --color-warning: oklch(0.78 0.15 75);
+  --color-success: oklch(0.72 0.16 155);
+
+  --radius-control: 0.5rem;
+  --radius-panel: 0.875rem;
+
+  /* Player chrome sits over video, so its shadows must read on any content. */
+  --shadow-panel: 0 16px 48px -12px oklch(0 0 0 / 0.75);
+  --shadow-control: 0 2px 8px oklch(0 0 0 / 0.5);
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  :root {
+    /* Overwritten by the appearance store. Declared here so the control bar
+       has a sane value on the very first paint, before any script runs. */
+    --control-scale: 1;
+  }
+
+  * {
+    border-color: var(--color-line);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    background-color: var(--color-base);
+    color: var(--color-fg);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Tabular figures keep timecodes from shifting width as they count up. */
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Only show focus rings for keyboard users: a player is mouse-heavy and
+     persistent rings on every click would be noise. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-accent-fg);
+  }
+}
+
+/* The one motion in music mode: a slow breath on the now-playing card that
+   distinguishes playing from paused without anything actually moving. */
+@keyframes music-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.92;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  /* Scrollbars styled to disappear into the surface they sit on. */
+  .scroll-slim {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+  .scroll-slim::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scroll-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb {
+    background: var(--color-line-strong);
+    border-radius: 9999px;
+  }
+
+  /* Gradient scrim behind the control bar so white text stays legible over a
+     bright frame without dimming the whole video. */
+  .scrim-bottom {
+    background: linear-gradient(
+      to top,
+      oklch(0 0 0 / 0.85) 0%,
+      oklch(0 0 0 / 0.55) 40%,
+      oklch(0 0 0 / 0) 100%
+    );
+  }
+  .scrim-top {
+    background: linear-gradient(
+      to bottom,
+      oklch(0 0 0 / 0.75) 0%,
+      oklch(0 0 0 / 0.35) 55%,
+      oklch(0 0 0 / 0) 100%
+    );
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

@@ -1,0 +1,485 @@
+/* The typefaces are declared in styles/fonts.css and served from public/fonts.
+   They are not imported here: an @import in this file would sit inside its
+   cascade layer and block the stylesheet chain.
+
+   Tailwind and the design tokens live in styles/theme.css, which imports this
+   file into the `legacy` layer. What remains here is styling for the screens
+   not yet ported to the new system, and it shrinks as they migrate. */
+
+/* ── Design tokens ── */
+:root {
+  --bg: #080808;
+  --surface: #111111;
+  --surface-2: #1a1a1a;
+  --border: #2a2a2a;
+  --border-2: #3a3a3a;
+  --text: #f5f5f5;
+  --text-2: #a1a1aa;
+  --text-3: #52525b;
+  --accent: #ffffff;
+  --dropzone-bg: #0d0d0d;
+  --divider-line: #1f1f1f;
+  --shadow-dropdown: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 24px 64px rgba(0, 0, 0, 0.7);
+  --overlay: rgba(0, 0, 0, 0.75);
+  --icon-muted: rgba(255, 255, 255, 0.6);
+  --icon-hover-bg: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Base ── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Custom scrollbar (global) ── */
+.custom-scroll,
+.shortcuts-card__body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
+}
+
+.custom-scroll::-webkit-scrollbar,
+.shortcuts-card__body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scroll::-webkit-scrollbar-track,
+.shortcuts-card__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb,
+.shortcuts-card__body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover,
+.shortcuts-card__body::-webkit-scrollbar-thumb:hover {
+  background: var(--border-2);
+}
+
+/* ── Buttons ── */
+.btn-primary {
+  background: var(--accent);
+  color: #000000;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: background 150ms;
+  font-family: inherit;
+  line-height: 1.25;
+}
+
+.btn-primary:hover {
+  background: #e5e5e5;
+}
+
+.btn-primary:active {
+  background: #d4d4d4;
+}
+
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 500;
+  font-size: 14px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  transition: all 150ms;
+  font-family: inherit;
+  line-height: 1.25;
+}
+
+.btn-secondary:hover {
+  background: #222222;
+  border-color: var(--border-2);
+}
+
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  color: var(--icon-muted);
+  border: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 150ms;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.btn-icon:hover {
+  background: var(--icon-hover-bg);
+  color: var(--accent);
+}
+
+/* ── Card / Modal ── */
+.card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+}
+
+/* ── App shell ── */
+.app-shell {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+::selection {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }}@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }}
+
+video::-webkit-media-controls {
+  display: none !important;
+}
+
+video::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+
+button:focus-visible {
+  outline: 1.5px solid var(--border-2);
+  outline-offset: 2px;
+}
+
+input:focus-visible {
+  outline: none;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.hidden {
+  display: none;
+}
+
+.controls-overlay .btn-icon {
+  width: 38px;
+  height: 38px;
+}
+
+video::cue {
+  font-size: 16px;
+  font-family: Inter, sans-serif;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  border-radius: 4px;
+}
+
+/* ── Action feedback overlays ── */
+@keyframes actionPulse {
+  0%,
+  57% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+}
+
+/* ── Title bar ── */
+/* The shell is undecorated, so this is the window's only chrome. Its height is
+   a token because the player overlay and the launcher both have to start below
+   it, and three places agreeing by coincidence is how a 1px seam appears. */
+:root {
+  --titlebar-h: 38px;
+}
+
+.titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--titlebar-h);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--divider-line);
+  /* Nothing in the bar is text to be selected, and a stray drag that starts a
+     selection is a drag that does not move the window. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.titlebar__brand {
+  font-family: 'Agbalumo', 'Schibsted Grotesk', Inter, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-2);
+  pointer-events: none;
+}
+
+.titlebar__controls {
+  display: flex;
+  height: 100%;
+}
+
+.titlebar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 46px wide is what Windows itself uses. Matching it means the pointer lands
+     where muscle memory expects, and the hover targets line up with the ones in
+     every other window on the desktop. */
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: none;
+  color: var(--text-2);
+  cursor: default;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.titlebar__btn:hover {
+  background: var(--icon-hover-bg);
+  color: var(--text);
+}
+
+.titlebar__btn--close:hover {
+  background: #c42b1c;
+  color: #fff;
+}
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  color: var(--text);
+  font-family: Inter, sans-serif;
+  box-shadow: var(--shadow-dropdown);
+  animation: fade-in 200ms ease-out;
+  pointer-events: none;
+}
+
+.toast--fading {
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+/* ── Update banner ── */
+/* Bottom right rather than bottom centre: the toast owns the centre, and the
+   two can be on screen at the same time. */
+.update-banner {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px 8px 16px;
+  font-size: 14px;
+  color: var(--text);
+  font-family: Inter, sans-serif;
+  box-shadow: var(--shadow-dropdown);
+  animation: fade-in 200ms ease-out;
+}
+
+.update-banner__text {
+  white-space: nowrap;
+}
+
+.update-banner__action {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.update-banner__action:hover {
+  text-decoration: underline;
+}
+
+.update-banner__dismiss {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.update-banner__dismiss:hover {
+  color: var(--text);
+}
+
+/* ── Loading & skeletons ── */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }}
+
+/* ── Responsive player controls ── */
+@media (max-width: 767px) {
+  .player-back-btn__label,
+  .folder-playback-name {
+    display: none;
+  }
+
+  .time-display {
+    font-size: 11px;
+  }
+
+  .controls-bar {
+    padding: 12px 14px 16px;
+  }
+}
+
+/* ── Navbar ── */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(52px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+  background: rgba(8, 8, 8, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.navbar__brand {
+  font-size: 15px;
+  text-decoration: none;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3em;
+}
+
+.navbar__brand-bold {
+  color: #f5f5f5;
+  font-weight: 400;
+}
+
+.navbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navbar__action {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  line-height: 1;
+}
+
+/* ── Page layout with navbar ── */
+.page-with-navbar {
+  padding-top: calc(52px + env(safe-area-inset-top));
+}
+
+/* ── Player overlay ── */
+.player-overlay {
+  position: fixed;
+  inset: 0;
+  /* Below the title bar rather than under it: the window controls have to stay
+     reachable while a film is playing in a window. In fullscreen the player
+     fullscreens its own element and this offset stops applying. */
+  top: var(--titlebar-h, 0px);
+  z-index: 100;
+  background: #000;
+}
+
+/* ── Mobile video cards ── */
+@media (max-width: 768px) {
+  .video-card {
+    border-radius: 8px;
+  }
+
+  .video-card__info {
+    padding: 8px 10px;
+  }
+
+  .video-card__name {
+    font-size: 12px;
+  }
+
+  .video-card__delete {
+    display: none;
+  }
+}

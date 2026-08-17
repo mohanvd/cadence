@@ -1,0 +1,91 @@
+name: Release
+
+# Releases are cut from a tag, never from a branch push. The tag is the record
+# of what was shipped, and it is what names the GitHub release the updater
+# reads.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      # tauri-action creates the release and uploads the installers to it.
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # A cold Rust build of a Tauri app is several minutes of compiling
+      # dependencies that did not change. Cache them against the lockfile.
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - id: tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Without these the build still produces an installer, but an unsigned
+          # one, and the updater refuses anything it cannot verify, so every
+          # client would silently stop updating.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Cadence ${{ github.ref_name }}'
+          releaseBody: |
+            Download `Cadence-Setup.exe` below and run it.
+
+            Existing installations update themselves; there is nothing to do.
+          # Drafted rather than published: the updater endpoint resolves to the
+          # latest *published* release, so nothing reaches existing users until
+          # the release notes have been written and the draft is published by
+          # hand. That manual step is the last chance to catch a bad build.
+          releaseDraft: true
+          prerelease: false
+          # Generates and uploads `latest.json`, which is the file every
+          # installed copy of Cadence polls to discover this release.
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: ${{ matrix.args }}
+
+      # The bundler's filename carries the version, so nothing can link to it
+      # without being rewritten every release. The site links to a fixed name
+      # instead, and this is what puts that name on the release.
+      #
+      # A copy, not a rename: `latest.json` refers to the versioned file by
+      # name, and the updater will not find an asset that has been renamed out
+      # from under it.
+      - name: Publish the installer under a stable name
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          original=$(ls src-tauri/target/release/bundle/nsis/Cadence_*_x64-setup.exe)
+          cp "$original" "Cadence-Setup.exe"
+          gh release upload "${{ github.ref_name }}" "Cadence-Setup.exe" --clobber
+          echo "uploaded Cadence-Setup.exe (copy of $(basename "$original"))"

@@ -1,0 +1,88 @@
+---
+import Hero from '../components/Hero';
+import AppPreview from '../components/AppPreview';
+import FeatureBento from '../components/FeatureBento';
+import ShortcutStrip from '../components/ShortcutStrip';
+import CapabilityList from '../components/CapabilityList';
+import OpenSource from '../components/OpenSource';
+import Closing from '../components/Closing';
+import Footer from '../components/Footer';
+import { REPO_URL, INSTALLER_URL } from '../links';
+
+// The player's own stylesheet, which brings the design tokens and the section
+// furniture with it, then the rules that belong only to this page.
+import '@player/styles/theme.css';
+import '../styles/landing.css';
+
+const description =
+  'A minimal, keyboard-first video player for Windows. Open a file and it plays.';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Cadence: a video player for Windows</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0a0a0a" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!--
+      Paints the shell before the stylesheet arrives, so the first frame is not
+      a white flash.
+    -->
+    <style>
+      html,
+      body {
+        background-color: #0a0a0a;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+      }
+    </style>
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Cadence" />
+    <meta property="og:url" content="https://cadence.auva.dev" />
+    <meta property="og:title" content="Cadence" />
+    <meta property="og:description" content={description} />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Cadence" />
+    <meta name="twitter:description" content={description} />
+  </head>
+
+  <body>
+    <!--
+      No `client:` directive on any of these. They are rendered here, once, and
+      the page ships as HTML and CSS.
+    -->
+    <div class="xn-home ld-page">
+      <nav class="navbar">
+        <div class="navbar__left">
+          <span class="navbar__brand">
+            <span class="navbar__brand-bold">Cadence</span>
+          </span>
+        </div>
+        <div class="navbar__actions">
+          <a class="navbar__action navbar__action--link" href={REPO_URL}>GitHub</a>
+          <a class="ld-nav-cta" href={INSTALLER_URL}>Download</a>
+        </div>
+      </nav>
+
+      <main class="xn-home__scroll">
+        <div class="xn-home__inner">
+          <Hero />
+          <AppPreview />
+          <FeatureBento />
+          <ShortcutStrip />
+          <CapabilityList />
+          <OpenSource />
+          <Closing />
+        </div>
+        <Footer />
+      </main>
+    </div>
+  </body>
+</html>

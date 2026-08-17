@@ -1,0 +1,48 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Vercel: .env.local holds the pulled OPENSUBTITLES_API_KEY
+.vercel
+.env
+.env.*
+!.env.example
+
+# Rust / Tauri build output
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Updater signing keys. The private key is the one secret that cannot be
+# rotated quietly: every installed copy of Cadence has the matching public key
+# compiled into it, so losing control of this file means losing the update
+# channel for everyone already running it. It belongs outside the repository;
+# this pattern is only here to catch a stray copy.
+*.key
+!**/*.key.pub
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.env*
+
+# Astro
+site/dist/
+site/.astro/
+site/node_modules/

@@ -1,0 +1,337 @@
+/**
+ * Styles for cadence.auva.dev, loaded only by the landing entry.
+ *
+ * The page shares the application's tokens and its section furniture, so what
+ * lives here is the part that has no counterpart in the app: the hero, the
+ * screenshot frame, the two calls to action and the claims grid. Keeping it out
+ * of home.css is what stops any of it reaching the installer.
+ */
+
+.ld-page {
+  /* The page scrolls as one document. The app constrains its scroll container
+     because a player has chrome pinned around it; a marketing page does not. */
+  scroll-behavior: smooth;
+}
+
+/* ── Hero ── */
+.ld-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: clamp(56px, 11vh, 116px);
+}
+
+.ld-hero__title {
+  font-family: var(--xn-display);
+  font-weight: 600;
+  /* Sized against the viewport rather than a breakpoint ladder: the line has
+     to break in the same place at every width, and it only does that if the
+     type scales with the measure. */
+  font-size: clamp(31px, 5.1vw, 60px);
+  line-height: 1.06;
+  letter-spacing: -0.038em;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.ld-hero__sub {
+  margin-top: 20px;
+  max-width: 52ch;
+  font-size: clamp(15px, 1.4vw, 17.5px);
+  line-height: 1.55;
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+
+.ld-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  margin-top: 34px;
+}
+
+.ld-hero__meta {
+  margin-top: 18px;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  color: var(--text-3);
+}
+
+/* ── Calls to action ── */
+.ld-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 30px;
+  border-radius: 12px;
+  /* The one inverted surface on the page. Nothing else is allowed to use it,
+     which is what makes it read as the action rather than as a colour. */
+  background: var(--text);
+  color: var(--bg);
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.011em;
+  text-decoration: none;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.ld-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+.ld-cta:active {
+  transform: translateY(0);
+}
+
+.ld-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 22px;
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  font-size: 14.5px;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.ld-ghost:hover {
+  border-color: var(--text-3);
+  color: var(--text);
+}
+
+.ld-nav-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 140ms ease;
+}
+
+.ld-nav-cta:hover {
+  opacity: 0.86;
+}
+
+.navbar__action--link {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.navbar__action--link:hover {
+  color: var(--text);
+}
+
+/* ── Screenshot ── */
+/* ── The application, drawn in the page ──
+
+   Nothing behind it. The page and the application are painted the same
+   near-black, and the hairline is what separates them: one pixel of light along
+   the window's own edge does the whole job, where a glow behind it only smears
+   the background it was meant to distinguish the window from. */
+.ld-window {
+  width: 100%;
+  max-width: 1060px;
+  margin: clamp(44px, 7vh, 78px) auto 0;
+}
+
+.ld-window__inner {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  /* The radius Windows 11 gives a window, so the drawing and the thing it
+     depicts round by the same amount. */
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.ld-window__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 38px;
+  padding-left: 14px;
+  border-bottom: 1px solid var(--divider-line);
+}
+
+.ld-window__brand {
+  font-family: var(--xn-brand);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-2);
+}
+
+.ld-window__controls {
+  display: flex;
+  height: 38px;
+}
+
+.ld-window__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  color: var(--text-2);
+}
+
+.ld-window__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Tighter than the application's own spacing. The launcher is centred in
+     whatever height the window happens to be, and reproducing that here would
+     be a picture that is mostly empty. */
+  padding: clamp(38px, 5vw, 62px) 24px clamp(26px, 3vw, 38px);
+}
+
+.ld-window__title {
+  font-family: var(--xn-display);
+  font-weight: 600;
+  font-size: clamp(23px, 2.9vw, 36px);
+  line-height: 1.1;
+  letter-spacing: -0.032em;
+  color: var(--text);
+  text-align: center;
+}
+
+.ld-window__sub {
+  margin-top: 12px;
+  font-size: clamp(12.5px, 1.15vw, 14.5px);
+  color: var(--text-2);
+  text-align: center;
+}
+
+.ld-window__version {
+  margin-top: clamp(22px, 3vw, 34px);
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  color: var(--text-3);
+}
+
+/* ── Claims ── */
+.ld-claims {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+  gap: 1px;
+  margin-top: 26px;
+  /* One shared hairline: the gap shows the background through, so the grid
+     draws its own rules without a border on every cell. */
+  background: var(--divider-line);
+  border: 1px solid var(--divider-line);
+  border-radius: 14px;
+  overflow: hidden;
+  list-style: none;
+}
+
+.ld-claim {
+  padding: 26px 24px 28px;
+  background: var(--bg);
+}
+
+.ld-claim__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.ld-claim__title {
+  margin-top: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.ld-claim__body {
+  margin-top: 9px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+
+.ld-inline-link {
+  color: var(--text-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-2);
+  padding-bottom: 1px;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.ld-inline-link:hover {
+  color: var(--text);
+  border-color: var(--text-3);
+}
+
+/* ── Closing ── */
+.ld-close {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: clamp(64px, 11vh, 128px);
+  padding-top: clamp(48px, 7vh, 80px);
+  border-top: 1px solid var(--divider-line);
+}
+
+.ld-close__title {
+  font-family: var(--xn-display);
+  font-weight: 600;
+  font-size: clamp(24px, 3.1vw, 36px);
+  letter-spacing: -0.03em;
+  color: var(--text);
+  margin-bottom: 26px;
+}
+
+.ld-close__meta {
+  margin-top: 18px;
+  max-width: 46ch;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+  text-wrap: pretty;
+}
+
+@media (max-width: 640px) {
+  .ld-hero {
+    padding-top: 44px;
+  }
+
+  .ld-hero__actions {
+    /* Stacked and full width: two side-by-side buttons on a phone leave both
+       too narrow to read and too close to mis-tap. */
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .ld-cta,
+  .ld-ghost {
+    justify-content: center;
+  }
+}
+
+/* The footer wordmark, sized without a measurement pass.
+   See the note in components/Footer.jsx for where 0.408 comes from. */
+.ld-footer__word {
+  font-size: calc(100cqw / 0.408);
+}

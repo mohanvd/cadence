@@ -1,0 +1,95 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Cadence",
+  "version": "../package.json",
+  "identifier": "dev.auva.cadence",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Cadence",
+        "width": 1280,
+        "height": 760,
+        "minWidth": 640,
+        "minHeight": 400,
+        "resizable": true,
+        "center": true,
+        "decorations": false,
+        "theme": "Dark",
+        "backgroundColor": "#0a0a0a",
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
+    "publisher": "Auva",
+    "copyright": "Copyright © 2026 Mohanad Tarek",
+    "category": "Video",
+    "shortDescription": "A keyboard-first video player.",
+    "longDescription": "Cadence is a keyboard-first video player that plays what the browser can't.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "mp4",
+          "mkv",
+          "webm",
+          "mov",
+          "avi",
+          "m4v",
+          "wmv",
+          "flv",
+          "ts",
+          "m2ts",
+          "mpg",
+          "mpeg",
+          "3gp",
+          "ogv"
+        ],
+        "name": "Video",
+        "description": "Video file",
+        "role": "Viewer"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English"],
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "installer/header.bmp",
+        "sidebarImage": "installer/sidebar.bmp",
+        "template": "installer/installer.nsi"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/mohanvd/cadence/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhFNjEwNTU5NjVEM0U2NkYKUldSdjV0TmxXUVZoamh2QjhKOGRKYVUyMHBaTFFaSCtaeThmVkp3Tm44QWJTUHNBTXQzZ0grMTMK"
+    }
+  }
+}

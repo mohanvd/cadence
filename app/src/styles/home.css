@@ -1,0 +1,809 @@
+/**
+ * Landing surface.
+ *
+ * The old home screen was a 480px column floating in the middle of an empty
+ * black viewport: correct, but it read as an unfinished upload form rather than
+ * a product. This file rebuilds it as a page: a hero, one unmistakable primary
+ * action, recents as content, and a capability strip that gives the fold
+ * something to end on.
+ *
+ * Flat by intention. Depth comes from hairline borders and small steps in
+ * surface lightness, never from coloured glows or large drop shadows.
+ *
+ * Imported into the `legacy` layer *after* index.css, so where the two touch
+ * the same selector (the navbar) this file wins.
+ */
+
+.xn-home {
+  /* Cadence light: the one saturated hue on an otherwise achromatic page.
+     Matches --color-accent in theme.css so the site and the player agree. */
+  --xn-accent: oklch(0.72 0.17 250);
+  --xn-accent-strong: oklch(0.81 0.15 250);
+  --xn-accent-ink: oklch(0.16 0.025 255);
+  --xn-panel: #0f1013;
+  --xn-hairline: #1d1f24;
+  /* Two display faces with different jobs. The brand face is worn only by the
+     name itself, in the navbar and the footer sign-off; headings use the
+     grotesque, which stays out of the way of what it is labelling. Letting the
+     brand face leak into headings is what made the page read as a toy earlier. */
+  --xn-brand: 'Agbalumo', 'Schibsted Grotesk', 'Inter', system-ui, sans-serif;
+  --xn-display: 'Schibsted Grotesk', 'Inter', system-ui, sans-serif;
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.xn-home__scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-top: calc(56px + env(safe-area-inset-top));
+}
+
+.xn-home__inner {
+  position: relative;
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: clamp(36px, 7vh, 76px) 24px 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* The application clears its own title bar, which is shorter than the site's
+   navigation and is the only chrome above the content. */
+.xn-home__scroll--app {
+  padding-top: var(--titlebar-h);
+}
+
+/* The application's launcher, which is one card and a short list rather than a
+   page. Centring it means a tall window puts the drop target under the cursor
+   instead of leaving a screenful of nothing beneath it. */
+.xn-home__inner--app {
+  min-height: calc(100vh - var(--titlebar-h) - 44px);
+  justify-content: center;
+  padding-bottom: clamp(36px, 7vh, 76px);
+}
+
+.xn-appversion {
+  padding: 0 24px 26px;
+  text-align: center;
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  color: var(--text-3);
+}
+
+/* ── Hero ── */
+.xn-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.xn-hero__title {
+  font-family: var(--xn-display);
+  font-weight: 600;
+  font-size: clamp(33px, 4.6vw, 53px);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  color: var(--text);
+}
+
+.xn-hero__sub {
+  margin-top: 18px;
+  max-width: 56ch;
+  font-size: clamp(14.5px, 1.35vw, 16.5px);
+  line-height: 1.66;
+  color: #90959f;
+}
+
+/* ── Drop card ── */
+.xn-drop {
+  position: relative;
+  width: 100%;
+  max-width: 660px;
+  margin-top: clamp(32px, 5vh, 48px);
+  padding: 12px 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--xn-panel);
+  transition: border-color 180ms ease;
+}
+
+.xn-drop--active {
+  border-color: var(--xn-accent);
+}
+
+.xn-drop__target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 30px 24px 28px;
+  border: 1px dashed var(--border-2);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.012);
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.xn-drop__target:hover {
+  border-color: #4a4d55;
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.xn-drop--active .xn-drop__target {
+  border-color: var(--xn-accent);
+  background: oklch(0.72 0.17 250 / 0.07);
+}
+
+.xn-drop__icon {
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+}
+
+.xn-drop__title {
+  margin-top: 18px;
+  font-family: var(--xn-display);
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.xn-drop__hint {
+  margin-top: 8px;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.xn-drop__hint-link {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--border-2);
+  text-underline-offset: 3px;
+}
+
+.xn-drop__target:hover .xn-drop__hint-link {
+  text-decoration-color: var(--text-2);
+}
+
+.xn-drop__formats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 20px;
+}
+
+.xn-chip {
+  padding: 3px 8px;
+  border: 1px solid var(--xn-hairline);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+.xn-drop__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 6px 14px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.xn-drop__divider::before,
+.xn-drop__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--xn-hairline);
+}
+
+/* ── URL field ── */
+.xn-url {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 6px;
+}
+
+.xn-url__icon {
+  position: absolute;
+  left: 13px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.xn-url__input {
+  width: 100%;
+  height: 44px;
+  padding: 0 48px 0 36px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: #0a0b0d;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.xn-url__input::placeholder {
+  color: var(--text-3);
+}
+
+.xn-url__input:focus {
+  border-color: #3f434b;
+  background: #0d0e11;
+}
+
+.xn-url:focus-within .xn-url__icon {
+  color: var(--text-2);
+}
+
+.xn-url__go {
+  position: absolute;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.xn-url__go:not(:disabled) {
+  background: var(--xn-accent);
+  color: var(--xn-accent-ink);
+}
+
+.xn-url__go:not(:disabled):hover {
+  background: var(--xn-accent-strong);
+}
+
+.xn-url__go:disabled {
+  cursor: default;
+}
+
+.xn-drop__error {
+  margin: 12px 6px 2px;
+  font-size: 12.5px;
+  color: #f87171;
+}
+
+/* ── Section scaffolding ── */
+.xn-section {
+  width: 100%;
+  margin-top: clamp(48px, 8vh, 76px);
+}
+
+.xn-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.xn-section__title {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.xn-section__meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ── Recent cards ──
+   Recents are capped at five, and a 180px track lets all five sit on one row
+   at full width rather than leaving a single orphan card on a second row. */
+.xn-recent {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.xn-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.xn-card:hover {
+  border-color: var(--border-2);
+  background: #16171b;
+}
+
+.xn-card__thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  border-bottom: 1px solid var(--border);
+  background: #0d0e11;
+  overflow: hidden;
+}
+
+/* The frame sampled from the file, dimmed so the play glyph over it stays
+   legible against a bright shot as well as a dark one. */
+.xn-card__poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.62;
+  transition: opacity 180ms ease, transform 320ms ease;
+}
+
+.xn-card:hover .xn-card__poster {
+  opacity: 0.8;
+  transform: scale(1.03);
+}
+
+.xn-card__play {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding-left: 2px;
+  border-radius: 50%;
+  border: 1px solid var(--border-2);
+  background: transparent;
+  color: var(--text-2);
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.xn-card:hover .xn-card__play {
+  border-color: transparent;
+  background: var(--xn-accent);
+  color: var(--xn-accent-ink);
+}
+
+.xn-card__badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-2);
+}
+
+.xn-card__body {
+  padding: 11px 12px 13px;
+  min-width: 0;
+}
+
+.xn-card__name {
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xn-card__meta {
+  display: flex;
+  gap: 5px;
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.xn-card__dot {
+  opacity: 0.6;
+}
+
+/* ── Feature bento ──
+   Twelve columns, split 7/5 then 4/4/4. The unequal first row is what marks the
+   engine card as the headline; a badge saying so would be the same information
+   spelled out for a reader who has already understood it from the size. */
+.xn-bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 14px;
+}
+
+.xn-feat {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 24px 26px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--xn-panel);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.xn-feat:hover {
+  border-color: var(--border-2);
+  background: #131418;
+}
+
+.xn-feat--lead {
+  grid-column: span 7;
+}
+
+.xn-feat--wide {
+  grid-column: span 5;
+}
+
+.xn-feat--third {
+  grid-column: span 4;
+}
+
+.xn-feat__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--xn-hairline);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-2);
+}
+
+/* The one card that gets the accent. Spending it here and nowhere else in the
+   grid is what makes the hierarchy legible at a glance rather than on reading. */
+.xn-feat--accent .xn-feat__icon {
+  border-color: transparent;
+  background: oklch(0.72 0.17 250 / 0.14);
+  color: var(--xn-accent-strong);
+}
+
+.xn-feat__lede {
+  margin-top: 18px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.xn-feat__title {
+  margin-top: 9px;
+  font-family: var(--xn-display);
+  font-weight: 600;
+  font-size: 16.5px;
+  line-height: 1.28;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.xn-feat--lead .xn-feat__title {
+  font-size: clamp(19px, 1.9vw, 22px);
+}
+
+.xn-feat__body {
+  margin-top: 10px;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--text-2);
+}
+
+/* Pinned to the bottom so the two cards on the first row rule off at the same
+   height even though their paragraphs do not run to the same length. */
+.xn-feat__note {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+.xn-feat__formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+/* ── Keyboard legend ──
+   A wrapping row of pills rather than a fixed table: the count of bindings and
+   the width of the column both change, and a grid would answer that with
+   half-empty cells at most sizes. */
+.xn-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.xn-keys__row {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 13px 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--xn-panel);
+  transition: border-color 160ms ease;
+}
+
+.xn-keys__row:hover {
+  border-color: var(--border-2);
+}
+
+.xn-keys__caps {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* A keycap reads as one because of the heavier bottom edge, which is the trick a
+   real keyboard plays with light, at a cost of one border-width declaration
+   rather than a drop shadow this page has no other use for. */
+.xn-key {
+  display: inline-grid;
+  place-items: center;
+  min-width: 23px;
+  height: 23px;
+  padding: 0 6px;
+  border: 1px solid var(--border-2);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: #17181d;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text);
+}
+
+.xn-keys__range {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.xn-keys__label {
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+/* ── Capability index ──
+   Ruled rows in flowing columns. Each item carries its own bottom hairline, so
+   a short last column ends where its content ends instead of leaving the empty
+   cells a bordered grid would have to draw. */
+.xn-caps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  gap: 0 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.xn-caps__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--xn-hairline);
+  font-size: 13.2px;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+
+.xn-caps__icon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.xn-caps__note {
+  color: var(--text-3);
+}
+
+/* ── Footer ──
+   Full bleed on purpose: the rest of the page lives in a 1080px column, and
+   the footer breaking out of it is what makes the wordmark read as a sign-off
+   rather than as one more section. */
+.xn-footer {
+  container-type: inline-size;
+  width: 100%;
+  max-width: 1800px;
+  margin: clamp(72px, 11vh, 120px) auto 0;
+  padding: clamp(24px, 4vh, 48px) clamp(20px, 3vw, 48px) 28px;
+  border-top: 1px solid var(--border);
+  /* Belt and braces: the wordmark is fitted to this box, and can never spill
+     out of it even if a measurement lands a fraction of a pixel wide. */
+  overflow: hidden;
+}
+
+/* Sized in container-query units so it fills the footer's content box at any
+   viewport instead of being retuned per breakpoint. */
+/* The size is set by HomeFooter, which measures the rendered word and solves
+   for the font-size that fills the line exactly. A hardcoded `cqw` value can
+   only ever be correct for one particular word, and this one has been renamed
+   three times. The value below is the pre-measurement starting point: small
+   enough that it cannot overflow if the script never runs. */
+.xn-footer__wordmark {
+  display: block;
+  font-size: 22cqw;
+  line-height: 0.78;
+  text-align: center;
+}
+
+/* Quiet enough not to compete with the wordmark it sits under, but the first
+   thing a bug report asks for, so it has to be findable without hunting. */
+.xn-footer__version {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+}
+
+.xn-footer__word {
+  display: inline-block;
+  font-family: var(--xn-brand);
+  font-weight: 400;
+  font-size: inherit;
+  /* The brand face is already tightly fitted; grotesque-style negative tracking
+     would collide its round terminals. */
+  letter-spacing: 0;
+  line-height: inherit;
+  color: #e3e5ea;
+  white-space: nowrap;
+}
+
+/* ── Drag veil ──
+   Above the navbar (z 50) but below the player overlay (z 100), so a drop
+   started over the header still reads as one target. */
+.xn-dragveil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(6, 7, 9, 0.86);
+  animation: fade-in 140ms ease-out;
+}
+
+.xn-dragveil__box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 44px 60px;
+  border: 2px dashed var(--xn-accent);
+  border-radius: 22px;
+  color: var(--xn-accent-strong);
+  text-align: center;
+}
+
+.xn-dragveil__title {
+  margin-top: 14px;
+  font-family: var(--xn-display);
+  font-weight: 600;
+  font-size: 21px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.xn-dragveil__sub {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* ── Navbar refinements (override index.css) ── */
+.navbar {
+  height: calc(56px + env(safe-area-inset-top));
+  background: rgba(9, 10, 12, 0.78);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.navbar__brand {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The wordmark is the whole logo, so it carries the display face. */
+.navbar__brand-bold {
+  font-family: 'Agbalumo', 'Schibsted Grotesk', 'Inter', system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 19px;
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+/* ── Mid viewports ──
+   Below the point where a 7/5 row still has room to breathe, the two lead cards
+   go full width and the trio pairs off. The odd one out takes the full row
+   rather than sitting half-width beside a gap. */
+@media (max-width: 980px) {
+  .xn-feat--lead,
+  .xn-feat--wide {
+    grid-column: span 12;
+  }
+
+  .xn-feat--third {
+    grid-column: span 6;
+  }
+
+  .xn-feat--third:last-child {
+    grid-column: span 12;
+  }
+}
+
+/* ── Narrow viewports ── */
+@media (max-width: 640px) {
+  .xn-home__inner {
+    padding: 28px 18px 56px;
+  }
+
+  .xn-hero__sub {
+    font-size: 14px;
+  }
+
+  .xn-drop__target {
+    padding: 26px 18px 24px;
+  }
+
+  .xn-recent {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+
+  .xn-dragveil__box {
+    padding: 32px 28px;
+  }
+
+  .xn-bento {
+    gap: 10px;
+  }
+
+  .xn-feat--third {
+    grid-column: span 12;
+  }
+
+  .xn-feat,
+  .xn-feat--lead {
+    padding: 19px 18px 21px;
+  }
+
+  .xn-caps {
+    gap: 0 18px;
+  }
+}
+
