@@ -5,7 +5,16 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.1]
+
+### Changed
+
+- Nothing but the version. This release exists to prove the update channel
+  carries one: the installer's wizard was removed by modifying the template the
+  updater itself runs, and the only test of that is a second release arriving on
+  a machine running the first.
+
+## [0.1.0] - 2026-08-17
 
 ### Added
 
@@ -55,4 +64,5 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   installed program, which is no longer a problem worth solving.
 - A router, for an application with one screen.
 
-[Unreleased]: https://github.com/mohanvd/cadence/commits/main
+[0.1.1]: https://github.com/mohanvd/cadence/releases/tag/v0.1.1
+[0.1.0]: https://github.com/mohanvd/cadence/releases/tag/v0.1.0
