@@ -45,9 +45,17 @@ site/        cadence.auva.dev: an Astro page that ships no JavaScript
 src-tauri/   the shell: a native window, written in Rust
 ```
 
-The two front ends are separate projects with separate toolchains, and share
-only what would otherwise drift: the design tokens, and the drop card the site
-draws inside its picture of the window. Neither build contains the other.
+The two front ends are separate projects with separate toolchains. They share
+one thing, and it is CSS: the site imports the player's stylesheet so that its
+picture of the window cannot drift from the window. Neither build contains the
+other's code.
+
+That one import has a deployment consequence worth writing down. The site is
+deployed from `site/` as the root directory, and Vercel uploads only the root
+directory unless told otherwise, so the build fails on `@player/styles/theme.css`
+with nothing to explain why. The project needs **Settings → Build and Deployment
+→ Root Directory → Include source files outside of the Root Directory** turned
+on. It is off by default on a new project.
 
 ## Building from source
 
