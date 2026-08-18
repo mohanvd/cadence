@@ -70,11 +70,18 @@ export function loadPosition(filename) {
 }
 
 /**
- * @typedef {{ name: string, size: number, openedAt: number, url?: string }} RecentFile
+ * @typedef {{ name: string, size: number, openedAt: number, path?: string, url?: string, poster?: string }} RecentFile
  */
 
 /**
  * Normalize legacy recent file entries (plain strings) to objects.
+ *
+ * Every field an entry can carry has to be named here. Listing only some of
+ * them is not a smaller version of the same thing: `path` and `poster` were
+ * written on the way in and dropped on the way out, so the list showed grey
+ * tiles and, when clicked, offered the file picker for a file it was already
+ * holding the path to.
+ *
  * @param {unknown} entry
  * @returns {RecentFile|null}
  */
@@ -87,7 +94,9 @@ function normalizeRecentEntry(entry) {
       name: entry.name,
       size: entry.size ?? 0,
       openedAt: entry.openedAt ?? Date.now(),
-      url: entry.url,
+      ...(entry.path ? { path: entry.path } : {}),
+      ...(entry.url ? { url: entry.url } : {}),
+      ...(entry.poster ? { poster: entry.poster } : {}),
     };
   }
   return null;
@@ -120,6 +129,28 @@ export function addRecentFile(fileInfo) {
       STORAGE_KEYS.RECENT,
       JSON.stringify(filtered.slice(0, 5))
     );
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Attach a poster to an entry already in the list, without disturbing it.
+ *
+ * Separate from `addRecentFile` because that one means "this was just opened":
+ * it stamps the time and moves the entry to the front. A picture arriving for
+ * something watched last week is not a reason to claim it was watched now.
+ *
+ * @param {string} name
+ * @param {string} poster
+ */
+export function setRecentPoster(name, poster) {
+  try {
+    const recent = getRecentFiles();
+    const entry = recent.find((file) => file.name === name);
+    if (!entry) return;
+    entry.poster = poster;
+    localStorage.setItem(STORAGE_KEYS.RECENT, JSON.stringify(recent));
   } catch {
     /* ignore */
   }

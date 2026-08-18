@@ -79,8 +79,53 @@ export function mseCodecString(
   return `video/mp4; codecs="${parts.join(',')}"`;
 }
 
+/**
+ * The container's MIME with the codecs actually inside it.
+ *
+ * The bare container type is not a question worth asking: `video/mp4` alone
+ * answers "maybe" for every MP4 ever made, including the ones holding a codec
+ * this browser has never decoded. Naming the codecs is what turns it into a
+ * question with an answer.
+ *
+ * Null when a codec has no known RFC 6381 spelling, because a question that
+ * cannot be asked honestly should not be asked at all: a silent yes here is a
+ * file that opens to a black screen.
+ */
+export function containerCodecString(
+  containerMime: string,
+  tracks: readonly { type: string; codec: string }[],
+): string | null {
+  const parts: string[] = [];
+  for (const kind of ['video', 'audio'] as const) {
+    const track = tracks.find((t) => t.type === kind);
+    if (!track) continue;
+    const codec = toCodecString(track.codec);
+    if (!codec) return null;
+    parts.push(codec);
+  }
+  return parts.length ? `${containerMime}; codecs="${parts.join(',')}"` : containerMime;
+}
+
 const elementCache = new Map<string, boolean>();
+const sourceCache = new Map<string, boolean>();
 let probeElement: HTMLVideoElement | null = null;
+
+/**
+ * Will Media Source accept this?
+ *
+ * A different question from `canPlayNatively` and not a formality: this webview
+ * plays MP3 in a plain element and refuses the identical audio through Media
+ * Source, so a track that needs no conversion to be played from disk needs one
+ * to arrive in fragments.
+ */
+export function mediaSourceAccepts(mime: string): boolean {
+  const cached = sourceCache.get(mime);
+  if (cached !== undefined) return cached;
+  const supported =
+    typeof MediaSource !== 'undefined' && MediaSource.isTypeSupported(mime);
+  sourceCache.set(mime, supported);
+  return supported;
+}
 
 /** Can a plain `<video>` element play this container/codec combination? */
 export function canPlayNatively(mime: string): boolean {

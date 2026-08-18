@@ -71,11 +71,15 @@ export class StreamBackend extends BaseBackend {
   }
 
   async load(source: MediaSourceInput): Promise<void> {
-    if (source.kind !== 'path') {
+    /* A link is an input like any other as far as FFmpeg is concerned, and it
+       is the reason this accepts one: a video the browser will not open is
+       still a video the shell can demux and hand back in fragments. A `File`
+       has no name outside the page, so there is nothing to pass on. */
+    if (source.kind === 'file') {
       this.fail('This source cannot be streamed.');
       return;
     }
-    this.path = source.path;
+    this.path = source.kind === 'path' ? source.path : source.url;
     this._tracks = [...this.probedTracks];
 
     const audio = this.probedTracks.find((track) => track.type === 'audio');
@@ -116,6 +120,8 @@ export class StreamBackend extends BaseBackend {
     const url = await streamUrl(this.path, {
       start: seconds,
       audio: this.audioStreamIndex ?? undefined,
+      copyVideo: this.copyVideo,
+      copyAudio: this.copyAudio,
     });
     if (!url) {
       this.fail('Playback support is missing from this installation.');

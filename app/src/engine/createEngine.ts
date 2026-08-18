@@ -1,6 +1,6 @@
 import { NativeBackend } from './backends/NativeBackend';
 import { StreamBackend } from './backends/StreamBackend';
-import { probeSource } from './probe';
+import { probeSource, type ProbeOptions } from './probe';
 import type { MediaSourceInput, PlaybackEngine, ProbeResult } from './types';
 
 export interface EngineCreation {
@@ -16,10 +16,13 @@ export interface EngineCreation {
  * often more forgiving than FFmpeg about a broken container, and a real
  * playback error names the problem better than a pre-emptive refusal.
  */
-export async function createEngine(source: MediaSourceInput): Promise<EngineCreation> {
+export async function createEngine(
+  source: MediaSourceInput,
+  options: ProbeOptions = {},
+): Promise<EngineCreation> {
   let probe: ProbeResult;
   try {
-    probe = await probeSource(source);
+    probe = await probeSource(source, options);
   } catch (err) {
     console.warn('[engine] inspection failed, trying the browser directly', err);
     probe = {

@@ -178,7 +178,15 @@ export async function pickVideoFile() {
 
 /* ── The playback pipeline ── */
 
-/** Resolved once. The endpoint outlives every file played through it. */
+/**
+ * In flight or resolved to an endpoint. Never a resolved null.
+ *
+ * The endpoint outlives every file played through it, so asking twice is
+ * waste — but a *failure* must not be remembered the same way. The shell holds
+ * this call open until the pipeline has settled, so the only way to get null
+ * is a broken install or a timeout, and caching either would mean one unlucky
+ * question at startup left the player crippled until it was restarted.
+ */
 let endpointPromise = null;
 
 /**
@@ -202,7 +210,10 @@ export async function mediaEndpoint() {
       return null;
     }
   })();
-  return endpointPromise;
+
+  const endpoint = await endpointPromise;
+  if (!endpoint) endpointPromise = null;
+  return endpoint;
 }
 
 /**
@@ -232,17 +243,51 @@ export async function probeMedia(path) {
  * can do instead is start FFmpeg at a keyframe near the timestamp, which is
  * both cheaper and exact enough.
  *
+ * `copyVideo` and `copyAudio` are the page's veto, not its instruction. Whether
+ * a stream *can* be lifted out of the container untouched is the shell's
+ * judgement; whether this browser will then decode it is the page's, and only
+ * the page can answer that. So these narrow what the shell decided and never
+ * widen it.
+ *
  * @param {string} path
- * @param {{ start?: number, audio?: number }} [options]
+ * @param {{ start?: number, audio?: number, copyVideo?: boolean, copyAudio?: boolean }} [options]
  * @returns {Promise<string | null>}
  */
-export async function streamUrl(path, { start = 0, audio } = {}) {
+export async function streamUrl(
+  path,
+  { start = 0, audio, copyVideo = true, copyAudio = true } = {}
+) {
   const endpoint = await mediaEndpoint();
   if (!endpoint) return null;
 
   const query = new URLSearchParams({ token: endpoint.token, path });
   if (start > 0) query.set('t', start.toFixed(3));
   if (audio !== undefined) query.set('audio', String(audio));
+  if (!copyVideo) query.set('copyv', '0');
+  if (!copyAudio) query.set('copya', '0');
 
   return `${endpoint.base}/stream?${query}`;
+}
+
+/**
+ * A single frame from a file, as a JPEG the page can put in an `<img>`.
+ *
+ * FFmpeg's rather than the media element's, which is the difference between a
+ * thumbnail for every file and a thumbnail for the files the browser already
+ * opens by itself. Seeking to `at` before the input is what keeps it cheap: it
+ * lands on the nearest keyframe rather than decoding up to the timestamp.
+ *
+ * @param {string} path
+ * @param {{ at?: number, width?: number }} [options]
+ * @returns {Promise<string | null>}
+ */
+export async function frameUrl(path, { at, width } = {}) {
+  const endpoint = await mediaEndpoint();
+  if (!endpoint) return null;
+
+  const query = new URLSearchParams({ token: endpoint.token, path });
+  if (at !== undefined) query.set('t', at.toFixed(3));
+  if (width !== undefined) query.set('w', String(width));
+
+  return `${endpoint.base}/frame?${query}`;
 }
