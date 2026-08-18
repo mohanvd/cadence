@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icons';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/format';
@@ -470,14 +470,14 @@ export function PlayerSurface({
 
         {loading && !error && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-            <Loader2 className="size-10 animate-spin text-white/70" />
+            <Icon name="loading" size={40} className="animate-spin text-white/70" />
           </div>
         )}
 
         {error && (
           <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/85 p-6">
             <div className="max-w-md rounded-[var(--radius-panel)] border border-line bg-surface-1 p-6 text-center shadow-[var(--shadow-panel)]">
-              <AlertTriangle className="mx-auto mb-3 size-8 text-warning" />
+              <Icon name="alert" size={32} className="mx-auto mb-3 text-warning" />
               <h2 className="text-base font-semibold text-fg">Can&apos;t play this file</h2>
               <p className="mt-2 text-sm leading-relaxed text-fg-muted">{error}</p>
               <Button variant="secondary" className="mt-5" onClick={onBack}>
@@ -501,7 +501,7 @@ export function PlayerSurface({
           onClick={(event) => event.stopPropagation()}
         >
           <Button variant="chrome" size="icon" onClick={onBack} aria-label="Back">
-            <ArrowLeft />
+            <Icon name="back" />
           </Button>
           <h1 className="min-w-0 flex-1 truncate text-[15px] font-medium tracking-[-0.01em] text-white">
             {title}

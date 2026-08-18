@@ -1,4 +1,3 @@
-import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icons';
 import {
@@ -73,7 +72,7 @@ export function BookmarkMenu({ features }: { features: PlayerFeatures }) {
                     // Revealed on hover so the list stays calm to scan.
                     className="shrink-0 rounded p-1.5 text-fg-subtle opacity-0 transition hover:text-danger group-hover/bm:opacity-100 focus-visible:opacity-100"
                   >
-                    <Trash2 className="size-3.5" strokeWidth={2} />
+                    <Icon name="remove" size={14} />
                   </button>
                 </div>
               ))}

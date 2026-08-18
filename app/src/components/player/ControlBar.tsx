@@ -30,8 +30,9 @@ function PlayButton() {
         aria-label={paused ? 'Play' : 'Pause'}
         className="[&_svg]:size-6"
       >
-        {/* The only filled glyph in the bar: see components/ui/icons.tsx. */}
-        <Icon name={paused ? 'play' : 'pause'} filled />
+        {/* The only filled glyph in the bar, and the largest: see
+            components/ui/icons.tsx. */}
+        <Icon name={paused ? 'play' : 'pause'} size={24} />
       </Button>
     </Tooltip>
   );

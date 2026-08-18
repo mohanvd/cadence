@@ -1,4 +1,4 @@
-import { Play, Link2 } from 'lucide-react';
+import { Icon } from '../ui/icons';
 import { formatFileSize } from '../../utils/formatFileSize';
 import { formatRelativeTime } from '../../utils/formatRelativeTime';
 
@@ -35,11 +35,11 @@ export default function RecentRail({ files, onOpen }) {
                 <img className="xn-card__poster" src={recent.poster} alt="" loading="lazy" />
               )}
               <span className="xn-card__play">
-                <Play size={15} fill="currentColor" strokeWidth={0} />
+                <Icon name="play" size={15} />
               </span>
               {recent.url && (
                 <span className="xn-card__badge">
-                  <Link2 size={11} aria-hidden />
+                  <Icon name="link" size={11} />
                   Link
                 </span>
               )}

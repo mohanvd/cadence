@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Music } from 'lucide-react';
+import { Icon } from '@/components/ui/icons';
 import { cn } from '@/lib/utils';
 import { useIsPaused, usePlayerStore } from '@/store/playerStore';
 
@@ -53,7 +53,7 @@ export function MusicStage({ title, forced }: MusicStageProps) {
             !paused && 'animate-[music-breathe_4s_ease-in-out_infinite]',
           )}
         >
-          <Music className="size-11 text-accent" strokeWidth={1.25} />
+          <Icon name="music" size={44} className="text-accent" />
         </div>
 
         <h2 className="text-balance text-xl font-semibold tracking-[-0.02em] text-fg">

@@ -1,12 +1,21 @@
 import {
+  AlertTriangle,
   Aperture,
   ArrowLeft,
+  ArrowRight,
   Bookmark,
   Captions,
+  Check,
+  ChevronRight,
+  Copy,
   Gauge,
+  Link2,
+  Loader2,
   Maximize,
   Minimize,
+  Minus,
   Moon,
+  Music,
   Pause,
   PictureInPicture2,
   Play,
@@ -17,32 +26,55 @@ import {
   SkipBack,
   SkipForward,
   Sliders,
+  Square,
+  SquarePlay,
+  Trash2,
   Volume1,
   Volume2,
   VolumeX,
+  X,
   ZoomIn,
   type LucideIcon,
 } from 'lucide-react';
 
 /**
- * The player's icon vocabulary, in one place.
+ * The application's icon vocabulary, in one place.
  *
- * The rule that keeps the control bar looking like one system rather than a
- * pile of imports:
+ * Two rules, and the second one is arithmetic rather than taste:
  *
- *   • every icon is outline, at the same stroke width and optical size;
- *   • exactly one icon is filled, play/pause, the single primary action.
+ *   • Play is solid. Everything else is outline. Play is the one action a
+ *     player exists to offer, and giving it the only filled glyph is how the
+ *     eye finds it without a colour or a border doing the work.
  *
- * Mixing filled and outline glyphs at different sizes inside one row is what
- * makes a toolbar read as assembled from different sources, so any new icon
- * must join this list rather than being imported ad hoc at a call site.
+ *   • Every outline glyph lands on the same stroke *as drawn on screen*, no
+ *     matter what size it is asked for.
+ *
+ * The second rule is the one that was being broken everywhere. Lucide draws on
+ * a 24 unit grid, so a stroke of 2 comes out at 2px in a 24px box and 1.5px in
+ * an 18px one. Call sites were picking a size and a stroke independently, and
+ * the result was seven different weights between 0.85px and 2px: a title bar
+ * lighter than the control row, a drop card heavier than both, and a window
+ * that looked assembled out of several other people's applications. Passing a
+ * size here rather than sizing the glyph from the outside is what makes that
+ * impossible to do again.
  */
 
-/** Stroke weight shared by every outline glyph. */
-export const ICON_STROKE = 2;
+/** What every outline glyph measures on screen, whatever box it sits in. */
+export const ICON_STROKE = 1.75;
+
+/**
+ * The window controls, which are lighter on purpose.
+ *
+ * They are the one part of the interface that is not Cadence talking: minimise,
+ * maximise and close belong to Windows, they sit where Windows puts them, and
+ * every other application on the desktop draws them at about this weight.
+ * Matching the control row here would be consistency with the wrong thing.
+ */
+export const CHROME_STROKE = 1.25;
 
 export const Icons = {
   back: ArrowLeft,
+  forwardArrow: ArrowRight,
   play: Play,
   pause: Pause,
   previous: SkipBack,
@@ -65,30 +97,57 @@ export const Icons = {
   pip: PictureInPicture2,
   fullscreen: Maximize,
   exitFullscreen: Minimize,
+  music: Music,
+  link: Link2,
+  dropTarget: SquarePlay,
+  remove: Trash2,
+  close: X,
+  alert: AlertTriangle,
+  loading: Loader2,
+  check: Check,
+  submenu: ChevronRight,
+  minimise: Minus,
+  maximise: Square,
+  restore: Copy,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof Icons;
 
 /**
- * Render an icon from the vocabulary with the shared stroke weight.
+ * The transport pair, drawn solid wherever either appears.
  *
- * `filled` is deliberately opt-in and used only for play/pause.
+ * Pause is on the list because outline is not an option for it: Lucide draws it
+ * as two rectangles, and a hollow pause is two empty boxes rather than a
+ * symbol. Solid also keeps it the same weight as the play it replaces, so the
+ * button does not change colour as the film starts.
  */
+const SOLID: ReadonlySet<IconName> = new Set(['play', 'pause']);
+
 export function Icon({
   name,
+  size = 18,
+  stroke = ICON_STROKE,
   className,
-  filled = false,
 }: {
   name: IconName;
+  /** Rendered box, in pixels. The stroke is compensated to match. */
+  size?: number;
+  /** Only the window controls pass this. See `CHROME_STROKE`. */
+  stroke?: number;
   className?: string;
-  filled?: boolean;
 }) {
   const Component = Icons[name];
+  const solid = SOLID.has(name);
+
   return (
     <Component
-      strokeWidth={ICON_STROKE}
+      // An inline size, because the button variants set one through a class and
+      // a class would win over the width and height attributes Lucide writes.
+      style={{ width: size, height: size }}
+      strokeWidth={solid ? 0 : (stroke * 24) / size}
+      {...(solid ? { fill: 'currentColor' } : {})}
       className={className}
-      {...(filled ? { fill: 'currentColor' } : {})}
+      aria-hidden="true"
     />
   );
 }

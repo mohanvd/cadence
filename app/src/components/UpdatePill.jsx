@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react';
+import { Icon } from './ui/icons';
 
 /**
  * The update, told in two quiet states.
@@ -28,17 +28,11 @@ export default function UpdatePill({ status, version, progress, onInstall }) {
 
   return (
     <button type="button" className="update-pill" onClick={onInstall}>
-      <span className="update-pill__mark" aria-hidden="true">
-        <svg viewBox="0 0 32 32" width="22" height="22">
-          <rect width="32" height="32" rx="8" fill="currentColor" opacity="0.14" />
-          <polygon points="12,8 24,16 12,24" fill="currentColor" />
-        </svg>
-      </span>
       <span className="update-pill__stack">
         <span className="update-pill__title">Relaunch to update</span>
         <span className="update-pill__version">v{version}</span>
       </span>
-      <ArrowRight size={16} className="update-pill__go" />
+      <Icon name="forwardArrow" size={16} className="update-pill__go" />
     </button>
   );
 }

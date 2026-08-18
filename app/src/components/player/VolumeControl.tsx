@@ -1,6 +1,6 @@
 import * as SliderPrimitive from '@radix-ui/react-slider';
-import { Volume1, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icons';
 import { Tooltip } from '@/components/ui/tooltip';
 import { usePlayerActions, useVolumeState } from '@/store/playerStore';
 
@@ -15,13 +15,13 @@ export function VolumeControl() {
   const { setVolume, toggleMute } = usePlayerActions();
 
   const effective = muted ? 0 : volume;
-  const Icon = effective === 0 ? VolumeX : effective < 0.5 ? Volume1 : Volume2;
+  const level = effective === 0 ? 'volumeOff' : effective < 0.5 ? 'volumeLow' : 'volumeHigh';
 
   return (
     <div className="group/volume flex items-center">
       <Tooltip label={muted ? 'Unmute' : 'Mute'} shortcut="M">
         <Button variant="chrome" size="icon" onClick={toggleMute} aria-label="Mute">
-          <Icon />
+          <Icon name={level} />
         </Button>
       </Tooltip>
 

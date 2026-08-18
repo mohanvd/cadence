@@ -86,7 +86,7 @@ export function MobileTransport({
       </RoundButton>
 
       <RoundButton label={paused ? 'Play' : 'Pause'} onClick={onTogglePlay} large>
-        <Icon name={paused ? 'play' : 'pause'} filled />
+        <Icon name={paused ? 'play' : 'pause'} size={24} />
       </RoundButton>
 
       <RoundButton label="Forward 10 seconds" onClick={() => seekBy(10)}>

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import * as ContextMenuPrimitive from '@radix-ui/react-context-menu';
-import { Check, ChevronRight } from 'lucide-react';
+import { Icon } from '@/components/ui/icons';
 import { cn } from '@/lib/utils';
 import { usePortalContainer } from './portal-container';
 
@@ -95,7 +95,7 @@ export const ContextMenuCheckboxItem = React.forwardRef<
         aligned whether or not they are checkable. */}
     <span className="absolute left-2 flex size-4 items-center justify-center">
       <ContextMenuPrimitive.ItemIndicator>
-        <Check className="size-3.5 text-accent" strokeWidth={2.5} />
+        <Icon name="check" size={14} className="text-accent" />
       </ContextMenuPrimitive.ItemIndicator>
     </span>
     <span className="flex-1 truncate">{children}</span>
@@ -133,7 +133,7 @@ export const ContextMenuSubTrigger = React.forwardRef<
     {...props}
   >
     <span className="flex-1 truncate">{children}</span>
-    <ChevronRight className="ml-auto size-3.5 text-fg-subtle" />
+    <Icon name="submenu" size={14} className="ml-auto text-fg-subtle" />
   </ContextMenuPrimitive.SubTrigger>
 ));
 ContextMenuSubTrigger.displayName = ContextMenuPrimitive.SubTrigger.displayName;

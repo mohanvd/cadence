@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Minus, Square, Copy, X } from 'lucide-react';
+import { CHROME_STROKE, Icon } from './ui/icons';
 import { isDesktop } from '../lib/desktop';
 
 /**
@@ -70,7 +70,7 @@ export default function TitleBar() {
           onClick={() => command('minimize')}
           aria-label="Minimise"
         >
-          <Minus size={15} strokeWidth={1.7} />
+          <Icon name="minimise" size={15} stroke={CHROME_STROKE} />
         </button>
         <button
           type="button"
@@ -78,7 +78,7 @@ export default function TitleBar() {
           onClick={() => command('toggle')}
           aria-label={maximized ? 'Restore' : 'Maximise'}
         >
-          {maximized ? <Copy size={12} strokeWidth={1.7} /> : <Square size={12} strokeWidth={1.7} />}
+          <Icon name={maximized ? 'restore' : 'maximise'} size={12} stroke={CHROME_STROKE} />
         </button>
         <button
           type="button"
@@ -86,7 +86,7 @@ export default function TitleBar() {
           onClick={() => command('close')}
           aria-label="Close"
         >
-          <X size={15} strokeWidth={1.7} />
+          <Icon name="close" size={15} stroke={CHROME_STROKE} />
         </button>
       </div>
     </header>

@@ -1,4 +1,4 @@
-import { Play } from 'lucide-react';
+import { Icon } from '../components/ui/icons';
 import DropCard from '../components/home/DropCard';
 import RecentRail from '../components/home/RecentRail';
 import { useVideoIntake } from '../hooks/useVideoIntake';
@@ -90,7 +90,7 @@ export default function Home({
       {intake.isDragging && (
         <div className="xn-dragveil" aria-hidden>
           <div className="xn-dragveil__box">
-            <Play size={26} fill="currentColor" strokeWidth={0} />
+            <Icon name="play" size={26} />
             <p className="xn-dragveil__title">Drop to play</p>
             <p className="xn-dragveil__sub">Release anywhere on the window</p>
           </div>

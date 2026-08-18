@@ -185,7 +185,7 @@ function OnlineSearch({
         onClick={onBack}
         className="mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-3"
       >
-        <Icon name="back" className="size-4" />
+        <Icon name="back" size={16} />
         Search online
       </button>
       <MenuSeparator />

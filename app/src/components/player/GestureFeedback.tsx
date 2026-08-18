@@ -104,14 +104,15 @@ function CenterFlash({
         {kind === 'play' ? (
           <Icon
             name={value === 'pause' ? 'pause' : 'play'}
-            filled
-            className="size-9 text-white"
+            size={36}
+            className="text-white"
           />
         ) : (
           <>
             <Icon
               name={(value as number) >= 0 ? 'forward' : 'rewind'}
-              className="size-6 text-white"
+              size={24}
+              className="text-white"
             />
             <span className="text-sm font-medium tabular-nums text-white">
               {formatOffset(value as number)}

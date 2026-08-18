@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { X } from 'lucide-react';
+import { Icon } from '@/components/ui/icons';
 import { Button } from '@/components/ui/button';
 import { BINDINGS, type Binding } from '@/features/keyboard/useKeyboardShortcuts';
 
@@ -57,7 +57,7 @@ export function ShortcutsSheet({ onClose }: { onClose: () => void }) {
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-base font-semibold text-fg">Keyboard shortcuts</h2>
           <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
-            <X />
+            <Icon name="close" />
           </Button>
         </div>
 

@@ -1,4 +1,4 @@
-import { Link2, SquarePlay, ArrowRight } from 'lucide-react';
+import { Icon } from '../ui/icons';
 import { HEADLINE_TYPES } from '../../hooks/useVideoIntake';
 
 /* Four, not the fifteen Cadence actually opens. The row is there to say "your
@@ -24,7 +24,7 @@ export default function DropCard({
     <div className={`xn-drop${active ? ' xn-drop--active' : ''}`}>
       <button type="button" className="xn-drop__target" onClick={onOpenPicker}>
         <span className="xn-drop__icon">
-          <SquarePlay size={34} strokeWidth={1.25} />
+          <Icon name="dropTarget" size={34} />
         </span>
         <span className="xn-drop__title">Drop a video here</span>
         <span className="xn-drop__hint">
@@ -50,7 +50,7 @@ export default function DropCard({
           onUrlSubmit();
         }}
       >
-        <Link2 size={15} className="xn-url__icon" aria-hidden />
+        <Icon name="link" size={15} className="xn-url__icon" />
         <input
           type="url"
           value={urlInput}
@@ -65,7 +65,7 @@ export default function DropCard({
           disabled={!urlInput.trim()}
           aria-label="Play this URL"
         >
-          <ArrowRight size={16} />
+          <Icon name="forwardArrow" size={16} />
         </button>
       </form>
 
