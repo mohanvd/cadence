@@ -34,7 +34,7 @@ async fn media_probe(
         guard.clone()
     };
     match media {
-        Some(media) => media.probe(&path).await,
+        Some(media) => media.describe(&path).await,
         None => Err("playback support is not available".into()),
     }
 }

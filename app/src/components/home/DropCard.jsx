@@ -1,7 +1,9 @@
 import { Link2, SquarePlay, ArrowRight } from 'lucide-react';
-import { ACCEPTED_TYPES } from '../../hooks/useVideoIntake';
+import { HEADLINE_TYPES } from '../../hooks/useVideoIntake';
 
-const FORMATS = ACCEPTED_TYPES.map((ext) => ext.replace('.', '').toUpperCase());
+/* Four, not the fifteen Cadence actually opens. The row is there to say "your
+   files, yes" at a glance, and a glance does not read fifteen chips. */
+const FORMATS = HEADLINE_TYPES;
 
 /**
  * The one thing this page asks the visitor to do.

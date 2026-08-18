@@ -32,7 +32,7 @@ import { ShortcutsSheet } from './ShortcutsSheet';
 import { PlayerContextMenu } from './PlayerContextMenu';
 import {
   usePlayerStore,
-  useBackendKind,
+  usePlaybackLabel,
   useIsLoading,
   useIsPaused,
   usePlayerActions,
@@ -92,7 +92,7 @@ export function PlayerSurface({
   const loading = useIsLoading();
   const paused = useIsPaused();
   const error = usePlayerError();
-  const backend = useBackendKind();
+  const playbackLabel = usePlaybackLabel();
 
   const [chromeVisible, setChromeVisible] = React.useState(true);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -506,11 +506,11 @@ export function PlayerSurface({
           <h1 className="min-w-0 flex-1 truncate text-[15px] font-medium tracking-[-0.01em] text-white">
             {title}
           </h1>
-          {/* Surfacing the backend makes the remux path visible instead of
-              looking like an unexplained delay. */}
-          {backend && backend !== 'native' && (
+          {/* Only ever shown when something is happening to the file on the
+              way in, so that it reads as an explanation rather than furniture. */}
+          {playbackLabel && (
             <span className="rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white/70">
-              {backend === 'remux' ? 'Remuxed' : 'Software decode'}
+              {playbackLabel}
             </span>
           )}
         </div>

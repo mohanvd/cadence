@@ -1,3 +1,4 @@
+import { toPlayableUrl } from '@/lib/desktop';
 import { BaseBackend } from '../BaseBackend';
 import { createVideoElement } from '../createVideoElement';
 import type { BackendKind, MediaSourceInput, MediaTrack } from '../types';
@@ -161,7 +162,11 @@ export class NativeBackend extends BaseBackend {
     } else {
       // Needed for canvas screenshots and the ambient layer to not taint.
       video.crossOrigin = 'anonymous';
-      video.src = source.url;
+      /* A path becomes an asset URL, which streams from disk and honours range
+         requests. Reading the file in first would mean holding a whole film in
+         memory to play it. */
+      video.src =
+        source.kind === 'path' ? await toPlayableUrl(source.path) : source.url;
     }
     video.load();
   }

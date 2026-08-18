@@ -46,33 +46,32 @@ export default function App() {
   /**
    * Play a file the operating system handed us, identified by its path.
    *
-   * The path is turned into an asset URL rather than read into memory: a film
-   * is measured in gigabytes, and the engine only ever needs the ranges it is
-   * about to show.
+   * The path is passed on as a path. What opens it is the engine's decision:
+   * a container the browser demuxes goes straight to the media element as an
+   * asset URL, and everything else goes through FFmpeg. Either way the file is
+   * streamed rather than read, because a film is measured in gigabytes.
    */
-  const playPath = useCallback(
-    async (path) => {
-      const name = basename(path);
-      try {
-        const url = await toPlayableUrl(path);
-        setUrlLoadError('');
-        setVideoSource({ kind: 'url', url, name });
-        // The path goes in straight away so the entry is re-openable even if
-        // the poster never arrives.
-        addRecentFile({ name, path });
-        setPlayerOpen(true);
+  const playPath = useCallback((path) => {
+    const name = basename(path);
 
-        // Then, without holding up playback, take a still for the tile.
-        void capturePoster(url).then((poster) => {
-          if (poster) addRecentFile({ name, path, poster });
-        });
-      } catch (err) {
-        console.warn('Could not open the launched file:', err);
-        showToast(`Could not open ${name}`);
-      }
-    },
-    [showToast]
-  );
+    setUrlLoadError('');
+    setVideoSource({ kind: 'path', path, name });
+    // The path goes in straight away so the entry is re-openable even if the
+    // poster never arrives.
+    addRecentFile({ name, path });
+    setPlayerOpen(true);
+
+    /* Then, without holding up playback, take a still for the tile. This goes
+       through the asset URL rather than the playback pipeline, so it only
+       yields a frame for a container the browser can open by itself. Every
+       failure resolves to null and the tile keeps its placeholder. */
+    void toPlayableUrl(path)
+      .then(capturePoster)
+      .then((poster) => {
+        if (poster) addRecentFile({ name, path, poster });
+      })
+      .catch(() => {});
+  }, []);
 
   /* Two ways a file arrives from outside the app, and both land here: the one
      Cadence was launched with, collected once on startup, and any opened while

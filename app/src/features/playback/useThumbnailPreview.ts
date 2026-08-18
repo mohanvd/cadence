@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { toPlayableUrl } from '@/lib/desktop';
 import { usePlayerStore } from '@/store/playerStore';
 import type { MediaSourceInput } from '@/engine/types';
 
@@ -87,8 +88,20 @@ export function useThumbnailPreview(): ThumbnailPreview {
     // player instead of decoding inline where we can read pixels from it.
     video.playsInline = true;
 
-    const objectUrl = sourceToUrl(source);
-    video.src = objectUrl.url;
+    /* Resolving the URL is asynchronous now, because a path has to be turned
+       into one the webview will open. The element is built first and pointed at
+       the result when it arrives, so a source switched during the resolve tears
+       down cleanly rather than pointing the new element at the old file. */
+    let released = false;
+    let revoke = () => {};
+    void sourceToUrl(source).then((resolved) => {
+      if (released) {
+        resolved.revoke();
+        return;
+      }
+      revoke = resolved.revoke;
+      video.src = resolved.url;
+    });
 
     const onLoaded = () => {
       if (!video.videoWidth) return;
@@ -103,10 +116,11 @@ export function useThumbnailPreview(): ThumbnailPreview {
       video.removeEventListener('loadedmetadata', onLoaded);
       // Emptying `src` and reloading is what actually releases the decoder;
       // dropping the reference alone leaves it running until GC notices.
+      released = true;
       video.removeAttribute('src');
       video.load();
       videoRef.current = null;
-      objectUrl.revoke();
+      revoke();
     };
   }, [enabled, source]);
 
@@ -218,9 +232,23 @@ export function useThumbnailPreview(): ThumbnailPreview {
   return { ready, frame, height, request };
 }
 
-/** Resolve a source to a URL the preview element can open, plus its cleanup. */
-function sourceToUrl(source: MediaSourceInput): { url: string; revoke: () => void } {
+/**
+ * Resolve a source to a URL the preview element can open, plus its cleanup.
+ *
+ * The preview is a second `<video>`, so it can only open what the browser can
+ * demux by itself. That has always been the case: a Matroska file produced no
+ * thumbnails before this went through FFmpeg either, because the hidden element
+ * could not read it. What is different is that the frames could now be asked of
+ * FFmpeg instead, which would work for every codec. Worth doing, and not done
+ * here.
+ */
+async function sourceToUrl(
+  source: MediaSourceInput,
+): Promise<{ url: string; revoke: () => void }> {
   if (source.kind === 'url') return { url: source.url, revoke: () => {} };
+  if (source.kind === 'path') {
+    return { url: await toPlayableUrl(source.path), revoke: () => {} };
+  }
   const url = URL.createObjectURL(source.file);
   return { url, revoke: () => URL.revokeObjectURL(url) };
 }

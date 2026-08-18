@@ -1,32 +1,13 @@
 /**
- * Browser capability probing.
+ * What the browser will accept, and what to tell it a stream contains.
  *
- * Every answer here is cached: `canPlayType` and `isTypeSupported` are cheap but
- * called on every source load, and `VideoDecoder.isConfigSupported` is async and
- * genuinely expensive on some drivers.
+ * Answers are cached: `canPlayType` is cheap but asked on every source load.
+ *
+ * The WebCodecs probing that used to live here has gone with the decoder it
+ * served. Deciding whether the page could decode a codec itself only mattered
+ * while the page was the last resort; FFmpeg reaches every codec, so the
+ * question no longer has anything riding on it.
  */
-
-export interface PlatformCapabilities {
-  mse: boolean;
-  webCodecs: boolean;
-  /** Chrome-only; enables the true mini-player window. */
-  documentPiP: boolean;
-  /** WebCodecs can be driven off the main thread. */
-  workerWebCodecs: boolean;
-}
-
-export function getPlatformCapabilities(): PlatformCapabilities {
-  return {
-    mse: typeof self.MediaSource !== 'undefined',
-    webCodecs:
-      typeof self.VideoDecoder !== 'undefined' &&
-      typeof self.AudioDecoder !== 'undefined',
-    documentPiP: 'documentPictureInPicture' in self,
-    workerWebCodecs:
-      typeof self.VideoDecoder !== 'undefined' &&
-      typeof self.OffscreenCanvas !== 'undefined',
-  };
-}
 
 /**
  * Map an ffmpeg/libav codec name to an RFC 6381 codec string.
@@ -56,78 +37,46 @@ const CODEC_STRINGS: Record<string, string> = {
   alac: 'alac',
 };
 
-/** Codecs no browser decodes; they always require WASM decoding. */
-const WASM_ONLY_CODECS = new Set([
-  'dts',
-  'dtshd',
-  'truehd',
-  'pcm_s16le',
-  'pcm_s24le',
-  'wmav2',
-  'wmapro',
-  'vc1',
-  'wmv3',
-  'mpeg2video',
-  'msmpeg4v3',
-  'rv40',
-]);
-
 export function toCodecString(codec: string): string | null {
   return CODEC_STRINGS[codec.toLowerCase()] ?? null;
 }
 
-export function isWasmOnlyCodec(codec: string): boolean {
-  return WASM_ONLY_CODECS.has(codec.toLowerCase());
-}
+/** What FFmpeg produces when it has to replace a track it cannot copy. */
+const CONVERTED_VIDEO = 'avc1.64001E';
+const CONVERTED_AUDIO = 'mp4a.40.2';
 
 /**
- * Codecs that belong in WebM rather than MP4 when remuxing.
+ * The MIME type to declare before appending a single byte of the stream.
  *
- * MP4 can technically carry VP9 and AV1, but doing so requires a correct
- * `vpcC`/`av1C` configuration box that cannot always be reconstructed from a
- * Matroska source, so the resulting file parses as valid MP4 and is then rejected
- * by the browser's demuxer. Routing the VP family to WebM, their native
- * container, sidesteps the problem entirely.
+ * Media Source checks this against the initialisation segment and rejects
+ * everything on a mismatch, so it has to describe what will arrive rather than
+ * what is in the file. For a track being converted those are different things:
+ * the file may hold DTS, and what arrives is AAC.
+ *
+ * The output is always MP4, because that is the only container FFmpeg is asked
+ * for here. Codecs whose place is really WebM, the VP family, are converted on
+ * the way rather than carried into a box that would need a configuration atom
+ * nothing can reliably rebuild from a Matroska source.
  */
-const WEBM_CODECS = new Set(['vp8', 'vp9', 'av1', 'opus', 'vorbis']);
+export function mseCodecString(
+  tracks: readonly { type: string; codec: string }[],
+  { copyVideo = true, copyAudio = true }: { copyVideo?: boolean; copyAudio?: boolean } = {},
+): string {
+  const video = tracks.find((track) => track.type === 'video');
+  const audio = tracks.find((track) => track.type === 'audio');
 
-export type RemuxFormat = 'mp4' | 'webm';
+  const parts: string[] = [];
 
-/** The container these codecs should be repackaged into. */
-export function remuxFormatFor(codecs: string[]): RemuxFormat {
-  return codecs.some((c) => WEBM_CODECS.has(c.toLowerCase())) ? 'webm' : 'mp4';
-}
+  if (video) {
+    parts.push((copyVideo && toCodecString(video.codec)) || CONVERTED_VIDEO);
+  }
+  if (audio) {
+    parts.push((copyAudio && toCodecString(audio.codec)) || CONVERTED_AUDIO);
+  }
 
-const mseCache = new Map<string, boolean>();
-
-/**
- * Can MSE accept these codecs in the container we would remux them into?
- * This is the question that decides whether remuxing is enough.
- */
-export function canMseRemux(codecs: string[]): boolean {
-  const caps = getPlatformCapabilities();
-  if (!caps.mse) return false;
-
-  const resolved = codecs.map(toCodecString);
-  if (resolved.some((c) => c === null)) return false;
-
-  const mime = mseMimeFor(codecs);
-  if (!mime) return false;
-
-  const cached = mseCache.get(mime);
-  if (cached !== undefined) return cached;
-
-  const supported = self.MediaSource.isTypeSupported(mime);
-  mseCache.set(mime, supported);
-  return supported;
-}
-
-/** Full MSE MIME type for the remuxed output, or null if unmappable. */
-export function mseMimeFor(codecs: string[]): string | null {
-  const resolved = codecs.map(toCodecString);
-  if (resolved.some((c) => c === null)) return null;
-  const format = remuxFormatFor(codecs);
-  return `video/${format}; codecs="${resolved.join(',')}"`;
+  // A file with neither is not something to build a buffer for, but the caller
+  // checks `isTypeSupported` and will get a clean refusal rather than a crash.
+  return `video/mp4; codecs="${parts.join(',')}"`;
 }
 
 const elementCache = new Map<string, boolean>();
@@ -145,50 +94,6 @@ export function canPlayNatively(mime: string): boolean {
   const supported = answer === 'probably' || answer === 'maybe';
   elementCache.set(mime, supported);
   return supported;
-}
-
-const decoderCache = new Map<string, boolean>();
-
-/** Can WebCodecs decode this codec in hardware or software? */
-export async function canDecodeWithWebCodecs(
-  type: 'video' | 'audio',
-  codec: string,
-  extra: { width?: number; height?: number; sampleRate?: number; channels?: number } = {},
-): Promise<boolean> {
-  const caps = getPlatformCapabilities();
-  if (!caps.webCodecs) return false;
-
-  const codecString = toCodecString(codec);
-  if (!codecString) return false;
-
-  const key = `${type}:${codecString}:${extra.width ?? 0}x${extra.height ?? 0}`;
-  const cached = decoderCache.get(key);
-  if (cached !== undefined) return cached;
-
-  try {
-    let supported: boolean;
-    if (type === 'video') {
-      const result = await self.VideoDecoder.isConfigSupported({
-        codec: codecString,
-        codedWidth: extra.width ?? 1920,
-        codedHeight: extra.height ?? 1080,
-      });
-      supported = result.supported === true;
-    } else {
-      const result = await self.AudioDecoder.isConfigSupported({
-        codec: codecString,
-        sampleRate: extra.sampleRate ?? 48000,
-        numberOfChannels: extra.channels ?? 2,
-      });
-      supported = result.supported === true;
-    }
-    decoderCache.set(key, supported);
-    return supported;
-  } catch {
-    // An unknown codec string throws rather than returning `supported: false`.
-    decoderCache.set(key, false);
-    return false;
-  }
 }
 
 /** Container extensions a plain `<video>` element can demux. */

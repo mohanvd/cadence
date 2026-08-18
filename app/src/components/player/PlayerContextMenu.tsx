@@ -156,11 +156,7 @@ export function PlayerContextMenu({
           <ContextMenuSubTrigger>Media info</ContextMenuSubTrigger>
           <ContextMenuSubContent className="min-w-56">
             <InfoRow label="Playback">
-              {backend === 'native'
-                ? 'Direct'
-                : backend === 'remux'
-                  ? 'Remuxed'
-                  : 'Software'}
+              {backend === 'native' ? 'Direct' : 'Through FFmpeg'}
             </InfoRow>
             {probe?.container && <InfoRow label="Container">{probe.container}</InfoRow>}
             {video && (

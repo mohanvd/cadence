@@ -3,14 +3,25 @@
  *
  * The UI layer talks *only* to the `PlaybackEngine` interface and never learns
  * which backend is actually driving the pixels. That indirection is what lets a
- * native `<video>` element, an MSE remux pipeline, and a full WebCodecs decoder
- * be swapped per-file without the React tree knowing.
+ * file the browser opens by itself and a file arriving from FFmpeg through
+ * Media Source be swapped per-file without the React tree knowing.
  */
 
-/** How a source is being played back. Surfaced in the UI for diagnostics. */
-export type BackendKind = 'native' | 'remux' | 'decode';
+/**
+ * How a source is being played back. Surfaced in the UI for diagnostics.
+ *
+ * There used to be a third, `decode`, for files whose codecs no browser could
+ * handle. It existed to explain a refusal. With FFmpeg behind the media element
+ * there is nothing left to refuse: a codec the browser cannot take is converted
+ * to one it can, which is a slower way to play a file rather than a reason not
+ * to.
+ */
+export type BackendKind = 'native' | 'stream';
 
 export type MediaSourceInput =
+  /** A file the shell named, which is every file opened on the desktop. */
+  | { kind: 'path'; path: string; name: string }
+  /** A `File` with nothing behind it. Only the browser dev server makes these. */
   | { kind: 'file'; file: File; name: string }
   | { kind: 'url'; url: string; name: string };
 
@@ -43,6 +54,17 @@ export interface ProbeResult {
   /** Backend chosen for this source, with the reasoning kept for the UI. */
   backend: BackendKind;
   reason: string;
+  /**
+   * Whether each stream reaches the browser untouched.
+   *
+   * Worth carrying rather than deriving, for two reasons. The viewer is told,
+   * because a file that costs nothing to play and one that keeps a core busy
+   * for as long as it runs are not the same thing. And the backend has to
+   * declare what is in the stream before any of it arrives, which it cannot do
+   * without knowing which tracks FFmpeg is about to replace.
+   */
+  copyVideo: boolean;
+  copyAudio: boolean;
 }
 
 export interface EngineState {

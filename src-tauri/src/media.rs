@@ -348,6 +348,54 @@ async fn handle(
 }
 
 impl Media {
+    /// Whether the video and audio can be copied rather than re-encoded.
+    ///
+    /// This is the one judgement in the pipeline the page also needs, because
+    /// copying and converting are different enough to tell the viewer apart.
+    /// It is answered here rather than in both places: two copies of a codec
+    /// list drift, and the one that drifts is always the one nobody ran.
+    fn decisions(probe: &serde_json::Value) -> (bool, bool) {
+        let empty = Vec::new();
+        let streams = probe
+            .get("streams")
+            .and_then(|value| value.as_array())
+            .unwrap_or(&empty);
+
+        let codec_of = |kind: &str| -> Option<&str> {
+            streams
+                .iter()
+                .find(|stream| stream.get("codec_type").and_then(|v| v.as_str()) == Some(kind))
+                .and_then(|stream| stream.get("codec_name").and_then(|v| v.as_str()))
+        };
+
+        // Absent means there is no such track, and no such track means nothing
+        // to re-encode. The flag then picks between two `-c:` values the muxer
+        // will never reach.
+        (
+            codec_of("video")
+                .map(|name| COPYABLE_VIDEO.contains(&name))
+                .unwrap_or(true),
+            codec_of("audio")
+                .map(|name| COPYABLE_AUDIO.contains(&name))
+                .unwrap_or(true),
+        )
+    }
+
+    /// A file's streams, with what Cadence intends to do about them attached.
+    pub async fn describe(&self, path: &str) -> Result<serde_json::Value, String> {
+        let mut probe = self.probe(path).await?;
+        let (copy_video, copy_audio) = Self::decisions(&probe);
+
+        if let Some(fields) = probe.as_object_mut() {
+            fields.insert(
+                "cadence".to_owned(),
+                serde_json::json!({ "copyVideo": copy_video, "copyAudio": copy_audio }),
+            );
+        }
+
+        Ok(probe)
+    }
+
     /// Decide what has to happen to a file before the page can play it.
     async fn plan(
         &self,
@@ -356,34 +404,21 @@ impl Media {
         audio: Option<u32>,
     ) -> Result<StreamRequest, String> {
         let probe = self.probe(&path).await?;
-        let streams = probe
+        if probe
             .get("streams")
             .and_then(|value| value.as_array())
-            .ok_or_else(|| format!("nothing readable in {path}"))?;
-
-        let codec_of = |kind: &str| -> Option<String> {
-            streams
-                .iter()
-                .find(|stream| stream.get("codec_type").and_then(|v| v.as_str()) == Some(kind))
-                .and_then(|stream| stream.get("codec_name").and_then(|v| v.as_str()))
-                .map(|name| name.to_owned())
-        };
+            .is_none()
+        {
+            return Err(format!("nothing readable in {path}"));
+        }
+        let (copy_video, copy_audio) = Self::decisions(&probe);
 
         Ok(StreamRequest {
             path,
             start,
             audio,
-            // Absent means there is no such track, and no such track means
-            // nothing to re-encode. The flag then picks between two `-c:` values
-            // the muxer will never reach.
-            copy_video: codec_of("video")
-                .as_deref()
-                .map(|name| COPYABLE_VIDEO.contains(&name))
-                .unwrap_or(true),
-            copy_audio: codec_of("audio")
-                .as_deref()
-                .map(|name| COPYABLE_AUDIO.contains(&name))
-                .unwrap_or(true),
+            copy_video,
+            copy_audio,
         })
     }
 

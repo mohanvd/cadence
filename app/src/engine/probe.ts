@@ -1,48 +1,51 @@
-import {
-  canDecodeWithWebCodecs,
-  canMseRemux,
-  canPlayNatively,
-  extensionOf,
-  getPlatformCapabilities,
-  isWasmOnlyCodec,
-  nativeMimeForExtension,
-} from './capabilities';
-import { getLibAV, nextVirtualFilename } from './libav';
-import type { BackendKind, MediaSourceInput, MediaTrack, ProbeResult } from './types';
+import { isDesktop, probeMedia } from '@/lib/desktop';
+import { canPlayNatively, extensionOf, nativeMimeForExtension } from './capabilities';
+import type { MediaSourceInput, MediaTrack, ProbeResult } from './types';
 
 /**
  * Decide how a source should be played.
  *
- * The routing is a three-tier ladder, cheapest first:
+ * Two answers, cheapest first:
  *
- *   1. `native`: the browser demuxes and decodes it. Zero overhead, hardware
- *                  decode, battery-friendly. Covers most MP4/WebM.
- *   2. `remux`: the *container* is unsupported but the codecs inside are.
- *                  Repackage into fragmented MP4 and feed MSE; still hardware
- *                  decode. This is the big one: most MKV lecture recordings are
- *                  H.264 + AAC and land here.
- *   3. `decode`: the codecs themselves are unsupported (AC3, DTS, VC1...).
- *                  Full WASM demux plus WebCodecs/WASM decode.
+ *   1. `native`: the browser demuxes and decodes it on its own. No second
+ *      process, no repackaging, hardware decode. Most MP4 lands here.
+ *   2. `stream`: FFmpeg opens the file and hands the browser fragmented MP4.
+ *      Everything else lands here, which is the point: the container stops
+ *      being the thing that decides whether a file plays.
+ *
+ * Inspection is FFmpeg's too. It used to be libav compiled to WebAssembly,
+ * reading the file through a Blob, which meant a four gigabyte film was read
+ * into memory to find out what was in it.
  */
 
-/** libav `AVMEDIA_TYPE_*` values, which are stable ABI constants. */
-const AVMEDIA_TYPE_VIDEO = 0;
-const AVMEDIA_TYPE_AUDIO = 1;
-const AVMEDIA_TYPE_SUBTITLE = 3;
+/** What ffprobe reports for one stream. Only the fields Cadence reads. */
+interface ProbeStream {
+  index?: number;
+  codec_type?: string;
+  codec_name?: string;
+  profile?: string;
+  channels?: number;
+  sample_rate?: string;
+  width?: number;
+  height?: number;
+  disposition?: Record<string, number>;
+  tags?: Record<string, string>;
+}
 
-function mediaTypeOf(codecType: number): MediaTrack['type'] | null {
-  if (codecType === AVMEDIA_TYPE_VIDEO) return 'video';
-  if (codecType === AVMEDIA_TYPE_AUDIO) return 'audio';
-  if (codecType === AVMEDIA_TYPE_SUBTITLE) return 'subtitle';
-  return null;
+interface ProbePayload {
+  streams?: ProbeStream[];
+  format?: { format_name?: string; duration?: string };
+  /** Added by the shell: what it intends to do with the streams. */
+  cadence?: { copyVideo?: boolean; copyAudio?: boolean };
 }
 
 /**
  * Fast path: can a bare `<video>` element handle this without any inspection?
  *
- * Deliberately conservative: it only answers yes for containers the browser
- * natively demuxes. A `.mkv` never passes here even though many contain
- * perfectly playable H.264, because no browser demuxes Matroska.
+ * Deliberately conservative. It only answers yes for containers the browser
+ * demuxes itself, and only by extension, so it costs nothing. A `.mkv` never
+ * passes even though most hold perfectly ordinary H.264, because no browser
+ * demuxes Matroska.
  */
 export function canProbablyPlayNatively(source: MediaSourceInput): boolean {
   const mime = nativeMimeForExtension(extensionOf(source.name));
@@ -50,185 +53,95 @@ export function canProbablyPlayNatively(source: MediaSourceInput): boolean {
   return canPlayNatively(mime);
 }
 
-async function readTracks(source: MediaSourceInput): Promise<{
-  container: string;
-  tracks: MediaTrack[];
-  duration: number | null;
-}> {
-  const libav = await getLibAV();
-  const virtualName = nextVirtualFilename(source.name);
+function trackFrom(stream: ProbeStream, playable: boolean): MediaTrack | null {
+  const type = stream.codec_type;
+  if (type !== 'video' && type !== 'audio' && type !== 'subtitle') return null;
 
-  // `mkreadaheadfile` streams the Blob on demand rather than copying the whole
-  // file into the WASM heap, which is essential for multi-GB lecture recordings.
-  const blob =
-    source.kind === 'file'
-      ? source.file
-      : await fetch(source.url).then((r) => r.blob());
-  await libav.mkreadaheadfile(virtualName, blob);
-
-  let formatCtx = 0;
-  try {
-    const [ctx, streams] = await libav.ff_init_demuxer_file(virtualName);
-    formatCtx = ctx;
-
-    const durationRaw = await libav.AVFormatContext_duration(ctx);
-    const durationHi = await libav.AVFormatContext_durationhi(ctx);
-    // AV_TIME_BASE is 1e6; duration is a 64-bit value split across two fields.
-    const totalMicros = durationHi * 2 ** 32 + durationRaw;
-    const duration = totalMicros > 0 ? totalMicros / 1e6 : null;
-
-    const tracks: MediaTrack[] = [];
-    for (const stream of streams) {
-      const type = mediaTypeOf(stream.codec_type);
-      if (!type) continue;
-
-      const codec = await libav.avcodec_get_name(stream.codec_id);
-      const track: MediaTrack = {
-        id: String(stream.index),
-        type,
-        codec,
-        // Filled in by the caller once a backend is known.
-        playable: false,
-      };
-
-      if (type === 'video') {
-        track.width = await libav.AVCodecParameters_width(stream.codecpar);
-        track.height = await libav.AVCodecParameters_height(stream.codecpar);
-      } else if (type === 'audio') {
-        track.sampleRate = await libav.AVCodecParameters_sample_rate(stream.codecpar);
-        track.channels = await libav.AVCodecParameters_ch_layout_nb_channels(
-          stream.codecpar,
-        );
-      }
-
-      tracks.push(track);
-    }
-
-    return { container: extensionOf(source.name), tracks, duration };
-  } finally {
-    if (formatCtx) {
-      await libav.avformat_close_input_js(formatCtx).catch(() => {});
-    }
-    // Readahead files live in their own table, not the normal virtual FS.
-    await libav.unlinkreadaheadfile(virtualName).catch(() => {});
-  }
-}
-
-/**
- * Work out which backend can play the given track set.
- *
- * Marks each track's `playable` flag as a side effect so the UI can grey out
- * an AC3 track that the chosen backend cannot render.
- */
-async function chooseBackend(
-  tracks: MediaTrack[],
-): Promise<{ backend: BackendKind; reason: string }> {
-  const caps = getPlatformCapabilities();
-  const video = tracks.filter((t) => t.type === 'video');
-  const audio = tracks.filter((t) => t.type === 'audio');
-
-  // Any WASM-only codec present in the tracks we would actually play forces
-  // the full decode path immediately.
-  const primaryVideo = video[0];
-  const primaryAudio = audio[0];
-
-  const blockers: string[] = [];
-  if (primaryVideo && isWasmOnlyCodec(primaryVideo.codec)) {
-    blockers.push(primaryVideo.codec);
-  }
-  if (primaryAudio && isWasmOnlyCodec(primaryAudio.codec)) {
-    blockers.push(primaryAudio.codec);
-  }
-
-  if (blockers.length > 0) {
-    if (!caps.webCodecs) {
-      return {
-        backend: 'decode',
-        reason: `${blockers.join(' + ')} needs software decoding`,
-      };
-    }
-    return {
-      backend: 'decode',
-      reason: `${blockers.join(' + ')} is not supported by any browser decoder`,
-    };
-  }
-
-  // Can MSE take these codecs inside fragmented MP4? If so, remuxing suffices
-  // and we keep hardware decode.
-  const codecsForMse = [primaryVideo?.codec, primaryAudio?.codec].filter(
-    (c): c is string => Boolean(c),
-  );
-
-  if (codecsForMse.length > 0 && canMseRemux(codecsForMse)) {
-    for (const track of tracks) {
-      if (track.type === 'subtitle') {
-        track.playable = true;
-        continue;
-      }
-      track.playable = !isWasmOnlyCodec(track.codec) && canMseRemux([track.codec]);
-    }
-    return {
-      backend: 'remux',
-      reason: `${codecsForMse.join(' + ')} repackaged for hardware decode`,
-    };
-  }
-
-  // Last resort: decode frame by frame. Probe each track individually so the
-  // UI can distinguish "this audio track works" from "this one is DTS".
-  await Promise.all(
-    tracks.map(async (track) => {
-      if (track.type === 'subtitle') {
-        track.playable = true;
-        return;
-      }
-      // WASM-only codecs are decoded by libav itself, so they remain playable
-      // on this path even though WebCodecs rejects them.
-      track.playable =
-        isWasmOnlyCodec(track.codec) ||
-        (await canDecodeWithWebCodecs(track.type, track.codec, {
-          width: track.width,
-          height: track.height,
-          sampleRate: track.sampleRate,
-          channels: track.channels,
-        }));
-    }),
-  );
-
-  const videoDecodable = primaryVideo
-    ? await canDecodeWithWebCodecs('video', primaryVideo.codec, {
-        width: primaryVideo.width,
-        height: primaryVideo.height,
-      })
-    : true;
+  const tags = stream.tags ?? {};
+  const sampleRate = stream.sample_rate ? Number(stream.sample_rate) : undefined;
 
   return {
-    backend: 'decode',
-    reason: videoDecodable
-      ? 'container and codec combination needs full decoding'
-      : 'no hardware decoder available; decoding in software',
+    id: String(stream.index ?? 0),
+    type,
+    codec: stream.codec_name ?? 'unknown',
+    language: tags.language && tags.language !== 'und' ? tags.language : undefined,
+    label: tags.title || undefined,
+    default: stream.disposition?.default === 1,
+    playable,
+    channels: stream.channels,
+    sampleRate: Number.isFinite(sampleRate) ? sampleRate : undefined,
+    width: stream.width,
+    height: stream.height,
   };
 }
 
 /**
- * Inspect a source and return the tracks plus the backend that should play it.
+ * Inspect a source and say how to play it.
  *
- * Skips loading the WASM runtime entirely when the browser can play the file
- * natively, which is the common case.
+ * Only a path can be inspected, because only a path is something FFmpeg can
+ * open. A `File` or a remote URL is handed to the browser as-is, which is all
+ * that was ever possible for them.
  */
 export async function probeSource(source: MediaSourceInput): Promise<ProbeResult> {
-  if (canProbablyPlayNatively(source)) {
+  if (source.kind !== 'path' || !isDesktop()) {
     return {
       container: extensionOf(source.name),
-      // Native tracks are enumerated from the element once metadata loads.
       tracks: [],
       durationHint: null,
       backend: 'native',
-      reason: 'played directly by the browser',
+      reason: 'handed straight to the browser',
+      copyVideo: true,
+      copyAudio: true,
     };
   }
 
-  const { container, tracks, duration } = await readTracks(source);
-  const { backend, reason } = await chooseBackend(tracks);
+  const payload = (await probeMedia(source.path)) as ProbePayload | null;
 
-  return { container, tracks, durationHint: duration, backend, reason };
+  /* Inspection failing is not a reason to refuse the file. FFmpeg is often
+     stricter than the browser about a damaged header, and a real playback
+     error names the problem better than a pre-emptive apology does. */
+  if (!payload?.streams?.length) {
+    return {
+      container: extensionOf(source.name),
+      tracks: [],
+      durationHint: null,
+      backend: 'native',
+      reason: 'could not inspect the file; trying the browser directly',
+      copyVideo: true,
+      copyAudio: true,
+    };
+  }
+
+  const container = payload.format?.format_name ?? extensionOf(source.name);
+  const duration = Number(payload.format?.duration);
+  const copyVideo = payload.cadence?.copyVideo ?? true;
+  const copyAudio = payload.cadence?.copyAudio ?? true;
+
+  /* Every track is playable now, which is the whole point. The flag stays on
+     the type because it is what the track menus read, and because a browser
+     source still has tracks nothing can promise anything about. */
+  const tracks = payload.streams
+    .map((stream) => trackFrom(stream, true))
+    .filter((track): track is MediaTrack => track !== null);
+
+  const nativeContainer = canProbablyPlayNatively(source);
+  const backend = nativeContainer && copyVideo && copyAudio ? 'native' : 'stream';
+
+  return {
+    container,
+    tracks,
+    durationHint: Number.isFinite(duration) && duration > 0 ? duration : null,
+    backend,
+    reason: describe(backend, copyVideo, copyAudio),
+    copyVideo,
+    copyAudio,
+  };
+}
+
+function describe(backend: string, copyVideo: boolean, copyAudio: boolean): string {
+  if (backend === 'native') return 'the browser opens this container itself';
+  if (copyVideo && copyAudio) return 'repackaged; both streams copied untouched';
+  if (copyVideo) return 'repackaged; the audio codec cannot reach a browser';
+  if (copyAudio) return 'the video codec cannot reach a browser';
+  return 'both streams are being converted';
 }

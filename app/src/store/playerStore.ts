@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import { createEngine } from '@/engine/createEngine';
+import { createEngine, describeBackend } from '@/engine/createEngine';
 import type {
   BackendKind,
   MediaSourceInput,
@@ -278,6 +278,16 @@ export const useIsPaused = () => usePlayerStore((s) => s.paused);
 export const useIsLoading = () => usePlayerStore((s) => s.loading);
 export const usePlayerError = () => usePlayerStore((s) => s.error);
 export const useBackendKind = () => usePlayerStore((s) => s.backend);
+
+/**
+ * How playback is happening, in words rather than in the backend's own name.
+ *
+ * Null for the ordinary case, where the browser opened the file itself: a badge
+ * reading "Direct" on almost every file is furniture, and the point of showing
+ * this at all is that the other cases are worth noticing.
+ */
+export const usePlaybackLabel = () =>
+  usePlayerStore((s) => (s.probe && s.probe.backend !== 'native' ? describeBackend(s.probe) : null));
 export const useVideoEl = () => usePlayerStore((s) => s.videoEl);
 export const usePlaybackRate = () => usePlayerStore((s) => s.rate);
 

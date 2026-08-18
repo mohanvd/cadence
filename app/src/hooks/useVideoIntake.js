@@ -2,7 +2,38 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { getRecentFiles } from '../utils/storage';
 import { isDesktop, pickVideoFile, onFileDrop } from '../lib/desktop';
 
-export const ACCEPTED_TYPES = ['.mp4', '.webm', '.mkv', '.mov'];
+/**
+ * Containers Cadence opens.
+ *
+ * This list matches the one the installer registers file associations for, and
+ * that was not true before: the shell claimed avi, wmv, flv and half a dozen
+ * others while the player accepted four, so double-clicking an .avi opened a
+ * window that then failed on it.
+ *
+ * The four shown on the drop card are still four. A wall of extensions is not
+ * information, and the ones named are the ones people arrive holding.
+ */
+export const ACCEPTED_TYPES = [
+  '.mp4',
+  '.mkv',
+  '.webm',
+  '.mov',
+  '.avi',
+  '.m4v',
+  '.wmv',
+  '.flv',
+  '.ts',
+  '.m2ts',
+  '.mts',
+  '.mpg',
+  '.mpeg',
+  '.3gp',
+  '.ogv',
+];
+
+/** The few the drop card names, in the order it names them. */
+export const HEADLINE_TYPES = ['MP4', 'MKV', 'WEBM', 'MOV'];
+
 const ACCEPTED_MIME = ['video/mp4', 'video/webm', 'video/x-matroska', 'video/quicktime'];
 const URL_PATTERN = /^https?:\/\/.+\.(mp4|webm|mkv|mov)(\?.*)?$/i;
 
@@ -86,7 +117,7 @@ export function useVideoIntake({
         if (!first) return;
         const ext = '.' + first.split('.').pop().toLowerCase();
         if (!ACCEPTED_TYPES.includes(ext)) {
-          fail(`That format isn't supported. Use ${ACCEPTED_TYPES.join(', ')}`);
+          fail(`Cadence does not open ${ext} files.`);
           return;
         }
         onPathSelect?.(first);
@@ -100,7 +131,7 @@ export function useVideoIntake({
       if (!file) return false;
       const ext = '.' + file.name.split('.').pop().toLowerCase();
       if (ACCEPTED_TYPES.includes(ext) || ACCEPTED_MIME.includes(file.type)) return true;
-      fail(`That format isn't supported. Use ${ACCEPTED_TYPES.join(', ')}`);
+      fail(`Cadence does not open ${ext} files.`);
       return false;
     },
     [fail]

@@ -14,7 +14,6 @@
     "tauri": "tauri",
     "site:dev": "npm --prefix site run dev",
     "site:build": "npm --prefix site run build",
-    "sync:libav": "node scripts/sync-libav.mjs",
     "fetch:ffmpeg": "node scripts/fetch-ffmpeg.mjs"
   },
   "devDependencies": {
@@ -29,7 +28,6 @@
     "vite": "^8.2.1"
   },
   "dependencies": {
-    "@libav.js/variant-webcodecs": "^6.9.8",
     "@radix-ui/react-context-menu": "^2.3.7",
     "@radix-ui/react-popover": "^1.1.23",
     "@radix-ui/react-slider": "^1.4.7",
