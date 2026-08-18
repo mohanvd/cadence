@@ -5,6 +5,48 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-08-18
+
+### Fixed
+
+- Almost no pasted link played. Every one of them was asked for with
+  `crossOrigin`, which makes the request cross-origin and has the browser
+  discard the response of any server that does not answer with a matching
+  header. Most video hosts do not send one, so the video was refused before a
+  byte of it was decoded — and the message shown blamed the format, which was
+  never the problem.
+- The recent list lost the location of every file it listed. The path was
+  written when a file was opened and dropped again when the list was read
+  back, so clicking an entry offered the file picker for a file whose location
+  the player was holding. Posters went the same way, which is why the tiles
+  were grey.
+- An HEVC file said the browser could not play the format. The browser had
+  said it could: `canPlayType`, `MediaSource.isTypeSupported` and
+  `VideoDecoder.isConfigSupported` all answer yes for HEVC on Windows, and the
+  element then refuses the file. They answer from a codec list, not from a
+  decoder. Cadence now learns instead of asking — a codec is trusted until a
+  file fails on it, after which every inspection routes around it — so the
+  first such film costs one failed attempt and none after it do.
+- MP3 audio inside an MP4 was being copied through untouched to a Media Source
+  that will not accept it, even though the same browser plays it from disk.
+- Converting picked the first encoder present in the FFmpeg build rather than
+  the first that works on the machine. `h264_nvenc` is in every build and in no
+  computer without an NVIDIA card, and converting is how HEVC now reaches the
+  browser. Each candidate is made to encode a frame before it is chosen.
+- Asking for the playback pipeline before it had finished starting was answered
+  with "there is none", and the page believed it for the rest of the session.
+  Starting is what runs FFmpeg to survey the machine, and double-clicking a
+  video is the most common way Cadence launches, so the race was easy to lose.
+
+### Changed
+
+- Thumbnails come from FFmpeg, so the recent tiles and the previews on the
+  scrub bar work for every file the player opens rather than only the ones the
+  browser demuxes by itself. Entries already in the list without a picture are
+  filled in on sight.
+- A video played from a link cannot be screenshotted — reading pixels back out
+  of it is what its origin forbids — and says so rather than failing silently.
+
 ## [0.2.2] - 2026-08-18
 
 ### Fixed
