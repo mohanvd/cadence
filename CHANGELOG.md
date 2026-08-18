@@ -5,7 +5,7 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-08-18
 
 ### Added
 
@@ -28,6 +28,17 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and was handed the file as a Blob, so finding out what was in a four gigabyte
   film meant holding four gigabytes.
 
+### Fixed
+
+- Every icon is drawn at one weight. Lucide draws on a 24 unit grid, so a
+  stroke of 2 comes out at 2px in a 24px box and 1.5px in an 18px one, and call
+  sites were choosing a size and a stroke independently. There were seven
+  different weights in one window, which is what made the interface look
+  assembled out of several other people's applications.
+- An update says it is downloading. It used to appear only once the download
+  had finished, and from the outside a slow download and a broken update
+  channel looked exactly alike.
+
 ### Removed
 
 - The WebAssembly demuxer, its 2.5MB runtime, the script that kept the two in
@@ -37,6 +48,14 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   memory cache to beat the click deadline, and a permission negotiation with
   three outcomes. A file has one identity now, its path, and the shell provides
   it for a dropped file, a picked file and a double-clicked file alike.
+- The mini player. It asked for Document Picture-in-Picture, which WebView2
+  does not implement, so pressing it produced an apology and nothing else.
+- Subtitle search, which called an endpoint that answers 501 without an
+  OpenSubtitles key. A menu item that always fails teaches people a feature is
+  broken rather than absent. Local `.srt` and `.vtt` files are unaffected.
+- The phone layout: a compact control bar with notch insets, a thumb-reachable
+  transport, swipe gestures and an orientation lock, in a Windows application.
+  Its breakpoint was 640px, which is this window's own minimum width.
 
 ## [0.1.1]
 
@@ -97,5 +116,6 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   installed program, which is no longer a problem worth solving.
 - A router, for an application with one screen.
 
+[0.2.0]: https://github.com/mohanvd/cadence/releases/tag/v0.2.0
 [0.1.1]: https://github.com/mohanvd/cadence/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mohanvd/cadence/releases/tag/v0.1.0
