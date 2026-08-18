@@ -71,6 +71,13 @@ pub struct Media {
     port: u16,
     /// Chosen once, because choosing means running FFmpeg to ask what it has.
     encoder: String,
+    /// Inspections already done, by path.
+    ///
+    /// Every seek opens a new stream and every stream has to know whether it
+    /// can copy, so without this a scrub down a timeline runs ffprobe once per
+    /// jump. Held for the life of the process: a file that changes underneath a
+    /// player mid-viewing is not a case worth paying for on every seek.
+    probed: std::sync::Mutex<HashMap<String, serde_json::Value>>,
 }
 
 #[derive(Serialize, Clone)]
@@ -105,6 +112,7 @@ impl Media {
             token: uuid::Uuid::new_v4().to_string(),
             port: 0,
             encoder,
+            probed: std::sync::Mutex::new(HashMap::new()),
         })
     }
 
@@ -117,6 +125,12 @@ impl Media {
 
     /// Read a file's streams, duration and metadata.
     pub async fn probe(&self, path: &str) -> Result<serde_json::Value, String> {
+        if let Ok(cache) = self.probed.lock() {
+            if let Some(hit) = cache.get(path) {
+                return Ok(hit.clone());
+            }
+        }
+
         let output = ffmpeg_command(&self.ffprobe)
             .args([
                 "-v",
@@ -135,7 +149,14 @@ impl Media {
             return Err(format!("ffprobe could not read {path}"));
         }
 
-        serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())
+        let probe: serde_json::Value =
+            serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())?;
+
+        if let Ok(mut cache) = self.probed.lock() {
+            cache.insert(path.to_owned(), probe.clone());
+        }
+
+        Ok(probe)
     }
 
     /// The FFmpeg invocation that turns `path` into a fragment stream on stdout.

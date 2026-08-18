@@ -117,10 +117,14 @@ export async function probeSource(source: MediaSourceInput): Promise<ProbeResult
   const copyVideo = payload.cadence?.copyVideo ?? true;
   const copyAudio = payload.cadence?.copyAudio ?? true;
 
-  /* Every track is playable now, which is the whole point. The flag stays on
-     the type because it is what the track menus read, and because a browser
-     source still has tracks nothing can promise anything about. */
+  /* Subtitle streams are left out. They are not carried in the fragments, so
+     listing them would put entries in the subtitle menu that select nothing.
+     Lifting them out of the container is the obvious next thing FFmpeg could be
+     asked for, and until it is asked, the menu should not imply it was.
+
+     Everything else is playable, which is the whole point. */
   const tracks = payload.streams
+    .filter((stream) => stream.codec_type !== 'subtitle')
     .map((stream) => trackFrom(stream, true))
     .filter((track): track is MediaTrack => track !== null);
 

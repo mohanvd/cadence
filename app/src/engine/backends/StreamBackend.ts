@@ -132,6 +132,11 @@ export class StreamBackend extends BaseBackend {
             /* Refused only mid-update, which it cannot be yet. */
           }
         }
+        /* The playhead is moved here rather than by whoever asked for the
+           seek. Before the duration is set the element believes the media is
+           zero seconds long and clamps anything asked of it back to the
+           start. */
+        if (seconds > 0) video.currentTime = seconds;
         void this.pump(url, seconds, generation);
       },
       { once: true },
@@ -390,12 +395,10 @@ export class StreamBackend extends BaseBackend {
       }
     }
 
+    // The fragments are offset back onto the real timeline, so the element ends
+    // up at the timestamp the viewer asked for rather than at zero.
     this.setState({ seeking: true, currentTime: target }, true);
-    void this.openAt(target).then(() => {
-      // The fragments are offset back onto the real timeline, so the element is
-      // asked for the timestamp the viewer asked for rather than for zero.
-      if (this.video) this.video.currentTime = target;
-    });
+    void this.openAt(target);
   }
 
   setVolume(volume: number): void {
@@ -424,10 +427,7 @@ export class StreamBackend extends BaseBackend {
     if (!Number.isFinite(index) || index === this.audioStreamIndex) return;
 
     this.audioStreamIndex = index;
-    const resumeAt = this.video?.currentTime ?? 0;
-    void this.openAt(resumeAt).then(() => {
-      if (this.video) this.video.currentTime = resumeAt;
-    });
+    void this.openAt(this.video?.currentTime ?? 0);
   }
 
   getVideoElement(): HTMLVideoElement | null {

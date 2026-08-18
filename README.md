@@ -14,6 +14,8 @@ applied the next time you restart it.
 
 ## Features
 
+- Plays MP4, MKV, AVI, MOV, WMV, FLV, TS, M2TS, MPEG and more, with the codecs
+  inside them: H.264, HEVC, AV1, AC-3, DTS
 - Drag and drop a video anywhere in the window, or open one from the file dialog
 - Double-click any video file to open it in Cadence
 - Speed control from 0.25× to 4×, remembered across videos
@@ -69,15 +71,25 @@ installs; without it the Rust linker has no `kernel32.lib` to link against.
 
 ```bash
 npm install
-npm run app:dev     # run the player
-npm run app:build   # produce an installer
-npm run site:dev    # run the website
+npm run fetch:ffmpeg  # once, before the first desktop build
+npm run app:dev       # run the player
+npm run app:build     # produce an installer
+npm run site:dev      # run the website
 ```
 
 `npm run dev` serves the interface on its own in a browser, which is a faster
-loop for work that does not touch the desktop shell.
+loop for work that does not touch the desktop shell. Playback there is limited
+to what the browser opens by itself, because the pipeline below lives in the
+shell.
 
-Three things are worth knowing, because none of them has anywhere to say so:
+Four things are worth knowing, because none of them has anywhere to say so:
+
+- Cadence plays what it plays because FFmpeg is bundled with it. The binaries
+  are not in the repository: they are 138MB of somebody else's build output and
+  go stale the moment upstream fixes a decoder, so `npm run fetch:ffmpeg`
+  downloads a pinned LGPL build into `src-tauri/ffmpeg/`. The bundler treats
+  that directory as a resource, and a build without it produces an installer
+  that runs and cannot open a Matroska file.
 
 - `version` in `src-tauri/tauri.conf.json` is a path to `package.json` rather
   than a number. That file is the only place a version is written, so the

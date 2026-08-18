@@ -5,6 +5,39 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Cadence plays the formats it always claimed to. MKV, AVI, WMV, FLV, TS, M2TS
+  and MPEG open, along with the codecs inside them: HEVC, AC-3, DTS and the
+  rest. The installer registered Cadence for all of these and the player
+  accepted four of them, so double-clicking an `.avi` opened a window that then
+  failed on it.
+- FFmpeg is bundled and does the demuxing, in its own process, handing the
+  player fragmented MP4 over a loopback socket.
+
+### Changed
+
+- Nothing is re-encoded unless it has to be. H.264, HEVC and AV1 are copied
+  through untouched and still decode on the graphics card. Only a codec that
+  cannot reach a browser at all is converted, which for audio costs almost
+  nothing. When a video stream does need converting, the encoder comes from
+  what the machine has: NVENC, Quick Sync or AMF before anything on the CPU.
+- Inspecting a file no longer reads it. The previous demuxer ran in the page
+  and was handed the file as a Blob, so finding out what was in a four gigabyte
+  film meant holding four gigabytes.
+
+### Removed
+
+- The WebAssembly demuxer, its 2.5MB runtime, the script that kept the two in
+  step, and the backend whose only job was to explain that a file could not be
+  played. Nothing is refused now, so nothing needs explaining.
+- The browser's File System Access layer: an IndexedDB store of file handles, a
+  memory cache to beat the click deadline, and a permission negotiation with
+  three outcomes. A file has one identity now, its path, and the shell provides
+  it for a dropped file, a picked file and a double-clicked file alike.
+
 ## [0.1.1]
 
 ### Changed
