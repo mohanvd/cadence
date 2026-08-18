@@ -47,6 +47,10 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 /// would trade a free hardware decode for a busy one.
 pub const COPYABLE_VIDEO: &[&str] = &["h264", "hevc", "av1"];
 
+/// Where in a file a representative frame is taken from, as a fraction of its
+/// length. Far enough in to clear titles, fades and distributor logos.
+const POSTER_FRACTION: f64 = 0.12;
+
 /// Audio a browser will play from an MP4 fragment. Everything else, chiefly
 /// AC-3 and DTS, is re-encoded, which costs almost nothing beside video.
 pub const COPYABLE_AUDIO: &[&str] = &["aac", "mp3"];
@@ -235,22 +239,50 @@ pub struct StreamRequest {
 }
 
 /// Ask FFmpeg which encoders this build and this machine actually offer.
+///
+/// Each candidate is made to encode a frame rather than merely appear in
+/// `-encoders`. The listing describes the build, which is the same on every
+/// machine Cadence is installed on; whether `h264_nvenc` can open a session
+/// depends on there being an NVIDIA card in front of it. Choosing off the
+/// listing picks the same encoder everywhere and fails everywhere it is wrong,
+/// and it now fails visibly: converting is how HEVC reaches the browser, not a
+/// rare path taken for unusual audio.
+///
+/// The cost is a handful of sub-second processes, once, on a background task
+/// started before the window is shown.
 async fn pick_encoder(ffmpeg: &PathBuf) -> String {
-    let listing = ffmpeg_command(ffmpeg)
-        .args(["-hide_banner", "-encoders"])
-        .output()
-        .await
-        .ok()
-        .map(|out| String::from_utf8_lossy(&out.stdout).into_owned())
-        .unwrap_or_default();
+    for name in VIDEO_ENCODERS {
+        let works = ffmpeg_command(ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=black:s=256x144",
+                "-c:v",
+                name,
+                "-frames:v",
+                "1",
+                "-f",
+                "null",
+                "-",
+            ])
+            .output()
+            .await
+            .map(|out| out.status.success())
+            .unwrap_or(false);
 
-    VIDEO_ENCODERS
-        .iter()
-        .find(|name| listing.contains(*name))
-        .map(|name| (*name).to_string())
-        // Being listed is not the same as working, but a build with no H.264
-        // encoder at all is not one this project ships.
-        .unwrap_or_else(|| "libopenh264".to_string())
+        if works {
+            return (*name).to_string();
+        }
+    }
+
+    // Every candidate refused, which leaves nothing to convert with. Naming the
+    // software encoder anyway keeps the failure at the file that needs it
+    // rather than at startup, and says what was missing in FFmpeg's own words.
+    "libopenh264".to_string()
 }
 
 // ── The socket ──
@@ -287,8 +319,9 @@ async fn handle(
     request: Request<hyper::body::Incoming>,
     media: Arc<Media>,
 ) -> Result<Response<StreamBody>, Infallible> {
-    if request.uri().path() != "/stream" {
-        return Ok(text(StatusCode::NOT_FOUND, "Cadence serves one route."));
+    let route = request.uri().path().to_owned();
+    if route != "/stream" && route != "/frame" {
+        return Ok(text(StatusCode::NOT_FOUND, "Cadence serves two routes."));
     }
 
     let params = query(request.uri());
@@ -309,11 +342,45 @@ async fn handle(
         .and_then(|value| value.parse::<f64>().ok())
         .filter(|value| value.is_finite() && *value > 0.0)
         .unwrap_or(0.0);
+
+    if route == "/frame" {
+        let width = params
+            .get("w")
+            .and_then(|value| value.parse::<u32>().ok())
+            .unwrap_or(420);
+        let at = (start > 0.0).then_some(start);
+
+        return Ok(match media.frame(&path, at, width).await {
+            Ok(jpeg) => Response::builder()
+                .status(StatusCode::OK)
+                .header("content-type", "image/jpeg")
+                .header("access-control-allow-origin", "*")
+                // Keyed by path and timestamp, so the same request always has
+                // the same answer. Letting the webview keep it is what makes
+                // scrubbing back over a stretch of timeline free.
+                .header("cache-control", "max-age=86400")
+                .body(
+                    Full::new(Bytes::from(jpeg))
+                        .map_err(|never| match never {})
+                        .boxed(),
+                )
+                .expect("a frame response is always well formed"),
+            Err(err) => text(StatusCode::UNPROCESSABLE_ENTITY, &err),
+        });
+    }
+
     let audio = params
         .get("audio")
         .and_then(|value| value.parse::<u32>().ok());
+    /* Absent means yes. The page sends these only to *refuse* a copy, having
+    found that its browser will not decode what would arrive. */
+    let allow_copy_video = params.get("copyv").map(String::as_str) != Some("0");
+    let allow_copy_audio = params.get("copya").map(String::as_str) != Some("0");
 
-    let plan = match media.plan(path, start, audio).await {
+    let plan = match media
+        .plan(path, start, audio, allow_copy_video, allow_copy_audio)
+        .await
+    {
         Ok(plan) => plan,
         Err(err) => return Ok(text(StatusCode::UNPROCESSABLE_ENTITY, &err)),
     };
@@ -418,11 +485,20 @@ impl Media {
     }
 
     /// Decide what has to happen to a file before the page can play it.
+    ///
+    /// `allow_copy_*` is the page's veto. Whether a stream *can* be lifted out
+    /// of the container untouched is decided here; whether the browser on the
+    /// other end will then decode it is something only the page can find out,
+    /// and it has been wrong about often enough to be worth asking. So these
+    /// narrow the decision and can never widen it: a caller cannot talk this
+    /// into copying a codec it just judged uncopyable.
     async fn plan(
         &self,
         path: String,
         start: f64,
         audio: Option<u32>,
+        allow_copy_video: bool,
+        allow_copy_audio: bool,
     ) -> Result<StreamRequest, String> {
         let probe = self.probe(&path).await?;
         if probe
@@ -438,9 +514,76 @@ impl Media {
             path,
             start,
             audio,
-            copy_video,
-            copy_audio,
+            copy_video: copy_video && allow_copy_video,
+            copy_audio: copy_audio && allow_copy_audio,
         })
+    }
+
+    /// How long a file runs, from the inspection that has already been cached.
+    async fn duration(&self, path: &str) -> Option<f64> {
+        self.probe(path)
+            .await
+            .ok()?
+            .get("format")?
+            .get("duration")?
+            .as_str()?
+            .parse::<f64>()
+            .ok()
+            .filter(|value| value.is_finite() && *value > 0.0)
+    }
+
+    /// One frame, as a JPEG, for a thumbnail.
+    ///
+    /// `-ss` before `-i` again, and for the same reason it matters when
+    /// playing: FFmpeg jumps to the nearest keyframe rather than decoding up to
+    /// the timestamp, so a frame from the middle of a four gigabyte film costs
+    /// what a frame from the start of it does.
+    pub async fn frame(&self, path: &str, at: Option<f64>, width: u32) -> Result<Vec<u8>, String> {
+        // No timestamp asks for a frame that represents the file, which is not
+        // the first one: films open on black, on a logo, or on a fade.
+        let seconds = match at {
+            Some(value) => value.max(0.0),
+            None => self.duration(path).await.unwrap_or(0.0) * POSTER_FRACTION,
+        };
+
+        let mut args: Vec<String> = vec!["-hide_banner".into(), "-loglevel".into(), "error".into()];
+        if seconds > 0.0 {
+            args.push("-ss".into());
+            args.push(format!("{seconds:.3}"));
+        }
+        args.extend([
+            "-i".into(),
+            path.to_owned(),
+            "-map".into(),
+            "0:v:0".into(),
+            "-frames:v".into(),
+            "1".into(),
+            "-an".into(),
+            // Height follows the width so the thumbnail keeps the source's
+            // shape; `-2` rounds to something the encoder will accept.
+            "-vf".into(),
+            format!("scale={}:-2", width.clamp(16, 1920)),
+            "-f".into(),
+            "image2".into(),
+            "-c:v".into(),
+            "mjpeg".into(),
+            "-q:v".into(),
+            "6".into(),
+            "pipe:1".into(),
+        ]);
+
+        let output = ffmpeg_command(&self.ffmpeg)
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+            .await
+            .map_err(|err| err.to_string())?;
+
+        if output.stdout.is_empty() {
+            return Err(format!("no frame at {seconds:.3}s in {path}"));
+        }
+        Ok(output.stdout)
     }
 
     /// Bind the loopback socket and start answering on it.

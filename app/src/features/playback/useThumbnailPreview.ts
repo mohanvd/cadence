@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { toPlayableUrl } from '@/lib/desktop';
+import { frameUrl, toPlayableUrl } from '@/lib/desktop';
 import { usePlayerStore } from '@/store/playerStore';
-import type { MediaSourceInput } from '@/engine/types';
+import type { MediaSourceInput, MediaTrack } from '@/engine/types';
 
 /**
  * Frame previews for the scrub bar.
@@ -22,9 +22,11 @@ import type { MediaSourceInput } from '@/engine/types';
  *    back and forth over the same stretch, which is most scrubbing, then costs
  *    nothing after the first pass.
  *
- * Native playback only. The remux and decode backends drive their own pipelines
- * from a single reader, and a second element pointed at the same source would
- * either fail to open it or double the memory a file is already straining.
+ * That second element can only open what the browser demuxes by itself, so it
+ * serves natively-played files and nothing else. Everything else — which is
+ * every Matroska file, and anything holding a codec the browser refuses — asks
+ * the shell for the frame instead. FFmpeg is already open for those, and one
+ * frame from it costs a keyframe seek.
  */
 
 /** Width of a generated thumbnail. Height follows the source's aspect. */
@@ -52,10 +54,14 @@ const EMPTY: ThumbnailPreview = {
   request: () => {},
 };
 
-export function useThumbnailPreview(): ThumbnailPreview {
-  const source = usePlayerStore((s) => s.source);
-  const backend = usePlayerStore((s) => s.backend);
-  const enabled = backend === 'native' && source !== null;
+/**
+ * Frames read from a second, hidden media element.
+ *
+ * Free when it works: the browser already has the file open, so a seek costs a
+ * decode and nothing else. It works only for sources the browser can demux.
+ */
+function useElementPreview(source: MediaSourceInput | null): ThumbnailPreview {
+  const enabled = source !== null;
 
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
@@ -233,14 +239,113 @@ export function useThumbnailPreview(): ThumbnailPreview {
 }
 
 /**
- * Resolve a source to a URL the preview element can open, plus its cleanup.
+ * Frames read from the shell, one FFmpeg call each.
  *
- * The preview is a second `<video>`, so it can only open what the browser can
- * demux by itself. That has always been the case: a Matroska file produced no
- * thumbnails before this went through FFmpeg either, because the hidden element
- * could not read it. What is different is that the frames could now be asked of
- * FFmpeg instead, which would work for every codec. Worth doing, and not done
- * here.
+ * Simpler than the element it stands in for, because there is no decoder to
+ * keep or seek: a timestamp is a URL, and an `<img>` loads it. The shell serves
+ * those with a long cache lifetime and the answer for a given timestamp never
+ * changes, so scrubbing back over a stretch costs one request the first time
+ * and nothing afterwards.
+ */
+function useShellPreview(
+  target: string | null,
+  tracks: readonly MediaTrack[],
+): ThumbnailPreview {
+  const [frame, setFrame] = React.useState<string | null>(null);
+
+  /* Reserved from the inspection rather than measured from the first frame,
+     which is the one advantage of not having an element: the popover is the
+     right shape before any picture has arrived. */
+  const height = React.useMemo(() => {
+    const video = tracks.find((track) => track.type === 'video');
+    return video?.width && video?.height
+      ? Math.round((THUMB_WIDTH * video.height) / video.width)
+      : EMPTY.height;
+  }, [tracks]);
+
+  /** The request being loaded, and the newest one made while it loads. */
+  const inFlightRef = React.useRef(false);
+  const pendingRef = React.useRef<number | null>(null);
+  const liveRef = React.useRef(true);
+
+  React.useEffect(() => {
+    liveRef.current = true;
+    setFrame(null);
+    return () => {
+      liveRef.current = false;
+    };
+  }, [target]);
+
+  const issue = React.useCallback(() => {
+    if (!target || inFlightRef.current) return;
+    const bucket = pendingRef.current;
+    if (bucket === null) return;
+    pendingRef.current = null;
+    inFlightRef.current = true;
+
+    void frameUrl(target, { at: bucket, width: THUMB_WIDTH * 2 })
+      .then((url) => {
+        if (!url) throw new Error('no pipeline');
+        /* Loaded out of sight before it is shown. Handing the URL straight to
+           the popover would swap a drawn thumbnail for an empty box while the
+           next one arrives, which reads as flicker on every pointer move. */
+        return new Promise<string>((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(url);
+          image.onerror = () => reject(new Error('no frame'));
+          image.src = url;
+        });
+      })
+      .then((url) => {
+        if (liveRef.current) setFrame(url);
+      })
+      .catch(() => {
+        /* A timestamp past the end, or a file FFmpeg cannot seek in. The
+           previous frame stays up, which is better than a hole. */
+      })
+      .finally(() => {
+        inFlightRef.current = false;
+        issue();
+      });
+  }, [target]);
+
+  const request = React.useCallback(
+    (time: number | null) => {
+      if (time === null) {
+        pendingRef.current = null;
+        setFrame(null);
+        return;
+      }
+      pendingRef.current = Math.max(0, Math.round(time / BUCKET) * BUCKET);
+      issue();
+    },
+    [issue],
+  );
+
+  if (!target) return EMPTY;
+  return { ready: true, frame, height, request };
+}
+
+/**
+ * Frames for the scrub bar, from whichever side of the app has the file open.
+ */
+export function useThumbnailPreview(): ThumbnailPreview {
+  const source = usePlayerStore((s) => s.source);
+  const backend = usePlayerStore((s) => s.backend);
+  const tracks = usePlayerStore((s) => s.tracks);
+
+  const viaShell = backend === 'stream';
+  const element = useElementPreview(!viaShell && backend === 'native' ? source : null);
+  const shell = useShellPreview(
+    viaShell && source ? (source.kind === 'path' ? source.path : source.kind === 'url' ? source.url : null) : null,
+    tracks,
+  );
+
+  return viaShell ? shell : element;
+}
+
+/**
+ * Resolve a source to a URL the preview element can open, plus its cleanup.
  */
 async function sourceToUrl(
   source: MediaSourceInput,

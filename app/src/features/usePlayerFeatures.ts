@@ -103,8 +103,8 @@ export function usePlayerFeatures({ fileKey, onToast }: PlayerFeatureOptions) {
     const video = videoRef.current;
     if (!video?.videoWidth) return;
     const { captureScreenshot } = await import('@/utils/screenshot');
-    captureScreenshot(video);
-    onToast('Screenshot saved');
+    const saved = captureScreenshot(video);
+    onToast(saved ? 'Screenshot saved' : 'A video played from a link cannot be captured');
   }, [onToast, videoRef]);
 
   /** Load a dragged-in subtitle file. */

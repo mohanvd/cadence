@@ -159,14 +159,23 @@ export class NativeBackend extends BaseBackend {
       const url = URL.createObjectURL(source.file);
       this.objectUrl = url;
       video.src = url;
-    } else {
-      // Needed for canvas screenshots and the ambient layer to not taint.
+    } else if (source.kind === 'path') {
+      /* Asked for so canvas screenshots and the ambient layer do not taint. The
+         asset protocol is ours and answers it, so this costs nothing here. */
       video.crossOrigin = 'anonymous';
       /* A path becomes an asset URL, which streams from disk and honours range
          requests. Reading the file in first would mean holding a whole film in
          memory to play it. */
-      video.src =
-        source.kind === 'path' ? await toPlayableUrl(source.path) : source.url;
+      video.src = await toPlayableUrl(source.path);
+    } else {
+      /* A pasted link gets no `crossOrigin`, and that is the whole fix for
+         links: asking for it makes the request cross-origin, and a server that
+         does not answer with the matching header has its video rejected before
+         a byte is decoded. Most video hosts do not send that header, so every
+         link but a handful failed with what looked like a codec error.
+         Screenshots and the ambient glow are what a remote file gives up in
+         exchange, and it is the right way round: playing is the feature. */
+      video.src = source.url;
     }
     video.load();
   }

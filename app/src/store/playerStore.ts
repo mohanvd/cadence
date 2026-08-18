@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createEngine, describeBackend } from '@/engine/createEngine';
+import { decodes, markUndecodable } from '@/engine/decoding';
+import type { ProbeOptions } from '@/engine/probe';
 import type {
   BackendKind,
   MediaSourceInput,
@@ -84,6 +86,193 @@ const INITIAL: PlayerSnapshot = {
 /** Token guarding against a slow probe resolving after a newer one started. */
 let loadToken = 0;
 
+/**
+ * How many times a failed open is allowed to change its mind.
+ *
+ * One for "the browser cannot really decode this after all", which puts FFmpeg
+ * in front of the file, and one for "and it cannot decode what FFmpeg copied
+ * out either", which converts that stream instead of copying it. Past two the
+ * file is genuinely unplayable, and saying so is more use than trying again.
+ */
+const MAX_RECOVERIES = 2;
+
+/**
+ * Record what a failed attempt just proved.
+ *
+ * Recovery is not a special case anywhere else in the engine: inspection is
+ * pure, and the only reason a second look at the same file reaches a different
+ * answer is that this ran in between. It returns the options for the next
+ * attempt, or null when it has nothing left to learn and the failure is real.
+ */
+function learn(
+  source: MediaSourceInput,
+  probe: ProbeResult,
+  forceStream: boolean,
+): { forceStream: boolean } | null {
+  const video = probe.tracks.find((track) => track.type === 'video');
+  const audio = probe.tracks.find((track) => track.type === 'audio');
+
+  /* Distrust whichever stream was being handed over untouched, video first:
+     it is the one browsers are wrong about, and the one that costs the most to
+     convert when they are not. */
+  if (probe.copyVideo && video && decodes(video.codec)) {
+    markUndecodable(video.codec);
+    return { forceStream };
+  }
+  if (probe.copyAudio && audio && decodes(audio.codec)) {
+    markUndecodable(audio.codec);
+    return { forceStream };
+  }
+
+  /* A link, which is handed straight to the browser without being inspected.
+     There is no codec to distrust, so the answer is the blunt one: look at it
+     properly and put FFmpeg in front of it.
+
+     Only a link. A *path* with no tracks is one ffprobe already failed to read,
+     and FFmpeg will not read it any better on a second pass — retrying there
+     would replace the browser's description of what is wrong with a worse
+     one. */
+  if (!forceStream && source.kind === 'url' && probe.tracks.length === 0) {
+    return { forceStream: true };
+  }
+
+  return null;
+}
+
+/**
+ * One go at opening a source, with whatever the previous go taught us.
+ *
+ * Separate from `openSource` so a failure can simply do it again: everything
+ * from the inspection down is rebuilt, which is what makes a retry honest
+ * rather than a patch applied to a half-built engine.
+ */
+async function attempt(
+  source: MediaSourceInput,
+  container: HTMLElement,
+  token: number,
+  options: ProbeOptions,
+  recoveries: number,
+): Promise<void> {
+  const set = usePlayerStore.setState;
+  const get = usePlayerStore.getState;
+
+  // Tear the previous engine down first so its decoder buffers are released
+  // before the next one allocates.
+  get().engine?.destroy();
+  set({
+    ...INITIAL,
+    loading: true,
+    engine: null,
+    videoEl: null,
+    source,
+    probe: null,
+    backend: null,
+    tracks: [],
+    selectedAudioId: null,
+    selectedSubtitleId: null,
+    error: null,
+  });
+
+  let created;
+  try {
+    created = await createEngine(source, options);
+  } catch (err) {
+    if (token !== loadToken) return;
+    set({
+      loading: false,
+      error: err instanceof Error ? err.message : 'Could not open this file.',
+    });
+    return;
+  }
+
+  // A newer source was opened while we were probing; discard this one.
+  if (token !== loadToken) {
+    created.engine.destroy();
+    return;
+  }
+
+  const { engine, probe } = created;
+
+  engine.on('statechange', (state) => {
+    if (token !== loadToken) return;
+    set({
+      paused: state.paused,
+      currentTime: state.currentTime,
+      duration: state.duration,
+      buffered: state.buffered,
+      seeking: state.seeking,
+      loading: state.loading,
+      ended: state.ended,
+      volume: state.volume,
+      muted: state.muted,
+      rate: state.rate,
+    });
+  });
+
+  engine.on('loadedmetadata', ({ duration, tracks }) => {
+    if (token !== loadToken) return;
+    // Prefer the container's declared duration; the probe's hint is a
+    // fallback for formats where the element reports Infinity.
+    const resolved =
+      Number.isFinite(duration) && duration > 0 ? duration : (probe.durationHint ?? 0);
+    const merged = tracks.length > 0 ? tracks : probe.tracks;
+    set({
+      duration: resolved,
+      tracks: merged,
+      selectedAudioId:
+        merged.find((t) => t.type === 'audio' && t.playable)?.id ?? null,
+    });
+  });
+
+  engine.on('error', ({ message, fatal }) => {
+    if (token !== loadToken) return;
+
+    /* A fatal error here is usually not the file's fault but the routing's:
+       the browser said it would take a codec and then would not. Ask again
+       knowing that, rather than showing an apology built on the same wrong
+       assumption. */
+    if (fatal && recoveries < MAX_RECOVERIES) {
+      const next = learn(source, probe, options.forceStream ?? false);
+      if (next) {
+        void attempt(source, container, token, next, recoveries + 1);
+        return;
+      }
+    }
+
+    set({ error: message, loading: false });
+  });
+
+  engine.attach(container);
+  // Publish the element only after attach, when the backend has created it.
+  set({
+    engine,
+    videoEl: engine.getVideoElement(),
+    probe,
+    backend: probe.backend,
+    tracks: probe.tracks,
+  });
+
+  try {
+    await engine.load(source);
+    if (token !== loadToken) return;
+
+    /* Then start it.
+       
+       Opening a film and being handed a still of its first frame is not what
+       double-clicking a video means anywhere else, and it is not what this
+       application's own front page says happens. The call is allowed to fail:
+       an engine that will not start without a gesture leaves the picture
+       exactly where it is, which is where it would have been anyway. */
+    void engine.play().catch(() => {});
+  } catch (err) {
+    if (token !== loadToken) return;
+    set({
+      loading: false,
+      error: err instanceof Error ? err.message : 'Playback failed.',
+    });
+  }
+}
+
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
   ...INITIAL,
   engine: null,
@@ -98,109 +287,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   openSource: async (source, container) => {
     const token = ++loadToken;
-
-    // Tear the previous engine down first so its decoder and WASM buffers are
-    // released before the next one allocates.
-    get().engine?.destroy();
-    set({
-      ...INITIAL,
-      loading: true,
-      engine: null,
-      videoEl: null,
-      source,
-      probe: null,
-      backend: null,
-      tracks: [],
-      selectedAudioId: null,
-      selectedSubtitleId: null,
-      error: null,
-    });
-
-    let created;
-    try {
-      created = await createEngine(source);
-    } catch (err) {
-      if (token !== loadToken) return;
-      set({
-        loading: false,
-        error: err instanceof Error ? err.message : 'Could not open this file.',
-      });
-      return;
-    }
-
-    // A newer source was opened while we were probing; discard this one.
-    if (token !== loadToken) {
-      created.engine.destroy();
-      return;
-    }
-
-    const { engine, probe } = created;
-
-    engine.on('statechange', (state) => {
-      if (token !== loadToken) return;
-      set({
-        paused: state.paused,
-        currentTime: state.currentTime,
-        duration: state.duration,
-        buffered: state.buffered,
-        seeking: state.seeking,
-        loading: state.loading,
-        ended: state.ended,
-        volume: state.volume,
-        muted: state.muted,
-        rate: state.rate,
-      });
-    });
-
-    engine.on('loadedmetadata', ({ duration, tracks }) => {
-      if (token !== loadToken) return;
-      // Prefer the container's declared duration; the probe's hint is a
-      // fallback for formats where the element reports Infinity.
-      const resolved =
-        Number.isFinite(duration) && duration > 0 ? duration : (probe.durationHint ?? 0);
-      const merged = tracks.length > 0 ? tracks : probe.tracks;
-      set({
-        duration: resolved,
-        tracks: merged,
-        selectedAudioId:
-          merged.find((t) => t.type === 'audio' && t.playable)?.id ?? null,
-      });
-    });
-
-    engine.on('error', ({ message }) => {
-      if (token !== loadToken) return;
-      set({ error: message, loading: false });
-    });
-
-    engine.attach(container);
-    // Publish the element only after attach, when the backend has created it.
-    set({
-      engine,
-      videoEl: engine.getVideoElement(),
-      probe,
-      backend: probe.backend,
-      tracks: probe.tracks,
-    });
-
-    try {
-      await engine.load(source);
-      if (token !== loadToken) return;
-
-      /* Then start it.
-         
-         Opening a film and being handed a still of its first frame is not what
-         double-clicking a video means anywhere else, and it is not what this
-         application's own front page says happens. The call is allowed to fail:
-         an engine that will not start without a gesture leaves the picture
-         exactly where it is, which is where it would have been anyway. */
-      void engine.play().catch(() => {});
-    } catch (err) {
-      if (token !== loadToken) return;
-      set({
-        loading: false,
-        error: err instanceof Error ? err.message : 'Playback failed.',
-      });
-    }
+    await attempt(source, container, token, {}, 0);
   },
 
   closeSource: () => {

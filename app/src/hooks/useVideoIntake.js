@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { getRecentFiles } from '../utils/storage';
+import { getRecentFiles, setRecentPoster } from '../utils/storage';
+import { capturePoster } from '../utils/poster';
 import { isDesktop, pickVideoFile, onFileDrop } from '../lib/desktop';
 
 /**
@@ -69,9 +70,51 @@ export function useVideoIntake({
   const fileInputRef = useRef(null);
   const dragDepth = useRef(0);
 
+  const posterAttempted = useRef(new Set());
+
   const refreshRecent = useCallback(() => {
     setRecentFiles(getRecentFiles());
   }, []);
+
+  /* Fill in the tiles that have no picture yet.
+   *
+   * Entries are given one when their file is opened, so a list built before
+   * this existed — or by a version that dropped the field on the way out of
+   * storage — is a wall of grey until every one of them is watched again.
+   * FFmpeg can read a frame from any of them right now, so it does.
+   *
+   * Each path is tried once per session. Without that the effect would chase
+   * its own tail: a file that cannot produce a frame stays in the missing list,
+   * and re-reading the list is what schedules the next attempt. */
+  useEffect(() => {
+    if (!isDesktop()) return undefined;
+
+    const missing = recentFiles.filter(
+      (file) => file.path && !file.poster && !posterAttempted.current.has(file.path)
+    );
+    if (!missing.length) return undefined;
+    missing.forEach((file) => posterAttempted.current.add(file.path));
+
+    let cancelled = false;
+    void (async () => {
+      let filled = false;
+      // One at a time: five FFmpeg processes at once, while a film is also
+      // being decoded, is a lot of machine to spend on thumbnails.
+      for (const file of missing) {
+        const poster = await capturePoster(file.path);
+        if (cancelled) return;
+        if (poster) {
+          setRecentPoster(file.name, poster);
+          filled = true;
+        }
+      }
+      if (filled) refreshRecent();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [recentFiles, refreshRecent]);
 
   // A load failure reported by the player replaces any local validation error,
   // so the user is never shown two contradictory messages at once.

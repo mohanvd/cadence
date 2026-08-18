@@ -38,7 +38,7 @@ bytes = "1"
 futures-util = "0.3"
 percent-encoding = "2"
 uuid = { version = "1", features = ["v4"] }
-tokio = { version = "1", features = ["io-util", "net", "process", "rt"] }
+tokio = { version = "1", features = ["io-util", "net", "process", "rt", "time"] }
 
 # Desktop-only. The updater has no meaning on mobile, where the store owns
 # installation, and single-instance is a windowing concept that does not exist

@@ -1,6 +1,14 @@
 import { isDesktop, probeMedia } from '@/lib/desktop';
-import { canPlayNatively, extensionOf, nativeMimeForExtension } from './capabilities';
-import type { MediaSourceInput, MediaTrack, ProbeResult } from './types';
+import {
+  canPlayNatively,
+  containerCodecString,
+  extensionOf,
+  mediaSourceAccepts,
+  mseCodecString,
+  nativeMimeForExtension,
+} from './capabilities';
+import { decodes } from './decoding';
+import type { BackendKind, MediaSourceInput, MediaTrack, ProbeResult } from './types';
 
 /**
  * Decide how a source should be played.
@@ -39,18 +47,68 @@ interface ProbePayload {
   cadence?: { copyVideo?: boolean; copyAudio?: boolean };
 }
 
+interface Route {
+  backend: BackendKind;
+  copyVideo: boolean;
+  copyAudio: boolean;
+}
+
 /**
- * Fast path: can a bare `<video>` element handle this without any inspection?
+ * Reconcile three opinions about a file into one route.
  *
- * Deliberately conservative. It only answers yes for containers the browser
- * demuxes itself, and only by extension, so it costs nothing. A `.mkv` never
- * passes even though most hold perfectly ordinary H.264, because no browser
- * demuxes Matroska.
+ * The shell says which streams it can lift out of the container untouched. The
+ * browser says which it will accept. And `decoding` says which it has actually
+ * been seen to decode on this machine, which is the only one of the three ever
+ * tested against a real file.
+ *
+ * They disagree more often than they sound like they would. This webview
+ * reports HEVC as playable and then refuses an HEVC file outright; it plays
+ * MP3 from disk and refuses the same audio through Media Source. Asking one of
+ * the three and believing it is how a file ends up at a decoder that has no
+ * use for it.
  */
-export function canProbablyPlayNatively(source: MediaSourceInput): boolean {
-  const mime = nativeMimeForExtension(extensionOf(source.name));
-  if (!mime) return false;
-  return canPlayNatively(mime);
+function route(
+  source: MediaSourceInput,
+  tracks: readonly MediaTrack[],
+  shellCopyVideo: boolean,
+  shellCopyAudio: boolean,
+): Route {
+  const video = tracks.find((track) => track.type === 'video');
+  const audio = tracks.find((track) => track.type === 'audio');
+  const trusted = decodes(video?.codec) && decodes(audio?.codec);
+
+  /* A plain element, if the browser demuxes this container *and* takes what is
+     inside it. The container alone was the old test, and it is the one that
+     sent an HEVC MP4 to an element that could not decode it. */
+  const containerMime = nativeMimeForExtension(extensionOf(source.name));
+  const nativeMime = containerMime && containerCodecString(containerMime, tracks);
+  if (trusted && shellCopyVideo && shellCopyAudio && nativeMime && canPlayNatively(nativeMime)) {
+    return { backend: 'native', copyVideo: true, copyAudio: true };
+  }
+
+  /* Otherwise FFmpeg, copying whatever Media Source will take and converting
+     the rest. What is tested here is the exact string the stream backend will
+     declare, so the answer and the declaration cannot drift apart. */
+  const accepts = (copyVideo: boolean, copyAudio: boolean): boolean =>
+    (!copyVideo || decodes(video?.codec)) &&
+    (!copyAudio || decodes(audio?.codec)) &&
+    mediaSourceAccepts(mseCodecString(tracks, { copyVideo, copyAudio }));
+
+  // Cheapest first, and converting video is by far the more expensive of the
+  // two, so audio is given up before it.
+  const candidates: [boolean, boolean][] = [
+    [shellCopyVideo, shellCopyAudio],
+    [shellCopyVideo, false],
+    [false, shellCopyAudio],
+    [false, false],
+  ];
+  for (const [copyVideo, copyAudio] of candidates) {
+    if (accepts(copyVideo, copyAudio)) return { backend: 'stream', copyVideo, copyAudio };
+  }
+
+  // Nothing was accepted, which should not happen for H.264 and AAC. Converting
+  // both is the honest last try, and it fails loudly rather than silently.
+  return { backend: 'stream', copyVideo: false, copyAudio: false };
 }
 
 function trackFrom(stream: ProbeStream, playable: boolean): MediaTrack | null {
@@ -75,15 +133,34 @@ function trackFrom(stream: ProbeStream, playable: boolean): MediaTrack | null {
   };
 }
 
+export interface ProbeOptions {
+  /**
+   * Inspect a link with FFmpeg and play it through FFmpeg, rather than handing
+   * it to the browser.
+   *
+   * Off by default, and deliberately: a link the browser can open is opened
+   * faster, seeks by byte range, and costs no second process. This is what the
+   * player falls back to once the browser has already refused it, at which
+   * point a round trip to ffprobe is no longer the expensive option.
+   */
+  forceStream?: boolean;
+}
+
 /**
  * Inspect a source and say how to play it.
  *
- * Only a path can be inspected, because only a path is something FFmpeg can
- * open. A `File` or a remote URL is handed to the browser as-is, which is all
- * that was ever possible for them.
+ * FFmpeg opens paths and URLs alike, so both can be inspected. A `File` cannot:
+ * it is a handle inside the page with no name on disk, and it goes to the
+ * browser as-is because that is the only thing it can go to.
  */
-export async function probeSource(source: MediaSourceInput): Promise<ProbeResult> {
-  if (source.kind !== 'path' || !isDesktop()) {
+export async function probeSource(
+  source: MediaSourceInput,
+  { forceStream = false }: ProbeOptions = {},
+): Promise<ProbeResult> {
+  const target =
+    source.kind === 'path' ? source.path : forceStream && source.kind === 'url' ? source.url : null;
+
+  if (target === null || !isDesktop()) {
     return {
       container: extensionOf(source.name),
       tracks: [],
@@ -95,7 +172,7 @@ export async function probeSource(source: MediaSourceInput): Promise<ProbeResult
     };
   }
 
-  const payload = (await probeMedia(source.path)) as ProbePayload | null;
+  const payload = (await probeMedia(target)) as ProbePayload | null;
 
   /* Inspection failing is not a reason to refuse the file. FFmpeg is often
      stricter than the browser about a damaged header, and a real playback
@@ -128,17 +205,19 @@ export async function probeSource(source: MediaSourceInput): Promise<ProbeResult
     .map((stream) => trackFrom(stream, true))
     .filter((track): track is MediaTrack => track !== null);
 
-  const nativeContainer = canProbablyPlayNatively(source);
-  const backend = nativeContainer && copyVideo && copyAudio ? 'native' : 'stream';
+  const chosen = route(source, tracks, copyVideo, copyAudio);
+  // Asked for only after the browser has refused this source once, so letting
+  // the route send it back there would be repeating a failure.
+  const backend = forceStream ? 'stream' : chosen.backend;
 
   return {
     container,
     tracks,
     durationHint: Number.isFinite(duration) && duration > 0 ? duration : null,
     backend,
-    reason: describe(backend, copyVideo, copyAudio),
-    copyVideo,
-    copyAudio,
+    reason: describe(backend, chosen.copyVideo, chosen.copyAudio),
+    copyVideo: chosen.copyVideo,
+    copyAudio: chosen.copyAudio,
   };
 }
 

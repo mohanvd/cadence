@@ -3,7 +3,7 @@ import { addRecentFile, clearBookmarkStorage } from './utils/storage';
 import { capturePoster } from './utils/poster';
 import { useToast } from './hooks/useToast';
 import { useAppUpdates } from './hooks/useAppUpdates';
-import { isDesktop, onOpenFile, takeLaunchFile, toPlayableUrl, basename } from './lib/desktop';
+import { isDesktop, onOpenFile, takeLaunchFile, basename } from './lib/desktop';
 import Home from './screens/Home';
 import TitleBar from './components/TitleBar';
 import { PlayerSurface } from './components/player/PlayerSurface';
@@ -61,12 +61,11 @@ export default function App() {
     addRecentFile({ name, path });
     setPlayerOpen(true);
 
-    /* Then, without holding up playback, take a still for the tile. This goes
-       through the asset URL rather than the playback pipeline, so it only
-       yields a frame for a container the browser can open by itself. Every
-       failure resolves to null and the tile keeps its placeholder. */
-    void toPlayableUrl(path)
-      .then(capturePoster)
+    /* Then, without holding up playback, take a still for the tile. FFmpeg
+       reads the frame, so it works for every file the player will open rather
+       than only the ones the browser demuxes. Every failure resolves to null
+       and the tile keeps its placeholder. */
+    void capturePoster(path)
       .then((poster) => {
         if (poster) addRecentFile({ name, path, poster });
       })

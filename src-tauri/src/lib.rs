@@ -7,19 +7,58 @@ use tauri::{Emitter, Manager};
 
 mod media;
 
-/// The FFmpeg pipeline, once it has bound its socket.
+/// The FFmpeg pipeline, and whether it is still being built.
 ///
-/// Absent when the binaries could not be found or the socket could not be
-/// opened. Playback then falls back to what the webview can open on its own,
+/// `Unavailable` when the binaries could not be found or the socket could not
+/// be opened. Playback then falls back to what the webview can open on its own,
 /// which is MP4 and WebM: less than the player promises, but a window that
 /// still works beats one that refuses to start.
-struct MediaState(std::sync::Mutex<Option<std::sync::Arc<media::Media>>>);
+enum Pipeline {
+    Starting,
+    Ready(std::sync::Arc<media::Media>),
+    Unavailable,
+}
 
-/// Where the page should fetch streams from, and the token that lets it.
+struct MediaState(std::sync::Mutex<Pipeline>);
+
+/// How long a caller will wait for startup before giving up on it.
+const PIPELINE_WAIT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// The pipeline, once startup has settled one way or the other.
+///
+/// Waiting is the whole point of this function. Startup runs FFmpeg several
+/// times to find out what this machine can encode, and a page that asks the
+/// moment it loads gets there first — as does anyone who double-clicked a video
+/// to launch the app, which is the most common way it starts. Answering "there
+/// is no pipeline" while one is being built is a lie the page has no way to
+/// tell from the truth, and it believes it for as long as it runs.
+async fn pipeline(state: &tauri::State<'_, MediaState>) -> Option<std::sync::Arc<media::Media>> {
+    let deadline = std::time::Instant::now() + PIPELINE_WAIT;
+    loop {
+        {
+            // Scoped so the guard is dropped before the sleep below: a lock
+            // held across an await is a lock held for fifty milliseconds.
+            let guard = state.0.lock().ok()?;
+            match &*guard {
+                Pipeline::Ready(media) => return Some(media.clone()),
+                Pipeline::Unavailable => return None,
+                Pipeline::Starting => {}
+            }
+        }
+        if std::time::Instant::now() >= deadline {
+            return None;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+}
+
+/// Where the page should fetch streams and frames from, and the token that
+/// admits it.
 #[tauri::command]
-fn media_endpoint(state: tauri::State<'_, MediaState>) -> Option<media::Endpoint> {
-    let guard = state.0.lock().ok()?;
-    guard.as_ref().map(|media| media.endpoint())
+async fn media_endpoint(
+    state: tauri::State<'_, MediaState>,
+) -> Result<Option<media::Endpoint>, ()> {
+    Ok(pipeline(&state).await.map(|media| media.endpoint()))
 }
 
 /// Everything FFmpeg can tell us about a file: streams, codecs, languages,
@@ -29,11 +68,7 @@ async fn media_probe(
     state: tauri::State<'_, MediaState>,
     path: String,
 ) -> Result<serde_json::Value, String> {
-    let media = {
-        let guard = state.0.lock().map_err(|_| "media state is poisoned")?;
-        guard.clone()
-    };
-    match media {
+    match pipeline(&state).await {
         Some(media) => media.describe(&path).await,
         None => Err("playback support is not available".into()),
     }
@@ -95,7 +130,7 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_dialog::init())
         .manage(PendingOpen(Mutex::new(launch_file)))
-        .manage(MediaState(Mutex::new(None)))
+        .manage(MediaState(Mutex::new(Pipeline::Starting)))
         .invoke_handler(tauri::generate_handler![
             take_launch_file,
             media_endpoint,
@@ -116,15 +151,21 @@ pub fn run() {
                     Err(err) => Err(err.to_string()),
                 };
 
-                match started {
-                    Ok(media) => {
-                        if let Some(state) = handle.try_state::<MediaState>() {
-                            if let Ok(mut slot) = state.0.lock() {
-                                *slot = Some(media);
-                            }
-                        }
+                let settled = match started {
+                    Ok(media) => Pipeline::Ready(media),
+                    Err(err) => {
+                        eprintln!("Cadence: no playback pipeline ({err})");
+                        Pipeline::Unavailable
                     }
-                    Err(err) => eprintln!("Cadence: no playback pipeline ({err})"),
+                };
+
+                // Recorded either way. Leaving it on `Starting` after a failure
+                // would make every caller wait out the full timeout for an
+                // answer already known.
+                if let Some(state) = handle.try_state::<MediaState>() {
+                    if let Ok(mut slot) = state.0.lock() {
+                        *slot = settled;
+                    }
                 }
             });
 
