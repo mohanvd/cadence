@@ -8,7 +8,7 @@ import Home from './screens/Home';
 import TitleBar from './components/TitleBar';
 import { PlayerSurface } from './components/player/PlayerSurface';
 import Toast from './components/Toast';
-import UpdateBanner from './components/UpdateBanner';
+import UpdatePill from './components/UpdatePill';
 
 /*
  * The install prompt that used to live here has gone with the progressive web
@@ -22,9 +22,9 @@ export default function App() {
   const [urlLoadError, setUrlLoadError] = useState('');
   const { toast, showToast } = useToast();
   const {
-    updateReady,
     version: updateVersion,
     status: updateStatus,
+    progress: updateProgress,
     error: updateError,
     installAndRestart,
   } = useAppUpdates();
@@ -128,9 +128,14 @@ export default function App() {
 
       <Toast toast={toast} />
 
-      {updateReady && (
-        <UpdateBanner version={updateVersion} onInstall={installAndRestart} />
-      )}
+      {/* Decides for itself whether there is anything to say. Downloading and
+          ready are both worth a word; idle and up to date are not. */}
+      <UpdatePill
+        status={updateStatus}
+        version={updateVersion}
+        progress={updateProgress}
+        onInstall={installAndRestart}
+      />
     </div>
   );
 }

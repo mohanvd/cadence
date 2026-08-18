@@ -308,57 +308,127 @@ video::cue {
   transition: opacity 300ms ease;
 }
 
-/* ── Update banner ── */
+/* ── Update pill ── */
 /* Bottom right rather than bottom centre: the toast owns the centre, and the
    two can be on screen at the same time. */
-.update-banner {
+.update-pill {
   position: fixed;
   bottom: 24px;
   right: 24px;
   z-index: 100;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  max-width: min(320px, calc(100vw - 48px));
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
   background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px 8px 16px;
-  font-size: 14px;
-  color: var(--text);
-  font-family: Inter, sans-serif;
   box-shadow: var(--shadow-dropdown);
+  font-family: Inter, sans-serif;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
   animation: fade-in 200ms ease-out;
+  transition: border-color 150ms ease, background 150ms ease;
 }
 
-.update-banner__text {
+.update-pill:hover {
+  border-color: var(--border-2);
+  background: var(--surface-2);
+}
+
+.update-pill:focus-visible {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The download is a statement, not an offer: nothing to press, so nothing that
+   looks pressable. */
+.update-pill--working {
+  cursor: default;
+  color: var(--text-2);
+}
+
+.update-pill--working:hover {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.update-pill__label {
+  font-size: 13px;
   white-space: nowrap;
 }
 
-.update-banner__action {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  color: var(--accent);
-  cursor: pointer;
-}
-
-.update-banner__action:hover {
-  text-decoration: underline;
-}
-
-.update-banner__dismiss {
-  background: none;
-  border: none;
-  padding: 0 4px;
-  font-size: 18px;
-  line-height: 1;
-  color: var(--text-2);
-  cursor: pointer;
-}
-
-.update-banner__dismiss:hover {
+.update-pill__mark {
+  display: flex;
+  flex: none;
   color: var(--text);
+}
+
+.update-pill__stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.update-pill__title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.update-pill__version {
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--text-2);
+}
+
+/* Pushed to the far edge, and dim until the pill is hovered: it is a hint about
+   what pressing does, not a second control beside the first. */
+.update-pill__go {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-2);
+  transition: color 150ms ease, transform 150ms ease;
+}
+
+.update-pill:hover .update-pill__go {
+  color: var(--text);
+  transform: translateX(2px);
+}
+
+.update-ring {
+  flex: none;
+  /* Zero is at three o'clock without this, so a download would appear to start
+     a quarter of the way round. */
+  transform: rotate(-90deg);
+}
+
+.update-ring__track,
+.update-ring__fill {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.update-ring__track {
+  stroke: var(--border-2);
+}
+
+.update-ring__fill {
+  stroke: var(--accent);
+  transition: stroke-dashoffset 200ms ease;
+}
+
+.update-ring--unknown {
+  animation: spin 900ms linear infinite;
+}
+
+.update-ring--unknown .update-ring__fill {
+  transition: none;
 }
 
 /* ── Loading & skeletons ── */
