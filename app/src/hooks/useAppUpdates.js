@@ -17,7 +17,11 @@ import { isDesktop } from '../lib/desktop';
 export function useAppUpdates() {
   const [status, setStatus] = useState(/** @type {UpdateStatus} */ ('idle'));
   const [version, setVersion] = useState('');
-  const [progress, setProgress] = useState(0);
+  /* Null means the size is genuinely unknown, which is different from zero and
+     has to stay different: a download that has not delivered a byte yet is at
+     the start of something measurable, and showing it as unmeasurable spins a
+     ring for a moment and then snaps to a percentage. */
+  const [progress, setProgress] = useState(null);
   const [error, setError] = useState('');
   const staged = useRef(null);
 
@@ -40,6 +44,7 @@ export function useAppUpdates() {
 
         setVersion(update.version);
         setStatus('downloading');
+        setProgress(0);
 
         // `contentLength` arrives with the Started event and is absent for
         // servers that do not send one, so the bar is only driven when the
@@ -50,6 +55,9 @@ export function useAppUpdates() {
         await update.download((event) => {
           if (event.event === 'Started') {
             total = event.data.contentLength ?? 0;
+            // Some servers send no length. Nothing can be drawn as a fraction
+            // of an unknown, so the ring is told to stop pretending.
+            if (total <= 0) setProgress(null);
           } else if (event.event === 'Progress') {
             downloaded += event.data.chunkLength;
             if (total > 0) setProgress(Math.min(1, downloaded / total));

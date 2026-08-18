@@ -418,7 +418,8 @@ video::cue {
 }
 
 .update-ring--unknown {
-  animation: spin 900ms linear infinite;
+  /* Unhurried on purpose. A fast spinner reads as a stall being covered up. */
+  animation: spin 1400ms linear infinite;
 }
 
 .update-ring--unknown .update-ring__fill {

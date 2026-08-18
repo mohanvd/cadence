@@ -43,13 +43,17 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 /**
  * The download, as a ring.
  *
- * `contentLength` is absent from some servers, and a bar that cannot know how
- * full it is has no honest position to sit at. When the total is unknown the
- * ring gives up on precision and simply turns, which at least says the right
- * thing: something is happening, and nobody knows how much longer.
+ * `contentLength` is absent from some servers, and a ring that cannot know how
+ * full it is has no honest position to sit at. Only then does it give up on
+ * precision and simply turn, which at least says the right thing: something is
+ * happening, and nobody knows how much longer.
+ *
+ * Zero is not that case. A download that has not delivered a byte yet is at the
+ * start of something measurable, and treating it as unmeasurable spins the ring
+ * for a moment before snapping to a percentage.
  */
 function Ring({ value }) {
-  const known = typeof value === 'number' && value > 0;
+  const known = typeof value === 'number';
 
   return (
     <svg
@@ -66,7 +70,7 @@ function Ring({ value }) {
         cy="9"
         r={RADIUS}
         strokeDasharray={known ? CIRCUMFERENCE : CIRCUMFERENCE * 0.25}
-        strokeDashoffset={known ? CIRCUMFERENCE * (1 - Math.min(1, value)) : 0}
+        strokeDashoffset={known ? CIRCUMFERENCE * (1 - Math.min(1, Math.max(0, value))) : 0}
       />
     </svg>
   );
