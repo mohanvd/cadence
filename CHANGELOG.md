@@ -5,6 +5,16 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-18
+
+### Fixed
+
+- The update ring spun for a moment before showing a percentage. Zero progress
+  was being read as unknown progress, and those are different: a download that
+  has not delivered a byte yet is at the start of something measurable. It now
+  only turns when the server genuinely sends no size, and turns more slowly
+  when it does, because a fast spinner reads as a stall being covered up.
+
 ## [0.2.0] - 2026-08-18
 
 ### Added
@@ -116,6 +126,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   installed program, which is no longer a problem worth solving.
 - A router, for an application with one screen.
 
+[0.2.1]: https://github.com/mohanvd/cadence/releases/tag/v0.2.1
 [0.2.0]: https://github.com/mohanvd/cadence/releases/tag/v0.2.0
 [0.1.1]: https://github.com/mohanvd/cadence/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mohanvd/cadence/releases/tag/v0.1.0
