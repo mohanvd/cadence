@@ -96,6 +96,15 @@ export class StreamBackend extends BaseBackend {
     const video = this.video;
     if (!video) return;
 
+    /* Read before anything is torn down.
+     *
+     * Rebuilding the Media Source hands the element a new `src`, and a media
+     * element with a new source is a paused one. Without carrying this across,
+     * every seek out of the buffer stops the film, and so does opening
+     * anything with a saved position: the resume is itself a seek, so a file
+     * would start, jump to where it was left, and sit there. */
+    const wasPlaying = !video.paused;
+
     this.generation += 1;
     const generation = this.generation;
 
@@ -137,6 +146,7 @@ export class StreamBackend extends BaseBackend {
            zero seconds long and clamps anything asked of it back to the
            start. */
         if (seconds > 0) video.currentTime = seconds;
+        if (wasPlaying) void video.play().catch(() => {});
         void this.pump(url, seconds, generation);
       },
       { once: true },
