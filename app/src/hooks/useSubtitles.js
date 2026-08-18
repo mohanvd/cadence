@@ -114,23 +114,6 @@ export function useSubtitles(videoRef, videoEl = null) {
     [revokeUrl]
   );
 
-  /**
-   * Adopt a track that was fetched rather than picked: currently the online
-   * search. Ownership of the object URL transfers here, so the caller must not
-   * revoke it.
-   */
-  const loadUrl = useCallback(
-    (url, name = 'Subtitles') => {
-      revokeUrl();
-      urlRef.current = url;
-      setLabel(name);
-      setTrackUrl(url);
-      setEnabled(true);
-      setOffset(0);
-    },
-    [revokeUrl]
-  );
-
   const changeOffset = useCallback((delta) => {
     setOffset((prev) => {
       const next = prev + delta;
@@ -209,7 +192,6 @@ export function useSubtitles(videoRef, videoEl = null) {
     offset,
     style,
     loadFile,
-    loadUrl,
     toggle,
     clear,
     changeOffset,

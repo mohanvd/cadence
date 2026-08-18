@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/context-menu';
 import { formatSpeed, formatTime } from '@/lib/format';
 import type { PlayerFeatures } from '@/features/usePlayerFeatures';
-import type { MiniPlayerApi } from '@/features/playback/useMiniPlayer';
 import { usePlayerStore } from '@/store/playerStore';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
@@ -22,7 +21,6 @@ const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 export interface PlayerContextMenuProps {
   children: React.ReactNode;
   features: PlayerFeatures;
-  miniPlayer: MiniPlayerApi;
   ambient: { enabled: boolean; toggle: () => void };
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
@@ -41,7 +39,6 @@ export interface PlayerContextMenuProps {
 export function PlayerContextMenu({
   children,
   features,
-  miniPlayer,
   ambient,
   isFullscreen,
   onToggleFullscreen,
@@ -141,9 +138,6 @@ export function PlayerContextMenu({
 
         <ContextMenuSeparator />
 
-        <ContextMenuItem shortcut="I" onSelect={() => void miniPlayer.toggle()}>
-          {miniPlayer.isActive ? 'Close mini player' : 'Mini player'}
-        </ContextMenuItem>
         <ContextMenuItem shortcut="F" onSelect={onToggleFullscreen}>
           {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
         </ContextMenuItem>

@@ -12,7 +12,6 @@ import { useSleepTimer } from '@/hooks/useSleepTimer';
 import { useSubtitles } from '@/hooks/useSubtitles';
 import { useVideoFilters, FILTER_PRESETS } from '@/hooks/useVideoFilters';
 import { useZoomPan } from '@/hooks/useZoomPan';
-import { useOnlineSubtitles } from '@/features/subtitles/useOnlineSubtitles';
 
 /**
  * A stable ref object that always points at the engine's current video element.
@@ -61,16 +60,6 @@ export function usePlayerFeatures({ fileKey, onToast }: PlayerFeatureOptions) {
       onToast('Sleep timer ended');
     }, [onToast]),
   );
-
-  const onlineSubtitles = useOnlineSubtitles({
-    applyTrack: React.useCallback(
-      (url: string, label: string) => {
-        subtitles.loadUrl(url, label);
-        onToast(`Subtitles loaded, ${label}`);
-      },
-      [subtitles, onToast],
-    ),
-  });
 
   const [loop, setLoop] = React.useState(false);
 
@@ -133,7 +122,6 @@ export function usePlayerFeatures({ fileKey, onToast }: PlayerFeatureOptions) {
     abRepeat,
     bookmarks,
     subtitles,
-    onlineSubtitles,
     // The preset lists are module constants in the original hooks; attaching
     // them here means the UI has one object to consume per feature.
     equalizer: { ...equalizer, presets: EQ_PRESETS },

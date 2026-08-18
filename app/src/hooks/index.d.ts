@@ -53,7 +53,6 @@ export interface SubtitlesApi {
   style: SubtitleStyle;
   loadFile: (file: File) => Promise<boolean>;
   /** Adopts an already-built VTT object URL, taking ownership of it. */
-  loadUrl: (url: string, name?: string) => void;
   toggle: () => void;
   clear: () => void;
   changeOffset: (delta: number) => void;

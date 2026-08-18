@@ -12,7 +12,7 @@ dist
 dist-ssr
 *.local
 
-# Vercel: .env.local holds the pulled OPENSUBTITLES_API_KEY
+# Vercel
 .vercel
 .env
 .env.*

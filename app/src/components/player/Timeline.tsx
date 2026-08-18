@@ -26,18 +26,17 @@ export interface TimelineProps {
    * Size the bar for a finger.
    *
    * Every affordance here is currently spent on hover, the track thickens, the
-   * thumb grows out of nothing, and a finger triggers none of it. On touch the
+   * thumb grows out of nothing.
    * bar is simply drawn at its hovered size permanently, with a taller invisible
    * hit area around it, because there is no state in which it should be thinner.
    */
-  touch?: boolean;
 }
 
 /** Kept in step with `THUMB_WIDTH` in `useThumbnailPreview`. */
 const THUMB_WIDTH = 168;
 const THUMB_HALF = THUMB_WIDTH / 2;
 
-export function Timeline({ markers = [], touch = false }: TimelineProps) {
+export function Timeline({ markers = [] }: TimelineProps) {
   const currentTime = useCurrentTime();
   const duration = useDuration();
   const buffered = useBuffered();
@@ -126,7 +125,7 @@ export function Timeline({ markers = [], touch = false }: TimelineProps) {
 
   return (
     <div
-      className={cn('group/timeline relative w-full select-none', touch ? 'py-3' : 'py-2')}
+      className={cn('group/timeline relative w-full select-none', 'py-2')}
     >
       {readoutTime !== null && duration > 0 && (
         <div
@@ -190,9 +189,7 @@ export function Timeline({ markers = [], touch = false }: TimelineProps) {
         onKeyDown={handleKeyDown}
         className={cn(
           'relative flex w-full cursor-pointer items-center rounded-full',
-          // A finger needs the whole strip, and the browser must not read a
-          // drag along it as a page gesture.
-          touch ? 'h-6 touch-none' : 'h-4',
+          'h-4',
           // The global focus ring is a 2px outline, drawn around an element
           // this wide it reads as a box around the whole player. The track and
           // thumb below expand on focus instead, which shows the same thing
@@ -205,7 +202,7 @@ export function Timeline({ markers = [], touch = false }: TimelineProps) {
         <div
           className={cn(
             'relative w-full overflow-hidden rounded-full bg-white/20 transition-[height] duration-150 ease-[var(--ease-out-quint)]',
-            touch ? 'h-[6px]' : 'h-[4px]',
+            'h-[4px]',
             'group-hover/timeline:h-[6px] group-focus-visible/timeline:h-[6px]',
             dragTime !== null && 'h-[6px]',
           )}
@@ -241,7 +238,7 @@ export function Timeline({ markers = [], touch = false }: TimelineProps) {
         <div
           className={cn(
             'pointer-events-none absolute -translate-x-1/2 rounded-full bg-white shadow-[var(--shadow-control)]',
-            touch ? 'size-4 scale-100' : 'size-3.5 scale-0',
+            'size-3.5 scale-0',
             'transition-transform duration-150 ease-[var(--ease-out-quint)]',
             'group-hover/timeline:scale-100 group-focus-visible/timeline:scale-100',
             dragTime !== null && 'scale-115',

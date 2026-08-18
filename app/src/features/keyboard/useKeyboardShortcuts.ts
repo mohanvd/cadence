@@ -31,7 +31,6 @@ export interface BindingContext {
   previous?: (() => void) | undefined;
   toggleSubtitles?: () => void;
   toggleLoop?: () => void;
-  togglePiP?: () => void;
   addBookmark?: () => void;
   takeScreenshot?: () => void;
   setABPointA?: () => void;
@@ -181,13 +180,6 @@ export const BINDINGS: Binding[] = [
     hint: 'C',
     group: 'view',
     run: (ctx) => ctx.toggleSubtitles?.(),
-  },
-  {
-    keys: ['i'],
-    label: 'Mini player',
-    hint: 'I',
-    group: 'view',
-    run: (ctx) => ctx.togglePiP?.(),
   },
   {
     keys: ['r'],

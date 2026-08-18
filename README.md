@@ -21,7 +21,7 @@ applied the next time you restart it.
 - Speed control from 0.25× to 4×, remembered across videos
 - Frame-accurate stepping and A–B looping
 - Timestamp bookmarks with notes
-- Subtitles from a local `.srt` or `.vtt` file, or searched online
+- Subtitles from a local `.srt` or `.vtt` file, with adjustable timing
 - Resumes each video where you stopped
 - Save the current frame as a PNG
 
@@ -121,10 +121,9 @@ The workflow uploads the installer twice: once under the bundler's own name,
 and once as `Cadence-Setup.exe`, which is what the website links to. The second
 exists because a page cannot link to a filename that changes every release.
 
-Two secrets have to exist on the repository or the release is useless:
-`TAURI_SIGNING_PRIVATE_KEY`, without which the updater rejects every build, and
-`OPENSUBTITLES_API_KEY` on the Vercel project, without which subtitle search
-answers 501.
+One secret has to exist on the repository or the release is useless:
+`TAURI_SIGNING_PRIVATE_KEY`. Without it the build still produces an installer,
+and the updater rejects it.
 
 ## Licence
 

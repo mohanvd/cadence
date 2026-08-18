@@ -32,7 +32,6 @@ const SHORTCUTS: Shortcut[] = [
   { keys: ['C'], label: 'Subtitles' },
   { keys: ['B'], label: 'Bookmark' },
   { keys: ['A', 'D'], label: 'A–B loop' },
-  { keys: ['I'], label: 'Mini player' },
   { keys: ['S'], label: 'Save frame' },
   { keys: ['G'], label: 'Ambient glow' },
   { keys: ['M'], label: 'Mute' },

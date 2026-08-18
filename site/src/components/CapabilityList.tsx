@@ -37,7 +37,7 @@ const CAPABILITIES = [
   { icon: ZoomIn, label: 'Zoom and pan into the picture' },
   { icon: Timer, label: 'Sleep timer', note: '15 to 90 minutes' },
   { icon: Camera, label: 'Save the current frame as a PNG' },
-  { icon: MousePointerClick, label: 'Touch gestures', note: 'tap, swipe, double-tap' },
+  { icon: MousePointerClick, label: 'Wheel for volume, trackpad swipe to scrub' },
   { icon: Radio, label: 'Media keys and the OS now-playing panel' },
   { icon: Palette, label: 'Six accents, three themes, three densities' },
   { icon: MonitorDown, label: 'Opens videos straight from the desktop' },

@@ -23,9 +23,7 @@ export function createVideoElement(): HTMLVideoElement {
    * calling `preventDefault` on a listener attached to the element itself would
    * silently disable it. React delegates events at the root, so an
    * element-level listener runs first, and Radix skips opening whenever the
-   * event arrives already default-prevented. The one document without that menu
-   * is the Picture-in-Picture window, so the blocker lives there instead. See
-   * `features/playback/useMiniPlayer.ts`.
+   * event arrives already default-prevented.
    *
    * This is a product decision, not a security control: it stops a casual
    * right-click from pulling the file out, and nothing more. Anyone with

@@ -7,18 +7,14 @@ import { formatTime } from '@/lib/format';
 import type { MediaSourceInput } from '@/engine/types';
 import { useKeyboardShortcuts } from '@/features/keyboard/useKeyboardShortcuts';
 import { usePlayerFeatures } from '@/features/usePlayerFeatures';
-import { useTouchGestures } from '@/hooks/useTouchGestures';
 import { usePlaybackMemory } from '@/features/playback/usePlaybackMemory';
 import { useWheelControls } from '@/features/playback/useWheelControls';
 import {
   useMediaSession,
   useWakeLock,
 } from '@/features/playback/useSystemIntegration';
-import { useMiniPlayer } from '@/features/playback/useMiniPlayer';
 import { useMusicMode } from '@/features/playback/useMusicMode';
 import { useVideoFit } from '@/features/playback/useVideoFit';
-import { useViewport } from '@/features/playback/useViewport';
-import { MobileTransport } from './MobileTransport';
 import { MusicStage } from './MusicStage';
 import { Toaster, useToaster } from '@/components/ui/toaster';
 import { PortalContainerProvider } from '@/components/ui/portal-container';
@@ -43,16 +39,6 @@ import { ControlBar } from './ControlBar';
 
 /** Hide the cursor and chrome after this long without pointer movement. */
 const IDLE_MS = 2600;
-
-/**
- * `ScreenOrientation.lock` is shipped in every Chromium build and specified,
- * but TypeScript's DOM library still describes the orientation object without
- * it, so it is declared here rather than reached for through `any`.
- */
-type LockableOrientation = ScreenOrientation & {
-  lock?: (orientation: 'landscape' | 'portrait') => Promise<void>;
-  unlock?: () => void;
-};
 
 export interface PlayerSurfaceProps {
   source: MediaSourceInput;
@@ -104,7 +90,6 @@ export function PlayerSurface({
 
   const { toasts, show: showToast } = useToaster();
   const features = usePlayerFeatures({ fileKey: source.name, onToast: showToast });
-  const viewport = useViewport();
   const fit = useVideoFit();
 
   // Volume, speed and playhead survive reloads and file switches.
@@ -116,7 +101,6 @@ export function PlayerSurface({
   // never in music mode, where holding the screen awake for audio is the exact
   // waste the mode exists to avoid.
   useWakeLock(!paused && !musicMode.enabled);
-  const miniPlayer = useMiniPlayer(showToast);
   // Subscribed to by identity, not just read through the ref: a file switch
   // builds a brand-new element, and anything styled here has to be re-applied
   // to it or the adjustment silently stops applying.
@@ -206,45 +190,13 @@ export function PlayerSurface({
     return () => window.clearTimeout(idleTimer.current);
   }, [revealChrome]);
 
-  /**
-   * Fullscreen, and on a phone the orientation that goes with it.
-   *
-   * Rotating the handset to watch a film is a step the device is happy to skip:
-   * the video's own shape says which way it wants to be held, and the Screen
-   * Orientation API will hold it there for as long as the player owns the
-   * screen. The lock is released on the way out, leaving a phone pinned
-   * sideways after the video closes is the reason people distrust this API.
-   *
-   * Every call here is best-effort. iOS Safari has no `lock` at all, Firefox
-   * rejects it outside a user gesture, and none of that is worth failing a
-   * fullscreen request over.
-   */
   const toggleFullscreen = React.useCallback(() => {
-    const orientation = screen.orientation as LockableOrientation | undefined;
-
     if (document.fullscreenElement) {
       void document.exitFullscreen().catch(() => {});
-      try {
-        orientation?.unlock?.();
-      } catch {
-        // Unsupported. The phone rotates freely anyway.
-      }
       return;
     }
-
-    void shellRef.current
-      ?.requestFullscreen()
-      .then(() => {
-        if (!viewport.touch || !videoEl?.videoWidth) return;
-        const wide = videoEl.videoWidth >= videoEl.videoHeight;
-        try {
-          void orientation?.lock?.(wide ? 'landscape' : 'portrait')?.catch(() => {});
-        } catch {
-          // Older engines throw synchronously instead of rejecting.
-        }
-      })
-      .catch(() => {});
-  }, [viewport.touch, videoEl]);
+    void shellRef.current?.requestFullscreen().catch(() => {});
+  }, []);
 
   const toggleAmbient = React.useCallback(() => {
     setAmbient((prev) => {
@@ -340,31 +292,8 @@ export function PlayerSurface({
   }, [togglePlayWithFeedback]);
 
   /**
-   * Touch gestures: double-tap to seek, swipe for volume and brightness.
-   *
-   * Kept pointed at the shell rather than the engine's element so a swipe that
-   * starts on the control bar still registers.
-   */
-  useTouchGestures({
-    videoRef: features.videoRef,
-    containerRef: shellRef,
-    enabled: !shortcutsOpen,
-    duration: usePlayerStore.getState().duration,
-    seekRelative: (delta: number) => usePlayerStore.getState().seekBy(delta),
-    seek: (time: number) => usePlayerStore.getState().seek(time),
-    changeVolume: (volume: number) => usePlayerStore.getState().setVolume(volume),
-    getVolume: () => usePlayerStore.getState().volume,
-    togglePlay: togglePlayWithFeedback,
-    onBrightnessChange: (value: number) =>
-      features.filters.updateFilter('brightness', value),
-    getBrightness: () => features.filters.filters.brightness,
-    onFeedback: triggerFeedback,
-    onSingleTap: () => setChromeVisible((v) => !v),
-  });
-
-  /**
    * Wheel over the picture adjusts volume; a horizontal trackpad swipe scrubs.
-   * Both report through the same overlay the touch gestures use.
+   * Both report through the overlay in the middle of the picture.
    */
   useWheelControls({
     targetRef: shellRef,
@@ -388,7 +317,6 @@ export function PlayerSurface({
     previous: onPrevious,
     toggleSubtitles: features.subtitles.toggle,
     toggleLoop: features.toggleLoop,
-    togglePiP: miniPlayer.toggle,
     addBookmark: features.addBookmarkAtPlayhead,
     takeScreenshot: features.takeScreenshot,
     setABPointA: () => features.abRepeat.setA(features.videoRef.current?.currentTime ?? 0),
@@ -433,7 +361,6 @@ export function PlayerSurface({
         {/* Engine-owned rendering surface. */}
         <PlayerContextMenu
           features={features}
-          miniPlayer={miniPlayer}
           ambient={{ enabled: ambient, toggle: toggleAmbient }}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
@@ -457,16 +384,6 @@ export function PlayerSurface({
             onPointerCancel={handlePanEnd}
           />
         </PlayerContextMenu>
-
-        {/* Play and ±10s, in the middle of the picture, where a thumb is. */}
-        {viewport.compact && !musicMode.enabled && !error && (
-          <MobileTransport
-            visible={chromeVisible}
-            onNext={onNext}
-            onPrevious={onPrevious}
-            onTogglePlay={togglePlayWithFeedback}
-          />
-        )}
 
         {loading && !error && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
@@ -520,7 +437,6 @@ export function PlayerSurface({
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
           features={features}
-          miniPlayer={miniPlayer}
           ambient={{ enabled: ambient, toggle: toggleAmbient }}
           musicMode={musicMode}
           fit={fit}
@@ -533,8 +449,8 @@ export function PlayerSurface({
             data-player-chrome
             className={cn(
               'absolute z-30 flex items-center gap-3 rounded-full border border-line bg-surface-1/90 py-2 pr-2 pl-4 text-[13px] shadow-[var(--shadow-panel)] backdrop-blur-xl animate-in fade-in-0 slide-in-from-bottom-2',
-              // Clear of whichever bottom bar is rendered underneath it.
-              viewport.compact ? 'bottom-24 left-3' : 'bottom-28 left-6',
+              // Clear of the control bar underneath it.
+              'bottom-28 left-6',
             )}
           >
             <span className="text-fg-muted">
