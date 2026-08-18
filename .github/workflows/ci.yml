@@ -72,6 +72,21 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+      # tauri-build validates the `resources` glob at compile time, not at
+      # bundle time, so the shell does not build at all without FFmpeg present.
+      # Cached on the pinned build name in the fetch script: the download is
+      # 68MB and changes only when that line does.
+      - name: Cache FFmpeg
+        id: ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: src-tauri/ffmpeg
+          key: ffmpeg-${{ runner.os }}-${{ hashFiles('scripts/fetch-ffmpeg.mjs') }}
+
+      - name: Fetch FFmpeg
+        if: steps.ffmpeg.outputs.cache-hit != 'true'
+        run: npm run fetch:ffmpeg
+
       - name: Formatting
         run: cargo fmt --all --check
         working-directory: src-tauri
