@@ -184,6 +184,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
     try {
       await engine.load(source);
+      if (token !== loadToken) return;
+
+      /* Then start it.
+         
+         Opening a film and being handed a still of its first frame is not what
+         double-clicking a video means anywhere else, and it is not what this
+         application's own front page says happens. The call is allowed to fail:
+         an engine that will not start without a gesture leaves the picture
+         exactly where it is, which is where it would have been anyway. */
+      void engine.play().catch(() => {});
     } catch (err) {
       if (token !== loadToken) return;
       set({
