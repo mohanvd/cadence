@@ -5,6 +5,16 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-08-18
+
+### Fixed
+
+- A file with a saved position started, jumped to where it was left, and
+  stopped there. Seeking past the buffered part while watching did the same.
+  Both are one bug: a seek that far rebuilds the stream, an element handed a
+  new source is a paused one, and a resume is itself a seek. Every file watched
+  more than once paused itself a second after opening.
+
 ## [0.2.1] - 2026-08-18
 
 ### Fixed
@@ -126,6 +136,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   installed program, which is no longer a problem worth solving.
 - A router, for an application with one screen.
 
+[0.2.2]: https://github.com/mohanvd/cadence/releases/tag/v0.2.2
 [0.2.1]: https://github.com/mohanvd/cadence/releases/tag/v0.2.1
 [0.2.0]: https://github.com/mohanvd/cadence/releases/tag/v0.2.0
 [0.1.1]: https://github.com/mohanvd/cadence/releases/tag/v0.1.1
