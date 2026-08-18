@@ -175,3 +175,74 @@ export async function pickVideoFile() {
   });
   return typeof selected === 'string' ? selected : null;
 }
+
+/* ── The playback pipeline ── */
+
+/** Resolved once. The endpoint outlives every file played through it. */
+let endpointPromise = null;
+
+/**
+ * Where FFmpeg's output is served from, and the token that admits us.
+ *
+ * Null when the shell could not start the pipeline, which is a real state
+ * rather than an error: the binaries may be missing from a broken install. The
+ * player then falls back to handing the file straight to the media element,
+ * which still covers MP4 and WebM.
+ *
+ * @returns {Promise<{ base: string, token: string } | null>}
+ */
+export async function mediaEndpoint() {
+  if (!isDesktop()) return null;
+  endpointPromise ??= (async () => {
+    const { invoke } = await import('@tauri-apps/api/core');
+    try {
+      return (await invoke('media_endpoint')) ?? null;
+    } catch (err) {
+      console.warn('No playback pipeline:', err);
+      return null;
+    }
+  })();
+  return endpointPromise;
+}
+
+/**
+ * Everything FFmpeg can read about a file: streams, codecs, languages,
+ * durations, container metadata. Shaped exactly like `ffprobe -show_streams`.
+ *
+ * @param {string} path
+ * @returns {Promise<Record<string, unknown> | null>}
+ */
+export async function probeMedia(path) {
+  if (!isDesktop()) return null;
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    return await invoke('media_probe', { path });
+  } catch (err) {
+    console.warn(`Could not inspect ${basename(path)}:`, err);
+    return null;
+  }
+}
+
+/**
+ * The URL that streams a file as fragmented MP4, starting at `start` seconds.
+ *
+ * A seek is a new URL rather than a range request on an old one. The stream is
+ * produced on demand and has no length to seek within: asking for a byte offset
+ * would be asking a question about a file that does not exist. What the shell
+ * can do instead is start FFmpeg at a keyframe near the timestamp, which is
+ * both cheaper and exact enough.
+ *
+ * @param {string} path
+ * @param {{ start?: number, audio?: number }} [options]
+ * @returns {Promise<string | null>}
+ */
+export async function streamUrl(path, { start = 0, audio } = {}) {
+  const endpoint = await mediaEndpoint();
+  if (!endpoint) return null;
+
+  const query = new URLSearchParams({ token: endpoint.token, path });
+  if (start > 0) query.set('t', start.toFixed(3));
+  if (audio !== undefined) query.set('audio', String(audio));
+
+  return `${endpoint.base}/stream?${query}`;
+}

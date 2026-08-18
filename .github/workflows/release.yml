@@ -44,6 +44,13 @@ jobs:
 
       - run: npm run typecheck
 
+      # FFmpeg is a bundled resource and is not in the repository, so the
+      # bundler has nothing to copy until this has run. It is the one build
+      # step whose absence produces a working installer that cannot play
+      # anything, which is worse than a failure.
+      - name: Fetch FFmpeg
+        run: npm run fetch:ffmpeg
+
       - id: tauri
         uses: tauri-apps/tauri-action@v0
         env:

@@ -14,7 +14,8 @@
     "tauri": "tauri",
     "site:dev": "npm --prefix site run dev",
     "site:build": "npm --prefix site run build",
-    "sync:libav": "node scripts/sync-libav.mjs"
+    "sync:libav": "node scripts/sync-libav.mjs",
+    "fetch:ffmpeg": "node scripts/fetch-ffmpeg.mjs"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

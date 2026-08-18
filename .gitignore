@@ -22,6 +22,12 @@ dist-ssr
 src-tauri/target/
 src-tauri/gen/schemas/
 
+# FFmpeg, fetched by `npm run fetch:ffmpeg` rather than committed. It is 138MB
+# of somebody else's build output, and a checked-in copy goes stale the moment
+# upstream fixes a decoder. The build needs it present; CI fetches it too.
+src-tauri/ffmpeg/
+src-tauri/.ffmpeg-download/
+
 # Updater signing keys. The private key is the one secret that cannot be
 # rotated quietly: every installed copy of Cadence has the matching public key
 # compiled into it, so losing control of this file means losing the update

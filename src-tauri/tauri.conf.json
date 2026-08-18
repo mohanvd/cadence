@@ -37,6 +37,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "resources": ["ffmpeg/*"],
     "createUpdaterArtifacts": true,
     "publisher": "Auva",
     "copyright": "Copyright © 2026 Mohanad Tarek",
