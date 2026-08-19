@@ -94,6 +94,112 @@ async fn media_subtitle(
     }
 }
 
+/// Extensions Cadence will open, for deciding what counts as the next video.
+///
+/// The same list the installer registers Cadence for. It is deliberately the
+/// file's name rather than its contents: this runs over a whole folder, and
+/// inspecting every file in a season of television to find out which are video
+/// would cost far more than believing the extension and being wrong about a
+/// stray one.
+const VIDEO_EXTENSIONS: &[&str] = &[
+    "mp4", "mkv", "webm", "mov", "avi", "m4v", "wmv", "flv", "ts", "m2ts", "mts", "mpg", "mpeg",
+    "3gp", "ogv",
+];
+
+/// Compare two names the way a person reads them.
+///
+/// Ordinary string ordering puts "Episode 10" before "Episode 2", because it
+/// compares `1` against `2` and stops. Runs of digits are compared as numbers
+/// instead, which is the difference between a season playing in order and a
+/// season playing in the order 1, 10, 11, 2. Everything else is compared
+/// case-insensitively, a character at a time.
+fn natural_order(a: &str, b: &str) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+
+    let (mut left, mut right) = (a.chars().peekable(), b.chars().peekable());
+
+    loop {
+        match (left.peek().copied(), right.peek().copied()) {
+            (None, None) => return Ordering::Equal,
+            (None, Some(_)) => return Ordering::Less,
+            (Some(_), None) => return Ordering::Greater,
+            (Some(x), Some(y)) => {
+                if x.is_ascii_digit() && y.is_ascii_digit() {
+                    let take_number = |it: &mut std::iter::Peekable<std::str::Chars>| {
+                        let mut digits = String::new();
+                        while it.peek().is_some_and(|c| c.is_ascii_digit()) {
+                            digits.push(it.next().unwrap());
+                        }
+                        // A season can be numbered past what fits in a u64 only
+                        // by someone trying to. Treat that as equal and let the
+                        // characters after it decide.
+                        digits.trim_start_matches('0').parse::<u128>().unwrap_or(0)
+                    };
+                    match take_number(&mut left).cmp(&take_number(&mut right)) {
+                        Ordering::Equal => continue,
+                        other => return other,
+                    }
+                }
+
+                let ordering = x
+                    .to_lowercase()
+                    .cmp(y.to_lowercase())
+                    .then_with(|| x.cmp(&y));
+                if ordering != Ordering::Equal {
+                    return ordering;
+                }
+                left.next();
+                right.next();
+            }
+        }
+    }
+}
+
+/// Every video in the same folder as `path`, in the order they should play.
+///
+/// This is what makes one file into a queue. Nothing is remembered between
+/// launches and no list is built by hand: the folder a film was opened from is
+/// the playlist, which is how a season of television is already organised on
+/// everyone's disk.
+///
+/// An empty list is returned for anything unreadable — a file on a drive that
+/// has since been unplugged, a folder without permission. The player then has
+/// no next file, which is exactly what it should conclude.
+#[tauri::command]
+fn folder_playlist(path: String) -> Vec<String> {
+    let file = std::path::Path::new(&path);
+    let Some(folder) = file.parent() else {
+        return Vec::new();
+    };
+    let Ok(entries) = std::fs::read_dir(folder) else {
+        return Vec::new();
+    };
+
+    let mut videos: Vec<std::path::PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|candidate| {
+            candidate.is_file()
+                && candidate
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .is_some_and(|ext| VIDEO_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+        })
+        .collect();
+
+    videos.sort_by(|a, b| {
+        natural_order(
+            &a.file_name().unwrap_or_default().to_string_lossy(),
+            &b.file_name().unwrap_or_default().to_string_lossy(),
+        )
+    });
+
+    videos
+        .into_iter()
+        .map(|video| video.to_string_lossy().into_owned())
+        .collect()
+}
+
 /// The file Cadence was asked to open at launch, if any.
 ///
 /// Double-clicking a video, or "Open with → Cadence", starts the process with
@@ -155,7 +261,8 @@ pub fn run() {
             take_launch_file,
             media_endpoint,
             media_probe,
-            media_subtitle
+            media_subtitle,
+            folder_playlist
         ])
         .setup(|app| {
             /* Started in the background rather than awaited here. Preparing it
@@ -194,4 +301,91 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running Cadence");
+}
+
+#[cfg(test)]
+mod playlist_tests {
+    use super::natural_order;
+    use std::cmp::Ordering;
+
+    /// The case the whole function exists for: a season plays in order.
+    #[test]
+    fn digits_compare_as_numbers() {
+        let mut names = vec!["Episode 10.mkv", "Episode 2.mkv", "Episode 1.mkv"];
+        names.sort_by(|a, b| natural_order(a, b));
+        assert_eq!(names, ["Episode 1.mkv", "Episode 2.mkv", "Episode 10.mkv"]);
+    }
+
+    /// Padded and unpadded numbering are the same numbering.
+    #[test]
+    fn leading_zeroes_do_not_change_the_number() {
+        assert_eq!(natural_order("S01E02", "S1E2"), Ordering::Equal);
+        assert_eq!(natural_order("ep007.mp4", "ep8.mp4"), Ordering::Less);
+    }
+
+    /// Case is a tiebreak and never more than one: "alpha" precedes "Beta"
+    /// because a precedes b, which plain byte ordering gets backwards. Two
+    /// names differing only in case still have to be ordered somehow, and
+    /// uppercase first is the convention every file manager uses.
+    #[test]
+    fn case_does_not_decide_before_letters_do() {
+        assert_eq!(natural_order("alpha", "Beta"), Ordering::Less);
+        assert_eq!(natural_order("Alpha", "alpha"), Ordering::Less);
+    }
+
+    /// A shorter name that is otherwise identical comes first.
+    #[test]
+    fn a_prefix_sorts_before_what_extends_it() {
+        assert_eq!(natural_order("part", "part 2"), Ordering::Less);
+    }
+
+    /// The whole command over a real folder: the videos, in order, and nothing
+    /// that is not a video. The subtitle and the cover art sitting beside a
+    /// download are the reason for the filter, and they are next to every
+    /// episode anybody has.
+    #[test]
+    fn a_folder_lists_its_videos_in_reading_order() {
+        let folder = std::env::temp_dir().join(format!(
+            "cadence-playlist-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&folder).unwrap();
+
+        for name in [
+            "Episode 10.mkv",
+            "Episode 2.mp4",
+            "Episode 1.avi",
+            "Episode 1.srt",
+            "cover.jpg",
+            "notes.txt",
+        ] {
+            std::fs::write(folder.join(name), b"").unwrap();
+        }
+
+        let listed = super::folder_playlist(
+            folder.join("Episode 1.avi").to_string_lossy().into_owned(),
+        );
+        let names: Vec<String> = listed
+            .iter()
+            .map(|path| {
+                std::path::Path::new(path)
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+
+        std::fs::remove_dir_all(&folder).ok();
+        assert_eq!(names, ["Episode 1.avi", "Episode 2.mp4", "Episode 10.mkv"]);
+    }
+
+    /// A path with no folder above it must not panic, and must offer nothing.
+    #[test]
+    fn something_unreadable_offers_no_queue() {
+        assert!(super::folder_playlist(String::new()).is_empty());
+    }
 }

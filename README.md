@@ -23,6 +23,8 @@ applied the next time you restart it.
 - Timestamp bookmarks with notes
 - Subtitles from inside the file — every text track it carries, by name and
   language — or from a local `.srt` or `.vtt`, with adjustable timing
+- Plays the rest of the folder: the next file starts when one ends, in the
+  order the names read
 - Resumes each video where you stopped
 - Save the current frame as a PNG
 

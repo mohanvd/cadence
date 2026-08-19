@@ -4,6 +4,7 @@ import { capturePoster } from './utils/poster';
 import { useToast } from './hooks/useToast';
 import { useAppUpdates } from './hooks/useAppUpdates';
 import { isDesktop, onOpenFile, takeLaunchFile, basename } from './lib/desktop';
+import { useFolderQueue, useQueueControls } from './features/playback/useFolderQueue';
 import Home from './screens/Home';
 import TitleBar from './components/TitleBar';
 import { PlayerSurface } from './components/player/PlayerSurface';
@@ -93,6 +94,15 @@ export default function App() {
     setPlayerOpen(true);
   }, []);
 
+  /* The rest of the folder, and the two ways through it.
+   *
+   * Derived from whatever is playing rather than assembled when a file is
+   * opened, so it is right no matter how the file arrived — the launcher, a
+   * double-click while Cadence was already running, or the end of the previous
+   * episode. */
+  const queue = useFolderQueue(videoSource);
+  const { onNext, onPrevious } = useQueueControls(queue, playPath);
+
   // Load failures are now reported by the player surface itself, which can name
   // the offending codec rather than guessing from the source type.
 
@@ -121,7 +131,14 @@ export default function App() {
 
       {playerOpen && videoSource && (
         <div className="player-overlay">
-          <PlayerSurface source={videoSource} title={videoSource.name} onBack={closePlayer} />
+          <PlayerSurface
+            source={videoSource}
+            title={videoSource.name}
+            onBack={closePlayer}
+            onNext={onNext}
+            onPrevious={onPrevious}
+            position={queue.position}
+          />
         </div>
       )}
 

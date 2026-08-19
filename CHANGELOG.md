@@ -34,6 +34,22 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Arabic that would arrive from a downloaded `.srt` as mojibake arrives from
   inside the film intact.
 
+- The next video plays when this one ends. The folder a file was opened from
+  is the queue — there is no playlist to build and none to save, because a
+  season of television is already arranged on a disk and asking anybody to
+  arrange it a second time inside a player is asking for work they have done.
+  Skip buttons appear in the control bar, the media keys and the system's Now
+  Playing panel drive them, and the top bar says which of how many is playing.
+
+  The order is the order the names read rather than the order the disk returns
+  them in, which is not the same thing: sorted as text, "Episode 10" comes
+  before "Episode 2", and a season plays 1, 10, 11, 2. Runs of digits are
+  compared as numbers.
+
+  Looping a file suppresses the advance. Repeat is an instruction about this
+  video, and going on to the next one would obey the queue and disobey the
+  person who asked.
+
 - Cadence draws the subtitles itself now, rather than handing the cues to the
   browser to paint. The browser will do it, and the reason not to let it is
   everything it will not do while doing it: native cues are reachable only

@@ -47,6 +47,8 @@ export interface PlayerSurfaceProps {
   onBack: () => void;
   onNext?: (() => void) | undefined;
   onPrevious?: (() => void) | undefined;
+  /** Where this file sits in its folder, when there is more than one. */
+  position?: { index: number; total: number } | undefined;
 }
 
 /**
@@ -63,6 +65,7 @@ export function PlayerSurface({
   onBack,
   onNext,
   onPrevious,
+  position,
 }: PlayerSurfaceProps) {
   const shellRef = React.useRef<HTMLDivElement>(null);
   // The portal target must be state, not just a ref: menus render on the same
@@ -92,6 +95,25 @@ export function PlayerSurface({
   const { toasts, show: showToast } = useToaster();
   const features = usePlayerFeatures({ fileKey: source.name, onToast: showToast });
   const fit = useVideoFit();
+
+  /**
+   * Go on to the next file when this one runs out.
+   *
+   * The whole point of the queue. Someone watching a season should not have to
+   * come back to the machine between episodes, which is the one thing a player
+   * with no playlist forces on them.
+   *
+   * Subscribed here rather than in the store so it can be conditional: looping
+   * is a deliberate instruction to play this file again, and advancing over it
+   * would obey the queue and disobey the viewer.
+   */
+  const looping = features.loop;
+  React.useEffect(() => {
+    if (!onNext || looping) return undefined;
+    return usePlayerStore.subscribe((state, previous) => {
+      if (state.ended && !previous.ended) onNext();
+    });
+  }, [onNext, looping]);
 
   // Volume, speed and playhead survive reloads and file switches.
   const resume = usePlaybackMemory(source.name);
@@ -433,6 +455,13 @@ export function PlayerSurface({
           <h1 className="min-w-0 flex-1 truncate text-[15px] font-medium tracking-[-0.01em] text-white">
             {title}
           </h1>
+          {/* Where this file sits among the others beside it. Absent for a
+              film on its own, where "1 of 1" is a fact nobody needed. */}
+          {position && (
+            <span className="shrink-0 text-[12px] tabular-nums text-white/50">
+              {position.index} of {position.total}
+            </span>
+          )}
           {/* Only ever shown when something is happening to the file on the
               way in, so that it reads as an explanation rather than furniture. */}
           {playbackLabel && (

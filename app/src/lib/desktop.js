@@ -235,6 +235,27 @@ export async function probeMedia(path) {
 }
 
 /**
+ * Every video in the same folder as `path`, in the order they should play.
+ *
+ * The folder is the playlist. Nothing is assembled by hand and nothing is
+ * remembered between launches, because a season of television is already
+ * arranged on disk and asking someone to arrange it a second time inside a
+ * player is asking for work they have done.
+ *
+ * @param {string} path
+ * @returns {Promise<string[]>} Empty when there is no folder to read.
+ */
+export async function folderPlaylist(path) {
+  if (!isDesktop()) return [];
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    return await invoke('folder_playlist', { path });
+  } catch {
+    return [];
+  }
+}
+
+/**
  * One subtitle track from inside a file, as WebVTT.
  *
  * `index` is the demuxer's stream index, which is what `MediaTrack.id` carries
