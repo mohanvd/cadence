@@ -365,9 +365,8 @@ mod playlist_tests {
             std::fs::write(folder.join(name), b"").unwrap();
         }
 
-        let listed = super::folder_playlist(
-            folder.join("Episode 1.avi").to_string_lossy().into_owned(),
-        );
+        let listed =
+            super::folder_playlist(folder.join("Episode 1.avi").to_string_lossy().into_owned());
         let names: Vec<String> = listed
             .iter()
             .map(|path| {

@@ -799,15 +799,24 @@ mod tests {
     /// be turned into a space on the way back.
     #[test]
     fn a_real_plus_is_not_mistaken_for_a_space() {
-        assert_eq!(super::form_decode("Disc%2B1.mkv").as_deref(), Some("Disc+1.mkv"));
-        assert_eq!(super::form_decode("C%2B%2B+talk.mkv").as_deref(), Some("C++ talk.mkv"));
+        assert_eq!(
+            super::form_decode("Disc%2B1.mkv").as_deref(),
+            Some("Disc+1.mkv")
+        );
+        assert_eq!(
+            super::form_decode("C%2B%2B+talk.mkv").as_deref(),
+            Some("C++ talk.mkv")
+        );
     }
 
     /// Non-ASCII names go through the same encoder and have to come back whole.
     #[test]
     fn an_arabic_filename_comes_back_intact() {
         let encoded = "%D9%81%D9%8A%D9%84%D9%85+%D8%B9%D8%B1%D8%A8%D9%8A.mkv";
-        assert_eq!(super::form_decode(encoded).as_deref(), Some("فيلم عربي.mkv"));
+        assert_eq!(
+            super::form_decode(encoded).as_deref(),
+            Some("فيلم عربي.mkv")
+        );
     }
 
     /// The copy decisions and the subtitle list read the same stream array, and
