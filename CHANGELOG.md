@@ -99,6 +99,18 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Any video with a space in its path failed to play, and said only that ffprobe
+  could not read it. The page builds the streaming URL with `URLSearchParams`,
+  which writes a space as `+` because that is what its encoding does; the shell
+  only percent-decoded, so the plus stayed and the path named a file nobody
+  had. It hid because the files it spares are the ones anybody tests with: an
+  MP4 the browser demuxes never asks the shell for a stream, so reaching it
+  needed a Matroska — or anything else FFmpeg has to open — with a space in its
+  name or in a folder above it. Which is most films anybody owns.
+
+  A plus that is genuinely part of a name is sent percent-encoded and still
+  arrives as a plus: the decoding is ordered so it cannot be mistaken for a
+  space.
 - The timing offset moved the cues of whichever text track the element listed
   first. That was this player's own track until a container contributed one of
   its own, and then it was a coin toss. It moves the track being shown.

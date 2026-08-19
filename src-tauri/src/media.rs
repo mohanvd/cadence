@@ -316,6 +316,23 @@ fn text(status: StatusCode, message: &str) -> Response<StreamBody> {
         .expect("a text response is always well formed")
 }
 
+/// Decode one `application/x-www-form-urlencoded` component.
+///
+/// The plus sign is a space in that encoding, and a space is exactly what it
+/// means here: these URLs are built by `URLSearchParams`, which is what writes
+/// the plus. Percent-decoding alone leaves it standing, and the path that
+/// arrives then names a file nobody has — which broke every video with a space
+/// anywhere in its path, meaning very nearly every video anybody owns.
+///
+/// The order matters and is the reason this is a function rather than a call.
+/// A plus that is genuinely in a filename is sent as `%2B`; percent-decoding
+/// first would turn it into a plus and this step would then turn that into a
+/// space. Replacing before decoding cannot make that mistake.
+fn form_decode(value: &str) -> Option<String> {
+    let spaced = value.replace('+', " ");
+    Some(percent_decode_str(&spaced).decode_utf8().ok()?.into_owned())
+}
+
 fn query(uri: &hyper::Uri) -> HashMap<String, String> {
     uri.query()
         .unwrap_or_default()
@@ -323,8 +340,7 @@ fn query(uri: &hyper::Uri) -> HashMap<String, String> {
         .filter(|pair| !pair.is_empty())
         .filter_map(|pair| {
             let (key, value) = pair.split_once('=')?;
-            let value = percent_decode_str(value).decode_utf8().ok()?.into_owned();
-            Some((key.to_owned(), value))
+            Some((form_decode(key)?, form_decode(value)?))
         })
         .collect()
 }
@@ -766,6 +782,32 @@ mod tests {
     #[test]
     fn nothing_readable_offers_none() {
         assert!(Media::text_subtitles(&serde_json::json!({})).is_empty());
+    }
+
+    /// The bug this guards: `URLSearchParams` writes a space as `+`, and a
+    /// path that keeps the plus names a file that does not exist. Nearly every
+    /// film anyone owns has a space in its name or in a folder above it.
+    #[test]
+    fn a_space_survives_the_journey_from_the_page() {
+        assert_eq!(
+            super::form_decode(r"C:\Films\Episode+1.mkv").as_deref(),
+            Some(r"C:\Films\Episode 1.mkv"),
+        );
+    }
+
+    /// A plus that is really in the name is sent percent-encoded, and must not
+    /// be turned into a space on the way back.
+    #[test]
+    fn a_real_plus_is_not_mistaken_for_a_space() {
+        assert_eq!(super::form_decode("Disc%2B1.mkv").as_deref(), Some("Disc+1.mkv"));
+        assert_eq!(super::form_decode("C%2B%2B+talk.mkv").as_deref(), Some("C++ talk.mkv"));
+    }
+
+    /// Non-ASCII names go through the same encoder and have to come back whole.
+    #[test]
+    fn an_arabic_filename_comes_back_intact() {
+        let encoded = "%D9%81%D9%8A%D9%84%D9%85+%D8%B9%D8%B1%D8%A8%D9%8A.mkv";
+        assert_eq!(super::form_decode(encoded).as_deref(), Some("فيلم عربي.mkv"));
     }
 
     /// The copy decisions and the subtitle list read the same stream array, and
