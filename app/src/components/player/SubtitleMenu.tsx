@@ -138,7 +138,12 @@ export function SubtitleMenu({ features }: { features: PlayerFeatures }) {
               {subtitles.sourceId === 'file' ? 'Choose a different file…' : 'Load from a file…'}
             </MenuItem>
 
-            {embedded.length === 0 && (
+            {/* Only while there is nothing to show at all. Once a file has
+                been loaded it is in the list above, and explaining that the
+                video carries none of its own has stopped being the useful
+                thing to say and started being an argument with the entry the
+                viewer is looking at. */}
+            {embedded.length === 0 && !subtitles.hasSubtitles && (
               <div className="px-2.5 pt-0.5 pb-1.5 text-[11px] leading-relaxed text-fg-subtle">
                 This file carries no subtitles of its own. Drop an .srt or .vtt
                 onto the video, or choose one above.
