@@ -45,14 +45,38 @@ export interface SubtitleStyle {
 
 export interface SubtitlesApi {
   trackUrl: string | null;
+  /**
+   * The parsed track, held `hidden` so it maintains `activeCues` without the
+   * browser painting them. Cadence draws the cues itself.
+   */
+  textTrack: TextTrack | null;
   /** Track name shown in the menu: a filename, or a release name from search. */
   label: string;
+  /**
+   * Which source the showing cues came from: `'file'` for one opened from
+   * disk, a demuxer stream index for one lifted out of the video, null for
+   * none. The menu marks its active entry from this rather than from the
+   * label, which two tracks in one film routinely share.
+   */
+  sourceId: string | null;
+  /** True while a track is being lifted out of the container. */
+  loading: boolean;
+  /**
+   * The id of the track currently being extracted, or null. Distinct from
+   * `sourceId`, which still names whatever is on screen until it lands.
+   */
+  pendingId: string | null;
   enabled: boolean;
   hasSubtitles: boolean;
   offset: number;
   style: SubtitleStyle;
   loadFile: (file: File) => Promise<boolean>;
-  /** Adopts an already-built VTT object URL, taking ownership of it. */
+  /** Extract a subtitle stream from the file being played, and show it. */
+  loadEmbedded: (
+    path: string,
+    index: number,
+    label: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
   toggle: () => void;
   clear: () => void;
   changeOffset: (delta: number) => void;

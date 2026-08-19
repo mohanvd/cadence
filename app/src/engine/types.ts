@@ -38,6 +38,15 @@ export interface MediaTrack {
   label?: string;
   /** True for the track the container marks as default. */
   default?: boolean;
+  /**
+   * Marked forced: the handful of lines that have to be read even by someone
+   * who speaks the language — a sign on a wall, a line in another tongue. A
+   * viewer scanning a list of four English tracks needs this to tell which one
+   * is the film and which is a dozen captions.
+   */
+  forced?: boolean;
+  /** Marked for the hard of hearing: dialogue plus the sounds around it. */
+  hearingImpaired?: boolean;
   /** Whether this specific track can be played by the active backend. */
   playable: boolean;
   channels?: number;

@@ -44,7 +44,7 @@ interface ProbePayload {
   streams?: ProbeStream[];
   format?: { format_name?: string; duration?: string };
   /** Added by the shell: what it intends to do with the streams. */
-  cadence?: { copyVideo?: boolean; copyAudio?: boolean };
+  cadence?: { copyVideo?: boolean; copyAudio?: boolean; subtitles?: number[] };
 }
 
 interface Route {
@@ -125,6 +125,8 @@ function trackFrom(stream: ProbeStream, playable: boolean): MediaTrack | null {
     language: tags.language && tags.language !== 'und' ? tags.language : undefined,
     label: tags.title || undefined,
     default: stream.disposition?.default === 1,
+    forced: stream.disposition?.forced === 1,
+    hearingImpaired: stream.disposition?.hearing_impaired === 1,
     playable,
     channels: stream.channels,
     sampleRate: Number.isFinite(sampleRate) ? sampleRate : undefined,
@@ -194,15 +196,21 @@ export async function probeSource(
   const copyVideo = payload.cadence?.copyVideo ?? true;
   const copyAudio = payload.cadence?.copyAudio ?? true;
 
-  /* Subtitle streams are left out. They are not carried in the fragments, so
-     listing them would put entries in the subtitle menu that select nothing.
-     Lifting them out of the container is the obvious next thing FFmpeg could be
-     asked for, and until it is asked, the menu should not imply it was.
+  /* Subtitle streams are listed, and they are the one kind that can be listed
+     unplayable. Nothing subtitled reaches the browser through the fragments —
+     the muxer carries picture and sound and drops the rest — so a track shown
+     here is a promise that FFmpeg will be asked for it separately when it is
+     chosen. The shell has already said which of them it can keep that promise
+     for; the rest are bitmaps, and they appear greyed rather than not at all,
+     because a Blu-ray rip whose only subtitles are pictures should say so
+     rather than look like a film with no subtitles in it.
 
      Everything else is playable, which is the whole point. */
+  const extractable = new Set(payload.cadence?.subtitles ?? []);
   const tracks = payload.streams
-    .filter((stream) => stream.codec_type !== 'subtitle')
-    .map((stream) => trackFrom(stream, true))
+    .map((stream) =>
+      trackFrom(stream, stream.codec_type !== 'subtitle' || extractable.has(stream.index ?? -1)),
+    )
     .filter((track): track is MediaTrack => track !== null);
 
   const chosen = route(source, tracks, copyVideo, copyAudio);

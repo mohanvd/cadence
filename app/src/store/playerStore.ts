@@ -246,7 +246,22 @@ async function attempt(
     // fallback for formats where the element reports Infinity.
     const resolved =
       Number.isFinite(duration) && duration > 0 ? duration : (probe.durationHint ?? 0);
-    const merged = tracks.length > 0 ? tracks : probe.tracks;
+    /* Subtitles come from the probe whichever backend is running, because no
+       backend produces them. The fragments carry picture and sound and drop
+       the rest, and a native element hides whatever the container held, so a
+       backend reporting its own tracks has still only described what it plays.
+       The subtitle entries are FFmpeg's to extract when one is chosen, and
+       dropping them here is what would make an MP4 with subtitles inside it
+       look like an MP4 without any. */
+    const subtitles = probe.tracks.filter((track) => track.type === 'subtitle');
+    /* The backend's own list is taken for picture and sound and discarded for
+       subtitles, rather than appended to. A backend built from the probe is
+       already carrying the probe's subtitle entries, so adding them was listing
+       every track in the file twice. Replacing instead of merging is right
+       whichever backend answered: the entries can only have come from the probe
+       in the first place. */
+    const played = tracks.filter((track) => track.type !== 'subtitle');
+    const merged = played.length > 0 ? [...played, ...subtitles] : probe.tracks;
     set({
       duration: resolved,
       tracks: merged,

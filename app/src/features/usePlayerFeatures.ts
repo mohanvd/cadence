@@ -1,5 +1,7 @@
 import * as React from 'react';
 import { useVideoEl, usePlayerStore } from '@/store/playerStore';
+import { describeTrack } from '@/lib/format';
+import type { MediaTrack } from '@/engine/types';
 
 // The feature hooks predate the engine and are written against a React ref.
 // They are sound, well-tested behaviour; rewriting them wholesale would risk
@@ -117,6 +119,27 @@ export function usePlayerFeatures({ fileKey, onToast }: PlayerFeatureOptions) {
     [subtitles, onToast],
   );
 
+  /**
+   * Show a subtitle track that is inside the file being played.
+   *
+   * The path comes from the store rather than from the caller because only one
+   * file is open, and a menu that had to be told which film it belonged to
+   * could be told the wrong one.
+   */
+  const selectSubtitleTrack = React.useCallback(
+    async (track: MediaTrack) => {
+      const source = usePlayerStore.getState().source;
+      if (source?.kind !== 'path') {
+        onToast('Subtitles inside a file need the file itself, not a link');
+        return;
+      }
+      const name = describeTrack(track);
+      const { ok, error } = await subtitles.loadEmbedded(source.path, Number(track.id), name);
+      if (!ok && error) onToast(error);
+    },
+    [subtitles, onToast],
+  );
+
   return {
     videoRef,
     abRepeat,
@@ -133,6 +156,7 @@ export function usePlayerFeatures({ fileKey, onToast }: PlayerFeatureOptions) {
     addBookmarkAtPlayhead,
     takeScreenshot,
     loadSubtitleFile,
+    selectSubtitleTrack,
   };
 }
 

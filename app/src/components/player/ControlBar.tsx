@@ -70,6 +70,33 @@ export function ControlBar({
   onPrevious,
 }: ControlBarProps) {
   const { seekBy } = usePlayerActions();
+
+  /**
+   * Publish how tall the bar's controls are, for the subtitles to clear.
+   *
+   * Measured rather than written down. The height depends on the density the
+   * viewer chose — `--control-scale` is applied here as `zoom`, so it is
+   * already in what the box reports — and on which optional buttons this file
+   * gave the bar. A number kept in the stylesheet would be right at one
+   * setting and would put the subtitles through the buttons at the others.
+   */
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    const publish = () => {
+      // `pb-6` sits below this box and is part of the clearance.
+      const height = content.getBoundingClientRect().height + 24;
+      document.documentElement.style.setProperty('--control-height', `${Math.round(height)}px`);
+    };
+
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
+
   // Bookmarks appear as ticks on the scrub bar, so saved points are findable
   // without opening the menu. Rounded to the second and deduped: two bookmarks
   // a frame apart are one tick visually, and would otherwise collide as
@@ -96,7 +123,9 @@ export function ControlBar({
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
     >
-      <Timeline markers={markers} />
+      {/* Measured, so the subtitles know how far they have to step up. */}
+      <div ref={contentRef}>
+        <Timeline markers={markers} />
 
       {/* Explicit two-group layout rather than a single row with `ml-auto`:
           the groups stay put regardless of how many optional buttons render. */}
@@ -180,6 +209,7 @@ export function ControlBar({
             </Tooltip>
           </div>
         </MenuGroup>
+      </div>
       </div>
     </div>
   );

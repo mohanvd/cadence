@@ -55,6 +55,20 @@ const POSTER_FRACTION: f64 = 0.12;
 /// AC-3 and DTS, is re-encoded, which costs almost nothing beside video.
 pub const COPYABLE_AUDIO: &[&str] = &["aac", "mp3"];
 
+/// Subtitle codecs that are text, and can therefore be lifted out as WebVTT.
+///
+/// The fragments carry no subtitles at all, so a track inside the container
+/// reaches the viewer only by being extracted separately. That works for these
+/// because they are words: converting them is a re-encoding of the same
+/// sentences into different punctuation.
+///
+/// What is missing from this list is the bitmap formats — PGS on a Blu-ray rip,
+/// VobSub on a DVD one. Those are pictures of words. Turning them back into
+/// words is OCR, which is a different program and a different order of
+/// difficulty, so they are reported and marked unusable rather than offered and
+/// found empty.
+pub const TEXT_SUBTITLES: &[&str] = &["subrip", "srt", "ass", "ssa", "mov_text", "webvtt", "text"];
+
 /// H.264 encoders in the order they are worth trying: the three vendor blocks
 /// on the graphics card, then Media Foundation, which covers whatever card is
 /// installed, and only then software.
@@ -469,19 +483,113 @@ impl Media {
         )
     }
 
+    /// Which subtitle streams can be lifted out of the container as text.
+    ///
+    /// By stream index, because that is what selecting one has to pass back.
+    fn text_subtitles(probe: &serde_json::Value) -> Vec<u64> {
+        probe
+            .get("streams")
+            .and_then(|value| value.as_array())
+            .map(|streams| {
+                streams
+                    .iter()
+                    .filter(|stream| {
+                        stream.get("codec_type").and_then(|v| v.as_str()) == Some("subtitle")
+                            && stream
+                                .get("codec_name")
+                                .and_then(|v| v.as_str())
+                                .is_some_and(|name| TEXT_SUBTITLES.contains(&name))
+                    })
+                    .filter_map(|stream| stream.get("index").and_then(|v| v.as_u64()))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     /// A file's streams, with what Cadence intends to do about them attached.
     pub async fn describe(&self, path: &str) -> Result<serde_json::Value, String> {
         let mut probe = self.probe(path).await?;
         let (copy_video, copy_audio) = Self::decisions(&probe);
+        let subtitles = Self::text_subtitles(&probe);
 
         if let Some(fields) = probe.as_object_mut() {
             fields.insert(
                 "cadence".to_owned(),
-                serde_json::json!({ "copyVideo": copy_video, "copyAudio": copy_audio }),
+                serde_json::json!({
+                    "copyVideo": copy_video,
+                    "copyAudio": copy_audio,
+                    "subtitles": subtitles,
+                }),
             );
         }
 
         Ok(probe)
+    }
+
+    /// One subtitle stream, converted to WebVTT.
+    ///
+    /// The whole track at once rather than in step with playback. A film's
+    /// subtitles are a few tens of kilobytes of text, so there is nothing to
+    /// gain by streaming them and a good deal to lose: cues that arrive late
+    /// are cues that are missed, and a seek would have to re-establish them.
+    ///
+    /// It does cost a pass over the container, because the last line is at the
+    /// end of the file and there is no index that would say where. That is
+    /// seconds on a large film, once, and it is why the caller shows the track
+    /// as loading rather than assuming it is instant.
+    ///
+    /// Encoding is not a question here, unlike a subtitle file found on disk.
+    /// Matroska stores text as UTF-8 by specification and FFmpeg emits UTF-8
+    /// regardless, so the Arabic that arrives as mojibake from a downloaded
+    /// `.srt` arrives intact from inside the film.
+    pub async fn subtitle(&self, path: &str, index: u32) -> Result<String, String> {
+        let args: Vec<String> = vec![
+            "-hide_banner".into(),
+            "-loglevel".into(),
+            "error".into(),
+            "-i".into(),
+            path.to_owned(),
+            "-map".into(),
+            format!("0:{index}"),
+            "-c:s".into(),
+            "webvtt".into(),
+            "-f".into(),
+            "webvtt".into(),
+            "pipe:1".into(),
+        ];
+
+        let output = ffmpeg_command(&self.ffmpeg)
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await
+            .map_err(|err| err.to_string())?;
+
+        if !output.status.success() {
+            // FFmpeg's own words. It is the only party that knows whether this
+            // was a stream that is not a subtitle, a codec it declined, or a
+            // file that moved.
+            let why = String::from_utf8_lossy(&output.stderr);
+            let why = why.lines().last().unwrap_or("").trim();
+            return Err(if why.is_empty() {
+                format!("could not read subtitle track {index}")
+            } else {
+                why.to_owned()
+            });
+        }
+
+        // A track that converts cleanly and holds nothing is a real case: some
+        // rips carry an empty stream for a language they never subtitled. It is
+        // reported rather than shown, so the viewer is not left waiting for
+        // cues that are not coming.
+        let text = String::from_utf8(output.stdout)
+            .map_err(|_| format!("subtitle track {index} is not text"))?;
+        if !text.lines().any(|line| line.contains("-->")) {
+            return Err(format!("subtitle track {index} is empty"));
+        }
+
+        Ok(text)
     }
 
     /// Decide what has to happen to a file before the page can play it.
@@ -618,5 +726,55 @@ impl Media {
         });
 
         Ok(media)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Shaped exactly as ffprobe reports it, including the two subtitle kinds
+    /// that have to be told apart: text, which converts, and a Blu-ray bitmap,
+    /// which does not.
+    fn probe() -> serde_json::Value {
+        serde_json::json!({
+            "streams": [
+                { "index": 0, "codec_type": "video", "codec_name": "h264" },
+                { "index": 1, "codec_type": "audio", "codec_name": "ac3" },
+                { "index": 2, "codec_type": "subtitle", "codec_name": "subrip" },
+                { "index": 3, "codec_type": "subtitle", "codec_name": "hdmv_pgs_subtitle" },
+                { "index": 4, "codec_type": "subtitle", "codec_name": "ass" },
+            ]
+        })
+    }
+
+    #[test]
+    fn text_subtitles_are_offered_and_bitmaps_are_not() {
+        assert_eq!(Media::text_subtitles(&probe()), vec![2, 4]);
+    }
+
+    #[test]
+    fn a_file_without_subtitles_offers_none() {
+        let bare = serde_json::json!({
+            "streams": [{ "index": 0, "codec_type": "video", "codec_name": "h264" }]
+        });
+        assert!(Media::text_subtitles(&bare).is_empty());
+    }
+
+    /// An unreadable probe must answer "none" rather than panic: it is reached
+    /// on every file, including the damaged ones.
+    #[test]
+    fn nothing_readable_offers_none() {
+        assert!(Media::text_subtitles(&serde_json::json!({})).is_empty());
+    }
+
+    /// The copy decisions and the subtitle list read the same stream array, and
+    /// this is the pairing they are asked about together: a film whose audio
+    /// must be converted and whose subtitles can be lifted out.
+    #[test]
+    fn decisions_are_unchanged_by_subtitle_streams() {
+        let (copy_video, copy_audio) = Media::decisions(&probe());
+        assert!(copy_video, "h264 is copyable");
+        assert!(!copy_audio, "ac3 is not");
     }
 }

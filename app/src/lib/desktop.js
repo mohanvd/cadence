@@ -235,6 +235,27 @@ export async function probeMedia(path) {
 }
 
 /**
+ * One subtitle track from inside a file, as WebVTT.
+ *
+ * `index` is the demuxer's stream index, which is what `MediaTrack.id` carries
+ * for every track the probe reported.
+ *
+ * Rejects rather than returning null, because every reason this fails is worth
+ * repeating to the viewer: a track can be empty, or a picture rather than text,
+ * or the file can have moved since it was opened. "No subtitles" would describe
+ * all three and explain none.
+ *
+ * @param {string} path
+ * @param {number} index
+ * @returns {Promise<string>} WebVTT
+ */
+export async function subtitleTrack(path, index) {
+  if (!isDesktop()) throw new Error('Subtitles inside a file need the desktop app');
+  const { invoke } = await import('@tauri-apps/api/core');
+  return await invoke('media_subtitle', { path, index });
+}
+
+/**
  * The URL that streams a file as fragmented MP4, starting at `start` seconds.
  *
  * A seek is a new URL rather than a range request on an old one. The stream is

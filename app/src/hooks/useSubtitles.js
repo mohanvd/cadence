@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { loadSubtitleFile } from '../utils/subtitles';
+import { subtitleTrack } from '../lib/desktop';
 
 const STORAGE_KEY = 'cadence-subtitle-style';
 
@@ -29,9 +30,37 @@ export function useSubtitles(videoRef, videoEl = null) {
   const [enabled, setEnabled] = useState(false);
   const [offset, setOffset] = useState(0); // in seconds
   const [style, setStyle] = useState(loadStyle);
+  /**
+   * Where the showing cues came from: `'file'` for one opened from disk, or a
+   * demuxer stream index for one lifted out of the video itself. Null when
+   * nothing is loaded.
+   *
+   * The menu needs it to mark which entry is on. Deriving that from the label
+   * would work until two tracks in a film share a name, which is exactly what
+   * an English track and an English SDH track usually do.
+   */
+  const [sourceId, setSourceId] = useState(null);
+  /**
+   * Which track is being lifted out of the container, or null.
+   *
+   * Separate from `sourceId`, and it has to be: `sourceId` names the track on
+   * screen, and does not become the new one until the extraction has finished.
+   * Marking the row that is working needs the id of the track that has not
+   * arrived yet.
+   */
+  const [pendingId, setPendingId] = useState(null);
+  /**
+   * The parsed track itself, for the component that draws its active cues.
+   */
+  const [textTrack, setTextTrack] = useState(null);
   const urlRef = useRef(null);
-  const styleTagRef = useRef(null);
   const trackElRef = useRef(null);
+  /**
+   * Bumped on every load. An extraction that was in flight when the viewer
+   * chose a different track checks this before adopting, so the slower of two
+   * requests cannot overwrite the one they actually waited for.
+   */
+  const requestRef = useRef(0);
 
   const revokeUrl = useCallback(() => {
     if (urlRef.current) {
@@ -68,18 +97,74 @@ export function useSubtitles(videoRef, videoEl = null) {
     track.default = true;
     video.appendChild(track);
     trackElRef.current = track;
+    /* Published as state, because what reads it is a component rather than
+       this hook: the element parses the file and holds the cues, and Cadence
+       draws them. */
+    setTextTrack(track.track ?? null);
 
     return () => {
       track.remove();
       if (trackElRef.current === track) trackElRef.current = null;
+      setTextTrack(null);
     };
   }, [trackUrl, label, videoEl, videoRef]);
 
+  /**
+   * Re-apply the viewer's timing offset to a track that has just been parsed.
+   *
+   * The cues carry the times written in the file, and the offset is not one of
+   * them: it is applied by moving the cues, so a track that is parsed again
+   * comes back unshifted. That happens whenever the element is rebuilt — a
+   * backend falling back mid-file is the case that does it — and until this
+   * ran, the readout went on claiming a correction the screen had lost.
+   */
+  const offsetRef = useRef(offset);
+  offsetRef.current = offset;
+
+  useEffect(() => {
+    const element = trackElRef.current;
+    if (!element || !trackUrl) return;
+
+    const shift = () => {
+      const by = offsetRef.current;
+      const cues = element.track?.cues;
+      if (!cues || by === 0) return;
+      for (let i = 0; i < cues.length; i++) {
+        cues[i].startTime += by;
+        cues[i].endTime += by;
+      }
+    };
+
+    // LOADED. Already parsed, so the event has been and gone.
+    if (element.readyState === 2) shift();
+    else element.addEventListener('load', shift, { once: true });
+    return () => element.removeEventListener('load', shift);
+  }, [trackUrl, videoEl]);
+
+  /**
+   * Keep exactly one track live, and keep the browser from drawing it.
+   *
+   * `hidden` rather than `showing` is the whole arrangement. A hidden track is
+   * still parsed and still maintains `activeCues` as the clock runs; what it
+   * does not do is paint. Cadence paints, in an ordinary element over the
+   * video, which is what buys everything the native rendering cannot be talked
+   * into: text that sits above the control bar rather than behind it, a
+   * backdrop that is one box behind the whole line, and a right-to-left line
+   * that reads as one.
+   *
+   * Every track used to be switched together, which was harmless while the only
+   * one present was this hook's. It stops being harmless the moment the
+   * container has its own: an MP4 with subtitles inside it is demuxed by the
+   * browser, which publishes them as text tracks of its own, and letting those
+   * through would draw every line twice.
+   */
   const syncTrackMode = useCallback(() => {
     const video = videoEl ?? videoRef.current;
     if (!video) return;
+    const ours = trackElRef.current?.track;
     for (let i = 0; i < video.textTracks.length; i++) {
-      video.textTracks[i].mode = enabled && trackUrl ? 'showing' : 'hidden';
+      const track = video.textTracks[i];
+      track.mode = track === ours && enabled && trackUrl ? 'hidden' : 'disabled';
     }
   }, [enabled, trackUrl, videoEl, videoRef]);
 
@@ -98,14 +183,37 @@ export function useSubtitles(videoRef, videoEl = null) {
     };
   }, [syncTrackMode, videoEl, videoRef]);
 
+  /**
+   * Put a WebVTT document on screen, whatever produced it.
+   *
+   * @param {string} vtt
+   * @param {string} name Shown in the menu.
+   * @param {string} id `'file'`, or a demuxer stream index.
+   */
+  const adopt = useCallback(
+    (vtt, name, id) => {
+      revokeUrl();
+      const url = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
+      urlRef.current = url;
+      setLabel(name);
+      setSourceId(id);
+      setTrackUrl(url);
+      setEnabled(true);
+      setOffset(0);
+    },
+    [revokeUrl]
+  );
+
   const loadFile = useCallback(
     async (file) => {
       const ext = file.name.split('.').pop()?.toLowerCase();
       if (ext !== 'srt' && ext !== 'vtt') return false;
+      requestRef.current += 1;
       revokeUrl();
       const url = await loadSubtitleFile(file);
       urlRef.current = url;
       setLabel(file.name);
+      setSourceId('file');
       setTrackUrl(url);
       setEnabled(true);
       setOffset(0);
@@ -114,24 +222,56 @@ export function useSubtitles(videoRef, videoEl = null) {
     [revokeUrl]
   );
 
+  /**
+   * Lift a subtitle track out of the video being played and show it.
+   *
+   * The extraction is a pass over the container, so it is seconds on a large
+   * film rather than instant, and `loading` is what lets the menu say so.
+   *
+   * @param {string} path The file being played.
+   * @param {number} index Demuxer stream index of the subtitle track.
+   * @param {string} name Shown in the menu.
+   * @returns {Promise<{ ok: boolean, error?: string }>}
+   */
+  const loadEmbedded = useCallback(
+    async (path, index, name) => {
+      requestRef.current += 1;
+      const request = requestRef.current;
+      setPendingId(String(index));
+      try {
+        const vtt = await subtitleTrack(path, index);
+        // A slower extraction must not land on top of a faster one the viewer
+        // chose afterwards, and neither may land at all once the file is closed.
+        if (request !== requestRef.current) return { ok: false };
+        adopt(vtt, name, String(index));
+        return { ok: true };
+      } catch (err) {
+        if (request !== requestRef.current) return { ok: false };
+        return { ok: false, error: String(err) };
+      } finally {
+        if (request === requestRef.current) setPendingId(null);
+      }
+    },
+    [adopt]
+  );
+
   const changeOffset = useCallback((delta) => {
     setOffset((prev) => {
       const next = prev + delta;
-      // Adjust cues directly
-      const video = videoRef.current;
-      if (video && video.textTracks && video.textTracks.length > 0) {
-        const track = video.textTracks[0];
-        const cues = track.cues || track.activeCues;
-        if (cues) {
-          for (let i = 0; i < cues.length; i++) {
-            cues[i].startTime += delta;
-            cues[i].endTime += delta;
-          }
+      /* The cues are moved rather than the clock, because there is no clock to
+         move: a text track runs on the element's. This reaches for the track
+         element's own track rather than the first in the list, which are the
+         same thing only until the container contributes one of its own. */
+      const cues = trackElRef.current?.track?.cues;
+      if (cues) {
+        for (let i = 0; i < cues.length; i++) {
+          cues[i].startTime += delta;
+          cues[i].endTime += delta;
         }
       }
       return next;
     });
-  }, [videoRef]);
+  }, []);
 
   const changeStyle = useCallback((key, value) => {
     setStyle((prev) => {
@@ -143,55 +283,37 @@ export function useSubtitles(videoRef, videoEl = null) {
     });
   }, []);
 
-  // Inject dynamic CSS for ::cue
-  useEffect(() => {
-    let styleEl = styleTagRef.current;
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      document.head.appendChild(styleEl);
-      styleTagRef.current = styleEl;
-    }
-    
-    styleEl.textContent = `
-      ::cue {
-        font-size: ${style.fontSize} !important;
-        color: ${style.color} !important;
-        background: ${style.background} !important;
-        font-family: Inter, sans-serif !important;
-        border-radius: 4px;
-        line-height: 1.4;
-      }
-    `;
-
-    return () => {
-      if (styleEl && styleEl.parentNode) {
-        styleEl.parentNode.removeChild(styleEl);
-      }
-      styleTagRef.current = null;
-    };
-  }, [style]);
-
   const toggle = useCallback(() => {
     if (!trackUrl) return;
     setEnabled((v) => !v);
   }, [trackUrl]);
 
   const clear = useCallback(() => {
+    // Bumped so an extraction still running is disowned rather than adopted
+    // into the file that replaced the one it was asked for.
+    requestRef.current += 1;
     revokeUrl();
     setTrackUrl(null);
     setLabel('Subtitles');
+    setSourceId(null);
+    setPendingId(null);
     setEnabled(false);
     setOffset(0);
   }, [revokeUrl]);
 
   return {
     trackUrl,
+    textTrack,
     label,
+    sourceId,
+    pendingId,
+    loading: pendingId !== null,
     enabled,
     hasSubtitles: !!trackUrl,
     offset,
     style,
     loadFile,
+    loadEmbedded,
     toggle,
     clear,
     changeOffset,

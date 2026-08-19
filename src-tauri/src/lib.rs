@@ -74,6 +74,26 @@ async fn media_probe(
     }
 }
 
+/// One subtitle track from inside a file, as WebVTT the page can show.
+///
+/// A command rather than a route on the socket, unlike streams and frames.
+/// Those are large and continuous and belong on a socket; this is a few tens of
+/// kilobytes of text asked for once per track. Returning it straight to the
+/// caller also keeps it same-origin, and a `<track>` element pointed at another
+/// origin is refused unless the video element is opened for cross-origin reads,
+/// which is a change with consequences well beyond subtitles.
+#[tauri::command]
+async fn media_subtitle(
+    state: tauri::State<'_, MediaState>,
+    path: String,
+    index: u32,
+) -> Result<String, String> {
+    match pipeline(&state).await {
+        Some(media) => media.subtitle(&path, index).await,
+        None => Err("playback support is not available".into()),
+    }
+}
+
 /// The file Cadence was asked to open at launch, if any.
 ///
 /// Double-clicking a video, or "Open with → Cadence", starts the process with
@@ -134,7 +154,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             take_launch_file,
             media_endpoint,
-            media_probe
+            media_probe,
+            media_subtitle
         ])
         .setup(|app| {
             /* Started in the background rather than awaited here. Preparing it

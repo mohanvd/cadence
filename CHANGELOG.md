@@ -5,6 +5,72 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Subtitles that are inside the video. Until now the menu took an `.srt` or a
+  `.vtt` from disk and nothing else, so a film that arrived subtitled — which
+  is most of what an MKV is used for — played as though it had none, and the
+  only way to read it was to go and find on the internet a copy of a track
+  already in the file. Every text track in the container is now listed by name
+  and language and shown on choosing.
+
+  The fragments carry picture and sound and drop everything else, so a chosen
+  track is lifted out of the file separately by FFmpeg and converted to
+  WebVTT. That costs a pass over the container, seconds on a large film, and
+  the menu says so while it runs rather than appearing to have ignored the
+  click. It is done once per track: switching a track off and back on does not
+  pay for it again.
+
+  Blu-ray and DVD subtitles are listed and cannot be chosen. They are not text
+  but pictures of text, and reading them means OCR, which is a different
+  program. They are shown greyed rather than hidden, because a disc rip whose
+  only subtitles are images should say that, not look like a film nobody
+  subtitled.
+
+  Nothing is guessed about encoding, which is the flaw in reading a subtitle
+  file from disk: Matroska stores text as UTF-8 and FFmpeg emits UTF-8, so
+  Arabic that would arrive from a downloaded `.srt` as mojibake arrives from
+  inside the film intact.
+
+- Cadence draws the subtitles itself now, rather than handing the cues to the
+  browser to paint. The browser will do it, and the reason not to let it is
+  everything it will not do while doing it: native cues are reachable only
+  through `::cue`, which takes a short list of text properties and no position
+  at all.
+
+  Three things follow from owning the drawing. The text steps up out of the way
+  when the control bar appears and settles back when it goes — it used to sit
+  behind the buttons, which is where a line goes unread. The backdrop is one
+  box behind a whole line rather than a separate box behind each fragment the
+  cue happened to be split into. And a right-to-left line is laid out as one,
+  so Arabic reads as Arabic.
+
+  How far the text steps is measured from the bar rather than written down,
+  because the bar's height follows the interface density the viewer chose. A
+  number in the stylesheet would have been right at one setting and would have
+  put the subtitles through the buttons at the others.
+
+- Tracks are marked the way a film marks them: `CC` for the version written for
+  someone who cannot hear the room, `Forced` for the handful of lines meant to
+  be read by everybody, `Image` for the ones that are pictures. A film
+  routinely carries three tracks called "English", and until something says
+  which is which, choosing between them is guesswork.
+
+### Fixed
+
+- The timing offset moved the cues of whichever text track the element listed
+  first. That was this player's own track until a container contributed one of
+  its own, and then it was a coin toss. It moves the track being shown.
+- The offset was also lost, silently, whenever the video element was rebuilt —
+  which is what a backend falling back mid-file does. The readout went on
+  claiming a correction that was no longer applied to anything. It is
+  re-applied when the track is parsed again.
+- Every text track was switched on together. Harmless while this player's was
+  the only one present, and double subtitles on screen the moment an MP4 the
+  browser demuxed brought its own.
+
 ## [0.3.1] - 2026-08-19
 
 ### Fixed

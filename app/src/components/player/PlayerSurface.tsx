@@ -36,6 +36,7 @@ import {
   useVideoEl,
 } from '@/store/playerStore';
 import { ControlBar } from './ControlBar';
+import { SubtitleOverlay } from './SubtitleOverlay';
 
 /** Hide the cursor and chrome after this long without pointer movement. */
 const IDLE_MS = 2600;
@@ -384,6 +385,15 @@ export function PlayerSurface({
             onPointerCancel={handlePanEnd}
           />
         </PlayerContextMenu>
+
+        {/* Over the picture, under the chrome. Placed outside the mount so a
+            backend swapping its own element out cannot take the text with it. */}
+        <SubtitleOverlay
+          track={features.subtitles.textTrack}
+          style={features.subtitles.style}
+          visible={features.subtitles.enabled && !musicMode.enabled}
+          lifted={chromeVisible}
+        />
 
         {loading && !error && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
