@@ -38,10 +38,26 @@ export interface BookmarksApi {
 }
 
 export interface SubtitleStyle {
-  fontSize: string;
+  /** Key into the overlay's font stacks: `sans`, `serif`, `mono`, `rounded`. */
+  family: string;
+  /** Percent of the player's own base size. */
+  size: number;
+  /** `#rrggbb`. */
   color: string;
-  background: string;
+  /** Percent. */
+  opacity: number;
+  /** `#rrggbb`. */
+  backgroundColor: string;
+  /** Percent. Zero is no backdrop at all, which the edge style makes usable. */
+  backgroundOpacity: number;
+  /** How the glyphs are separated from the picture: `none`, `shadow`,
+   *  `outline`, `raised`. */
+  edge: string;
 }
+
+/** Every value each appearance setting may take, in menu order. */
+export type SubtitleOption<T> = { value: T; label: string };
+
 
 export interface SubtitlesApi {
   trackUrl: string | null;
@@ -80,7 +96,10 @@ export interface SubtitlesApi {
   toggle: () => void;
   clear: () => void;
   changeOffset: (delta: number) => void;
-  changeStyle: (key: keyof SubtitleStyle, value: string) => void;
+  changeStyle: <K extends keyof SubtitleStyle>(key: K, value: SubtitleStyle[K]) => void;
+  resetStyle: () => void;
+  /** True while every appearance setting is still at its shipped value. */
+  isStyleDefault: boolean;
 }
 
 export interface EqualizerBand {
@@ -174,6 +193,9 @@ declare module '@/hooks/useBookmarks' {
 }
 
 declare module '@/hooks/useSubtitles' {
+  export const SUBTITLE_OPTIONS: {
+    [K in keyof SubtitleStyle]: SubtitleOption<SubtitleStyle[K]>[];
+  };
   export function useSubtitles(
     videoRef: VideoRef,
     videoEl?: HTMLVideoElement | null,

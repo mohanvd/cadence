@@ -3,9 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icons';
 import {
   MenuItem,
-  MenuLabel,
   MenuSeparator,
-  MenuSlider,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -15,17 +13,20 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { describeTrack } from '@/lib/format';
 import { useTrackState } from '@/store/playerStore';
+import { SUBTITLE_OPTIONS } from '@/hooks/useSubtitles';
 import type { PlayerFeatures } from '@/features/usePlayerFeatures';
 import type { MediaTrack } from '@/engine/types';
+import type { SubtitleStyle } from '@/hooks';
 
-const SIZES = ['14px', '16px', '18px', '22px', '26px', '32px'];
+type Panel = 'tracks' | 'options' | 'timing' | keyof SubtitleStyle;
 
 /**
- * Subtitle track selection, loading, timing and styling.
+ * Subtitle track selection, timing and appearance.
  *
- * The offset control is the reason this is a menu rather than a toggle:
- * downloaded subtitles are frequently out of sync with a given release, and
- * being able to nudge them while watching is what makes them usable at all.
+ * Panels rather than one long list, which is the shape every player of any
+ * size arrives at and for the same reason: choosing a language happens often
+ * and should take one press, and choosing a typeface happens once and should
+ * not be in the way of it. The tracks are what opens.
  *
  * The tracks inside the file are listed above the file picker, because that is
  * the order in which they should be tried. A film that was subtitled arrives
@@ -37,6 +38,14 @@ export function SubtitleMenu({ features }: { features: PlayerFeatures }) {
   const { subtitles, loadSubtitleFile, selectSubtitleTrack } = features;
   const { tracks } = useTrackState();
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const [panel, setPanel] = React.useState<Panel>('tracks');
+
+  // Reopening lands on the track list. Someone who went into the settings to
+  // change the size does not mean to be there next time they want Arabic.
+  React.useEffect(() => {
+    if (!menu.open) setPanel('tracks');
+  }, [menu.open]);
 
   const embedded = tracks.filter((track) => track.type === 'subtitle');
 
@@ -53,7 +62,7 @@ export function SubtitleMenu({ features }: { features: PlayerFeatures }) {
    * misread, and paying seconds of a pass over the container for it would make
    * the menu feel broken.
    */
-  const pick = (track: (typeof embedded)[number]) => {
+  const pick = (track: MediaTrack) => {
     if (subtitles.sourceId === track.id) {
       if (!subtitles.enabled) subtitles.toggle();
       return;
@@ -67,141 +76,308 @@ export function SubtitleMenu({ features }: { features: PlayerFeatures }) {
     <Popover {...menu}>
       <Tooltip label="Subtitles" shortcut="C">
         <PopoverTrigger asChild>
-          <Button
-            variant="chrome"
-            size="icon"
-            aria-label="Subtitles"
-          >
+          <Button variant="chrome" size="icon" aria-label="Subtitles">
             <Icon name="captions" />
           </Button>
         </PopoverTrigger>
       </Tooltip>
 
-      <PopoverContent className="w-72">
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".srt,.vtt"
-          hidden
-          onChange={onPick}
-        />
+      <PopoverContent className="w-[19rem]">
+        <input ref={inputRef} type="file" accept=".srt,.vtt" hidden onChange={onPick} />
 
-        <MenuLabel>Subtitles</MenuLabel>
-
-        <MenuItem
-          active={!showing}
-          onSelect={() => {
-            if (subtitles.enabled) subtitles.toggle();
-          }}
-        >
-          Off
-        </MenuItem>
-
-        {embedded.map((track) => (
-          <MenuItem
-            key={track.id}
-            active={showing && subtitles.sourceId === track.id}
-            // A bitmap track is listed and cannot be chosen. Hiding it would
-            // say the film has no subtitles; this says it has some Cadence
-            // cannot read, which is the truth and is also what tells someone
-            // to go looking for a file.
-            disabled={!track.playable || subtitles.loading}
-            onSelect={() => pick(track)}
-            trailing={<Badges track={track} pendingId={subtitles.pendingId} />}
-          >
-            {describeTrack(track)}
-          </MenuItem>
-        ))}
-
-        {subtitles.sourceId === 'file' && (
-          <MenuItem
-            active={showing}
-            onSelect={() => {
-              if (!subtitles.enabled) subtitles.toggle();
-            }}
-          >
-            <span className="block max-w-[15rem] truncate">{subtitles.label}</span>
-          </MenuItem>
-        )}
-
-        <MenuSeparator />
-
-        <MenuItem onSelect={() => inputRef.current?.click()}>
-          {subtitles.sourceId === 'file' ? 'Choose a different file…' : 'Load from a file…'}
-        </MenuItem>
-
-        {embedded.length === 0 && (
-          <div className="px-2.5 pt-0.5 pb-1.5 text-[11px] leading-relaxed text-fg-subtle">
-            This file carries no subtitles of its own. Drop an .srt or .vtt onto
-            the video, or choose one above.
-          </div>
-        )}
-
-        {subtitles.hasSubtitles && (
+        {panel === 'tracks' && (
           <>
-            <MenuSeparator />
-            <MenuLabel>Timing</MenuLabel>
-            <div className="flex items-center gap-1.5 px-2.5 pb-1">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="flex-1"
-                onClick={() => subtitles.changeOffset(-0.5)}
-              >
-                −0.5s
-              </Button>
-              <span className="min-w-14 text-center text-[12px] tabular-nums text-fg">
-                {subtitles.offset > 0 ? '+' : ''}
-                {subtitles.offset.toFixed(1)}s
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="flex-1"
-                onClick={() => subtitles.changeOffset(0.5)}
-              >
-                +0.5s
-              </Button>
-            </div>
-
-            <MenuSeparator />
-            <MenuLabel>Appearance</MenuLabel>
-            <div className="flex flex-wrap gap-1 px-1.5 pb-1">
-              {SIZES.map((size) => (
-                <button
-                  key={size}
-                  type="button"
-                  onClick={() => subtitles.changeStyle('fontSize', size)}
-                  className={cn(
-                    'rounded-md px-2 py-1.5 text-[11px] tabular-nums transition-colors',
-                    subtitles.style.fontSize === size
-                      ? 'bg-accent text-accent-fg'
-                      : 'bg-surface-2 text-fg-muted hover:bg-surface-3 hover:text-fg',
-                  )}
-                >
-                  {parseInt(size, 10)}
-                </button>
-              ))}
-            </div>
-            <MenuSlider
-              label="Backdrop"
-              value={Math.round(
-                parseFloat(
-                  subtitles.style.background.match(/[\d.]+\)$/)?.[0] ?? '0.75)',
-                ) * 100,
-              )}
-              min={0}
-              max={100}
-              format={(v) => `${v}%`}
-              onChange={(v) =>
-                subtitles.changeStyle('background', `rgba(0, 0, 0, ${v / 100})`)
+            <PanelHeader
+              title="Subtitles"
+              action={
+                subtitles.hasSubtitles
+                  ? { label: 'Options', onSelect: () => setPanel('options') }
+                  : undefined
               }
             />
+
+            <MenuItem
+              active={!showing}
+              onSelect={() => {
+                if (subtitles.enabled) subtitles.toggle();
+              }}
+            >
+              Off
+            </MenuItem>
+
+            {embedded.map((track) => (
+              <MenuItem
+                key={track.id}
+                active={showing && subtitles.sourceId === track.id}
+                // A bitmap track is listed and cannot be chosen. Hiding it
+                // would say the film has no subtitles; this says it has some
+                // Cadence cannot read, which is the truth and is also what
+                // tells someone to go looking for a file.
+                disabled={!track.playable || subtitles.loading}
+                onSelect={() => pick(track)}
+                trailing={<Badges track={track} pendingId={subtitles.pendingId} />}
+              >
+                {describeTrack(track)}
+              </MenuItem>
+            ))}
+
+            {subtitles.sourceId === 'file' && (
+              <MenuItem
+                active={showing}
+                onSelect={() => {
+                  if (!subtitles.enabled) subtitles.toggle();
+                }}
+              >
+                <span className="block max-w-[15rem] truncate">{subtitles.label}</span>
+              </MenuItem>
+            )}
+
+            <MenuSeparator />
+
+            <MenuItem onSelect={() => inputRef.current?.click()}>
+              {subtitles.sourceId === 'file' ? 'Choose a different file…' : 'Load from a file…'}
+            </MenuItem>
+
+            {embedded.length === 0 && (
+              <div className="px-2.5 pt-0.5 pb-1.5 text-[11px] leading-relaxed text-fg-subtle">
+                This file carries no subtitles of its own. Drop an .srt or .vtt
+                onto the video, or choose one above.
+              </div>
+            )}
           </>
+        )}
+
+        {panel === 'options' && (
+          <Options subtitles={subtitles} onBack={() => setPanel('tracks')} onOpen={setPanel} />
+        )}
+
+        {panel === 'timing' && (
+          <Timing subtitles={subtitles} onBack={() => setPanel('options')} />
+        )}
+
+        {isStyleKey(panel) && (
+          <Choices
+            setting={panel}
+            value={subtitles.style[panel]}
+            onChoose={(value) => {
+              subtitles.changeStyle(panel, value);
+              setPanel('options');
+            }}
+            onBack={() => setPanel('options')}
+          />
         )}
       </PopoverContent>
     </Popover>
   );
+}
+
+/** A panel's title bar, with the way back out of it. */
+function PanelHeader({
+  title,
+  onBack,
+  action,
+}: {
+  title: string;
+  onBack?: () => void;
+  action?: { label: string; onSelect: () => void };
+}) {
+  return (
+    <div className="mb-1 flex items-center gap-1 border-b border-line px-1 pb-1.5">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back"
+          className="rounded-md p-1 text-fg-muted transition-colors hover:bg-surface-3 hover:text-fg"
+        >
+          <Icon name="back" size={15} />
+        </button>
+      )}
+      <span className={cn('flex-1 text-[12px] font-semibold text-fg', !onBack && 'pl-2')}>
+        {title}
+      </span>
+      {action && (
+        <button
+          type="button"
+          onClick={action.onSelect}
+          className="rounded-md px-2 py-1 text-[12px] text-fg-muted transition-colors hover:bg-surface-3 hover:text-fg"
+        >
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Everything about a showing track that is not which track it is. */
+function Options({
+  subtitles,
+  onBack,
+  onOpen,
+}: {
+  subtitles: PlayerFeatures['subtitles'];
+  onBack: () => void;
+  onOpen: (panel: Panel) => void;
+}) {
+  return (
+    <>
+      <PanelHeader title="Options" onBack={onBack} />
+
+      {/* Only for a file found on disk.
+       *
+       * A track lifted out of the video was authored against that video, so it
+       * is in sync by construction and there is nothing here to correct. What
+       * gets out of sync is a subtitle downloaded for a different release —
+       * another cut, another framerate, the advertisements still in — and that
+       * is the only case in which this row means anything. Offering it for
+       * every track invites people to fix what is not broken. */}
+      {subtitles.sourceId === 'file' && (
+        <MenuItem
+          onSelect={() => onOpen('timing')}
+          trailing={<Value>{formatOffset(subtitles.offset)}</Value>}
+        >
+          Timing
+        </MenuItem>
+      )}
+
+      {(Object.keys(SETTINGS) as (keyof SubtitleStyle)[]).map((key) => (
+        <MenuItem
+          key={key}
+          onSelect={() => onOpen(key)}
+          trailing={<Value>{labelFor(key, subtitles.style[key])}</Value>}
+        >
+          {SETTINGS[key]}
+        </MenuItem>
+      ))}
+
+      <MenuSeparator />
+      <MenuItem disabled={subtitles.isStyleDefault} onSelect={subtitles.resetStyle}>
+        Reset appearance
+      </MenuItem>
+    </>
+  );
+}
+
+/** The value a settings row holds, and the mark that it opens onto more. */
+function Value({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="flex shrink-0 items-center gap-0.5 text-[12px] text-fg-muted">
+      {children}
+      <Icon name="submenu" size={14} className="text-fg-subtle" />
+    </span>
+  );
+}
+
+/** Nudging a downloaded subtitle onto this cut of the film. */
+function Timing({
+  subtitles,
+  onBack,
+}: {
+  subtitles: PlayerFeatures['subtitles'];
+  onBack: () => void;
+}) {
+  return (
+    <>
+      <PanelHeader title="Timing" onBack={onBack} />
+      <p className="px-2.5 pb-2 text-[11px] leading-relaxed text-fg-subtle">
+        If the lines arrive early or late, this moves the whole track. Negative
+        is earlier.
+      </p>
+      <div className="flex items-center gap-1.5 px-2.5 pb-1">
+        <Button
+          variant="secondary"
+          size="sm"
+          className="flex-1"
+          onClick={() => subtitles.changeOffset(-0.5)}
+        >
+          −0.5s
+        </Button>
+        <span className="min-w-14 text-center text-[12px] tabular-nums text-fg">
+          {formatOffset(subtitles.offset)}
+        </span>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="flex-1"
+          onClick={() => subtitles.changeOffset(0.5)}
+        >
+          +0.5s
+        </Button>
+      </div>
+      <MenuItem
+        disabled={subtitles.offset === 0}
+        onSelect={() => subtitles.changeOffset(-subtitles.offset)}
+      >
+        Back to the file&apos;s own timing
+      </MenuItem>
+    </>
+  );
+}
+
+/** The values one appearance setting can take. */
+function Choices({
+  setting,
+  value,
+  onChoose,
+  onBack,
+}: {
+  setting: keyof SubtitleStyle;
+  value: string | number;
+  onChoose: (value: never) => void;
+  onBack: () => void;
+}) {
+  return (
+    <>
+      <PanelHeader title={SETTINGS[setting]} onBack={onBack} />
+      {SUBTITLE_OPTIONS[setting].map((option) => (
+        <MenuItem
+          key={String(option.value)}
+          active={option.value === value}
+          onSelect={() => onChoose(option.value as never)}
+          trailing={
+            // A colour is recognised faster than it is read, and a swatch
+            // beside the name is faster than either alone.
+            isColour(setting) ? (
+              <span
+                className="size-3.5 shrink-0 rounded-full border border-line"
+                style={{ backgroundColor: String(option.value) }}
+              />
+            ) : undefined
+          }
+        >
+          {option.label}
+        </MenuItem>
+      ))}
+    </>
+  );
+}
+
+const SETTINGS: Record<keyof SubtitleStyle, string> = {
+  family: 'Font',
+  size: 'Size',
+  color: 'Text colour',
+  opacity: 'Text opacity',
+  backgroundColor: 'Backdrop colour',
+  backgroundOpacity: 'Backdrop opacity',
+  edge: 'Edge style',
+};
+
+function isStyleKey(panel: Panel): panel is keyof SubtitleStyle {
+  return panel in SETTINGS;
+}
+
+function isColour(setting: keyof SubtitleStyle): boolean {
+  return setting === 'color' || setting === 'backgroundColor';
+}
+
+/** What a setting's current value is called, for the row that opens it. */
+function labelFor(key: keyof SubtitleStyle, value: string | number): string {
+  const match = SUBTITLE_OPTIONS[key].find((option) => option.value === value);
+  return match ? match.label : String(value);
+}
+
+function formatOffset(seconds: number): string {
+  return `${seconds > 0 ? '+' : ''}${seconds.toFixed(1)}s`;
 }
 
 /**

@@ -68,6 +68,12 @@
     /* Overwritten by the appearance store. Declared here so the control bar
        has a sane value on the very first paint, before any script runs. */
     --control-scale: 1;
+
+    /* Subtitle text at 100%, which the viewer's size setting is a multiple of.
+       Tied to the height of the window rather than fixed, because the same
+       line is read from a desk and from a sofa: a size that is comfortable in
+       a small window is a caption card full-screen. */
+    --subtitle-base: clamp(15px, 2.6vh, 42px);
   }
 
   * {

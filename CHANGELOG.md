@@ -52,6 +52,29 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   number in the stylesheet would have been right at one setting and would have
   put the subtitles through the buttons at the others.
 
+- The subtitle menu is panels rather than one list: the tracks, an Options
+  panel behind them, and a panel of values behind each setting. Choosing a
+  language happens often and takes one press; choosing a typeface happens once
+  and is no longer in the way of it.
+
+  What can be set has grown with the room to put it: font, size, text colour
+  and opacity, backdrop colour and opacity, and the edge drawn around the
+  glyphs. The edge is the one that matters and looks like it does not — a white
+  line crossing a snow field disappears without one, and it is what makes
+  turning the backdrop off a choice rather than a mistake.
+
+  The size is a percentage of a base tied to the height of the window rather
+  than a pixel count, so the setting means the same thing in a small window and
+  across a television.
+
+- A subtitle file that is not UTF-8 is decoded as what it actually is. Arabic
+  subtitles are still commonly written in windows-1256, and every one of them
+  arrived as mojibake. The file itself says nothing about its encoding, so it
+  is read from the bytes: a byte-order mark if there is one, then strict UTF-8,
+  which bytes that are not UTF-8 overwhelmingly fail; only then is anything
+  guessed. The guess is settled by coherence — real writing is in one alphabet,
+  and a wrong decoding scatters letters across several.
+
 - Tracks are marked the way a film marks them: `CC` for the version written for
   someone who cannot hear the room, `Forced` for the handful of lines meant to
   be read by everybody, `Image` for the ones that are pictures. A film
@@ -67,6 +90,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   which is what a backend falling back mid-file does. The readout went on
   claiming a correction that was no longer applied to anything. It is
   re-applied when the track is parsed again.
+- The timing control was offered for every track, including the ones that
+  cannot be out of time. A track lifted out of the film was authored against
+  that film; what drifts is a subtitle downloaded for another release. It now
+  appears only for a file opened from disk, where it means something.
 - Every text track was switched on together. Harmless while this player's was
   the only one present, and double subtitles on screen the moment an MP4 the
   browser demuxed brought its own.

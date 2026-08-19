@@ -97,13 +97,47 @@ function Line({ cue, style }: { cue: VTTCue; style: SubtitleStyle }) {
       dir="auto"
       className="max-w-full rounded-[4px] px-2 py-0.5 text-center leading-snug font-medium whitespace-pre-wrap"
       style={{
-        fontSize: style.fontSize,
-        color: style.color,
-        backgroundColor: style.background,
-        /* Legible over a bright frame even with the backdrop turned off, which
-           is the setting anyone who dislikes the black box reaches for. */
-        textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.6)',
+        fontFamily: FAMILIES[style.family],
+        // Against the player's own base rather than a raw pixel count, so the
+        // same setting reads the same on a laptop and on a television.
+        fontSize: `calc(${style.size / 100} * var(--subtitle-base, 22px))`,
+        color: withAlpha(style.color, style.opacity),
+        backgroundColor: withAlpha(style.backgroundColor, style.backgroundOpacity),
+        textShadow: EDGES[style.edge],
       }}
     />
   );
+}
+
+const FAMILIES: Record<string, string> = {
+  sans: 'Inter, system-ui, sans-serif',
+  serif: 'Georgia, "Times New Roman", serif',
+  mono: '"JetBrains Mono", Consolas, monospace',
+  rounded: '"Segoe UI Variable", "Nunito", system-ui, sans-serif',
+};
+
+/**
+ * How the glyphs are separated from whatever is behind them.
+ *
+ * This is the setting that matters most and looks least important. Subtitles
+ * are read over a picture, not over a colour, and a white line crossing a snow
+ * field disappears entirely with no edge on it. It is why the backdrop can be
+ * turned off at all: without one of these, turning it off makes the text
+ * unreadable rather than unobtrusive.
+ */
+const EDGES: Record<string, string | undefined> = {
+  none: undefined,
+  shadow: '0 2px 4px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,0.7)',
+  outline:
+    '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 3px rgba(0,0,0,0.8)',
+  raised: '1px 1px 0 rgba(255,255,255,0.35), 2px 2px 3px rgba(0,0,0,0.95)',
+};
+
+/** `#rrggbb` and a percentage, as one colour the browser will take. */
+function withAlpha(hex: string, percent: number): string {
+  const value = parseInt(hex.slice(1), 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g}, ${b}, ${percent / 100})`;
 }
