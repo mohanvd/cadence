@@ -5,6 +5,40 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-19
+
+### Added
+
+- Volume boost, for a recording mastered too quietly or a machine that will
+  not go loud enough. It appears as a small control at the end of the volume
+  slider once the volume is already at its maximum, which is where the need
+  for it is discovered, and stays visible while it is on.
+
+  Amplifying naively is what gives boosters their reputation. Material is
+  usually mastered with its peaks near full scale, so multiplying it squares
+  off everything above a fraction of the range, and that is the crackle people
+  describe. A limiter and a soft clip after the gain bound the output below
+  full scale by construction. Measured on a full-scale tone: gain alone peaks
+  at 3.0000, the chain at 0.9644. The same measurement shows what it cannot do,
+  which is make already loud material louder: three times the gain moved that
+  tone by less than a decibel, because there was no headroom to use.
+
+### Fixed
+
+- The equalizer and the amplifier each built their own audio graph, and an
+  element can be captured by Web Audio only once. Whichever was switched on
+  second was refused and did nothing at all, without saying so. They share one
+  chain now, which also puts them in the only workable order: a band lifted by
+  8 dB clips exactly as an amplifier does, so the limiter has to sit after
+  both. The equalizer had no limiter before this.
+- The equalizer offered itself for a video played straight from a link, where
+  routing the audio does not fail but silences it outright. It says why
+  instead.
+
+### Removed
+
+- Two files nothing imported.
+
 ## [0.2.3] - 2026-08-18
 
 ### Fixed

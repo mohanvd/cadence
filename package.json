@@ -1,7 +1,7 @@
 {
   "name": "cadence",
   "private": true,
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "A keyboard-first video player that plays what the browser can't.",
   "type": "module",
   "scripts": {
