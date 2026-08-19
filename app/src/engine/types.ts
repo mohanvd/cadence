@@ -119,17 +119,14 @@ export interface PlaybackEngine {
   pause(): void;
   seek(seconds: number): void;
 
-  setVolume(volume: number): void;
   /**
-   * Amplify past full volume.
+   * @param gain 0 to 1 is the element's own volume; above 1 is amplification.
    *
-   * Separate from `setVolume` because they are different questions. Volume is
-   * how loud you want it right now and is adjusted constantly; boost is a
-   * property of a quiet film or a quiet laptop, set once and left alone.
-   *
-   * @param multiplier 1 leaves the sound untouched.
+   * One number rather than two, because the slider and the amplifier are not
+   * two loudnesses stacked on each other: the amplifier raises the ceiling the
+   * slider runs to, and this is where that arithmetic ends up.
    */
-  setBoost(multiplier: number): void;
+  setVolume(gain: number): void;
   setMuted(muted: boolean): void;
   setRate(rate: number): void;
 

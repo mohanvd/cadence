@@ -211,12 +211,10 @@ export class NativeBackend extends BaseBackend {
     this.setState({ currentTime: target, seeking: true }, true);
   }
 
-  setVolume(volume: number): void {
-    if (this.video) this.video.volume = Math.max(0, Math.min(1, volume));
-  }
-
-  setBoost(multiplier: number): void {
-    this.chain.setBoost(multiplier);
+  /** @param gain up to 1 the element can carry; past that the chain does. */
+  setVolume(gain: number): void {
+    if (this.video) this.video.volume = Math.max(0, Math.min(1, gain));
+    this.chain.setBoost(gain);
   }
 
   setMuted(muted: boolean): void {

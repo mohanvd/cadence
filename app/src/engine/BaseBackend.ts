@@ -59,8 +59,7 @@ export abstract class BaseBackend implements PlaybackEngine {
   abstract play(): Promise<void>;
   abstract pause(): void;
   abstract seek(seconds: number): void;
-  abstract setVolume(volume: number): void;
-  abstract setBoost(multiplier: number): void;
+  abstract setVolume(gain: number): void;
   abstract setMuted(muted: boolean): void;
   abstract setRate(rate: number): void;
   abstract selectTrack(type: 'audio' | 'subtitle', id: string | null): void;

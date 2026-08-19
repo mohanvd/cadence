@@ -98,6 +98,19 @@ const INITIAL: PlayerSnapshot = {
   rate: 1,
 };
 
+/**
+ * What should actually reach the speakers.
+ *
+ * The slider is a fraction and the boost is the ceiling it runs to, so full
+ * slider at 3x is three times, and a third of the slider at 3x is exactly
+ * normal volume. Multiplying rather than stacking is what keeps the slider
+ * meaningful while the amplifier is on: without it the control that is used
+ * constantly would sit there governing only the first third of the range.
+ */
+function gainOf(volume: number, boost: number, canProcess: boolean): number {
+  return volume * (canProcess ? boost : 1);
+}
+
 /** Token guarding against a slow probe resolving after a newer one started. */
 let loadToken = 0;
 
@@ -219,7 +232,9 @@ async function attempt(
       seeking: state.seeking,
       loading: state.loading,
       ended: state.ended,
-      volume: state.volume,
+      /* Volume is not mirrored back. The store is the only thing that sets it,
+         and what the backend holds is the gain, which is the slider times the
+         boost; writing that into the slider's own value would move it. */
       muted: state.muted,
       rate: state.rate,
     });
@@ -283,10 +298,9 @@ async function attempt(
      is what makes a remembered boost survive into the next film, and what
      stops one being shown on a file that cannot take it. Set directly rather
      than through the action, which would also unmute. */
-  engine.setVolume(get().volume);
   /* The stored preference reaches the engine only when this source can carry
      it; the store keeps it either way. */
-  engine.setBoost(canProcessAudio ? get().boost : 1);
+  engine.setVolume(gainOf(get().volume, get().boost, canProcessAudio));
   engine.setMuted(get().muted);
 
   try {
@@ -370,7 +384,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   setVolume: (volume) => {
     const clamped = Math.max(0, Math.min(1, volume));
     const engine = get().engine;
-    engine?.setVolume(clamped);
+    engine?.setVolume(gainOf(clamped, get().boost, get().canProcessAudio));
     // Raising the volume from a muted state should unmute, matching how every
     // desktop player behaves.
     if (clamped > 0 && get().muted) engine?.setMuted(false);
@@ -378,15 +392,15 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   setBoost: (multiplier) => {
-    /* Kept as asked for, and only silenced at the engine.
+    /* Kept as asked for, and only ignored at the engine.
        
-       This is a preference about a machine or a badly mastered film, and a
-       link that happens to be unroutable is not a reason to forget it: writing
-       1 here would be written straight to disk and the setting would be gone
-       for every file afterwards. */
+       This is a preference about a machine or a badly mastered recording, and
+       a link that happens to be unroutable is not a reason to forget it:
+       writing 1 here would be written straight to disk and the setting would
+       be gone for every file afterwards. */
     const clamped = Math.max(1, Math.min(MAX_BOOST, multiplier));
     set({ boost: clamped });
-    get().engine?.setBoost(get().canProcessAudio ? clamped : 1);
+    get().engine?.setVolume(gainOf(get().volume, clamped, get().canProcessAudio));
   },
 
   toggleMute: () => {

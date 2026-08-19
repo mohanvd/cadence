@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icons';
 import {
   MenuLabel,
   MenuItem,
@@ -17,10 +18,13 @@ import { usePlaybackRate, usePlayerActions } from '@/store/playerStore';
 const PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 
 /**
- * Playback speed, shown as a text badge rather than an icon.
+ * Playback speed: an icon at normal speed, the figure at any other.
  *
- * The current rate is the thing worth reading at a glance while studying, and
- * no icon communicates "1.5×" as directly as the number itself.
+ * No icon communicates "1.5×" as directly as the number, so the number is what
+ * is shown while the speed is doing something. At 1× it is saying nothing, and
+ * a permanent "1×" among a row of icons reads as a setting that is on. The
+ * amplifier beside the volume behaves the same way, which is what makes the
+ * two look like one idea rather than two.
  */
 export function SpeedMenu() {
   const menu = useExclusiveMenu('speed');
@@ -34,13 +38,13 @@ export function SpeedMenu() {
         <PopoverTrigger asChild>
           <Button
             variant="chrome"
-            size="chip"
+            size={isDefault ? 'icon' : 'chip'}
             // No colour: "2.5×" already says the speed. Tinting it as well is
             // saying the same thing twice, louder.
-            className={cn('tabular-nums', !isDefault && 'font-bold text-white')}
+            className={cn(!isDefault && 'tabular-nums font-bold text-white')}
             aria-label="Playback speed"
           >
-            {formatSpeed(rate)}
+            {isDefault ? <Icon name="speed" /> : formatSpeed(rate)}
           </Button>
         </PopoverTrigger>
       </Tooltip>

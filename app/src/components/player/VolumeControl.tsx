@@ -32,11 +32,12 @@ import { useAudioProcessing, usePlayerActions, useVolumeState } from '@/store/pl
  * indicator from the control: the badge said something was happening and did
  * nothing when pressed, and the thing it described was two menus away.
  *
- * So: the badge is the control. It appears at the end of the volume slider at
- * the moment the need is discovered, which is the moment the volume is already
- * as high as it goes and the film is still too quiet, and it stays visible
- * while it is on, because a sound being altered should never be silent about
- * it.
+ * So: the badge is the control, and it lives inside the slider's own hover
+ * area. It appears at the end of the track once the volume is already as high
+ * as it goes, which is the moment the need for it is discovered, and once it
+ * is on it shows the figure in its place. It is not left parked in the control
+ * bar: among a row of transport buttons a stray number reads as another
+ * control rather than as the state of the one beside it.
  */
 export function VolumeControl() {
   const { volume, muted } = useVolumeState();
@@ -47,9 +48,10 @@ export function VolumeControl() {
   const effective = muted ? 0 : volume;
   const level = effective === 0 ? 'volumeOff' : effective < 0.5 ? 'volumeLow' : 'volumeHigh';
   const boosted = canProcessAudio && boost > 1;
-  /* Offered at the top of the range and whenever it is already on. Anywhere
-     else it is an answer to a question nobody is asking. */
-  const offered = canProcessAudio && (boosted || (!muted && volume > 0.99));
+  const atMax = canProcessAudio && !muted && volume > 0.99;
+  /* Held open while its own menu is: a control that slides out from under the
+     pointer the moment it is used cannot be used. */
+  const pinned = menu.open;
 
   return (
     <div className="group/volume flex items-center">
@@ -59,7 +61,12 @@ export function VolumeControl() {
         </Button>
       </Tooltip>
 
-      <div className="w-0 overflow-hidden transition-[width] duration-200 ease-[var(--ease-out-quint)] group-hover/volume:w-24 group-focus-within/volume:w-24">
+      <div
+        className={cn(
+          'overflow-hidden transition-[width] duration-200 ease-[var(--ease-out-quint)]',
+          pinned ? 'w-24' : 'w-0 group-hover/volume:w-24 group-focus-within/volume:w-24',
+        )}
+      >
         <SliderPrimitive.Root
           className="relative flex h-9 w-24 touch-none items-center px-2"
           value={[effective * 100]}
@@ -76,21 +83,41 @@ export function VolumeControl() {
       </div>
 
       {/* Width rather than mounting, so it slides in beside the track instead
-          of making the controls to its right jump sideways. */}
+          of making the controls to its right jump sideways.
+          
+          It comes and goes with the slider, on or off. A permanent badge in
+          the bar was tried and is clutter: the row beside it is transport, and
+          a figure parked among it reads as another control rather than as the
+          state of the one it belongs to. Everything about the volume lives in
+          the same place and opens when that place is reached.
+          
+          Off, it appears only once the slider is already at its end, which is
+          the moment the offer means anything. */}
       <div
         className={cn(
-          'overflow-hidden transition-[width,opacity] duration-200 ease-[var(--ease-out-quint)]',
-          offered ? 'w-9 opacity-100' : 'w-0 opacity-0',
+          'overflow-hidden transition-[max-width,opacity] duration-200 ease-[var(--ease-out-quint)]',
+          pinned
+            ? 'max-w-20 opacity-100'
+            : boosted || atMax
+              ? 'max-w-0 opacity-0 group-hover/volume:max-w-20 group-hover/volume:opacity-100 group-focus-within/volume:max-w-20 group-focus-within/volume:opacity-100'
+              : 'max-w-0 opacity-0',
         )}
       >
         <Popover {...menu}>
-          <Tooltip label={boosted ? `Boosted to ${Math.round(boost * 100)}%` : 'Louder than 100%'}>
+          <Tooltip
+            label={
+              boosted
+                ? `Volume runs to ${Math.round(boost * 100)}%`
+                : 'Let the volume go past 100%'
+            }
+          >
             <PopoverTrigger asChild>
               <button
                 type="button"
                 aria-label="Volume boost"
                 className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums transition-colors',
+                  'mx-1 flex h-7 items-center justify-center rounded px-1.5',
+                  'text-[11px] font-semibold tabular-nums transition-colors',
                   boosted
                     ? 'text-warning hover:bg-white/10'
                     : 'text-fg-subtle hover:bg-white/10 hover:text-fg',
@@ -102,7 +129,7 @@ export function VolumeControl() {
                 {boosted ? (
                   `${boost.toFixed(boost % 1 === 0 ? 0 : 1)}×`
                 ) : (
-                  <Icon name="louder" size={14} className="mx-auto" />
+                  <Icon name="louder" size={14} />
                 )}
               </button>
             </PopoverTrigger>
@@ -110,11 +137,11 @@ export function VolumeControl() {
 
           <PopoverContent className="w-64">
             <div className="px-2.5 pt-2 pb-1 text-[12px] leading-relaxed text-fg-subtle">
-              Louder than the system allows, without distorting. Quiet
+              Raises the top of the volume slider, without distorting. Quiet
               recordings gain the most.
             </div>
             <MenuSlider
-              label="Boost"
+              label="Maximum"
               value={Math.round(boost * 100)}
               min={100}
               max={MAX_BOOST * 100}
