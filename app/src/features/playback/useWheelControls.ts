@@ -76,13 +76,15 @@ export function useWheelControls({
         return;
       }
 
-      // Scrolling up raises the volume, matching every OS convention.
-      const next = Math.max(
-        0,
-        Math.min(1, store.volume - notches * VOLUME_PER_NOTCH),
-      );
+      /* Scrolling up raises the volume, matching every OS convention.
+         
+         Not clamped to full volume here: the store knows the ceiling, which is
+         higher when the source can be amplified. Stopping at 1 would mean a
+         wheel that quietly undoes a boost and then cannot restore it. */
+      const next = Math.max(0, store.volume - notches * VOLUME_PER_NOTCH);
       store.setVolume(next);
-      callbacks.current.onVolume?.(next, next === 0);
+      const applied = usePlayerStore.getState().volume;
+      callbacks.current.onVolume?.(applied, applied === 0);
     };
 
     // `passive: false` is required to call `preventDefault` on wheel events.

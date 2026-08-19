@@ -140,7 +140,13 @@ function LevelMeter({
     : // Brightness runs 20–200%; map it onto the same 0–1 meter.
       Math.max(0, Math.min(1, ((value as number) - 20) / 180));
 
-  const percent = Math.round(Math.max(0, Math.min(1, level)) * 100);
+  const percent = Math.round(Math.max(0, level) * 100);
+  /* The bar is a fixed height, so it fills at full volume and stays full while
+     the number keeps climbing. Amplification is shown by the colour and the
+     figure rather than by a bar that would have to shrink everything else to
+     make room for it. */
+  const boosted = percent > 100;
+  const fill = Math.min(100, percent);
 
   return (
     <div
@@ -151,15 +157,23 @@ function LevelMeter({
         'animate-in fade-in-0 slide-in-from-right-2 duration-200 ease-[var(--ease-out-quint)]',
       )}
     >
-      <span className="text-[11px] font-semibold tabular-nums text-white/90">
+      <span
+        className={cn(
+          'text-[11px] font-semibold tabular-nums',
+          boosted ? 'text-warning' : 'text-white/90',
+        )}
+      >
         {percent}
       </span>
       <div className="relative h-28 w-1 overflow-hidden rounded-full bg-white/25">
         <div
           // Only the height transitions, so dragging the level looks continuous
           // rather than stepping.
-          className="absolute inset-x-0 bottom-0 rounded-full bg-white transition-[height] duration-100 ease-out"
-          style={{ height: `${percent}%` }}
+          className={cn(
+            'absolute inset-x-0 bottom-0 rounded-full transition-[height] duration-100 ease-out',
+            boosted ? 'bg-warning' : 'bg-white',
+          )}
+          style={{ height: `${fill}%` }}
         />
       </div>
       <Icon

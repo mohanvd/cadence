@@ -1,5 +1,6 @@
 import { toPlayableUrl } from '@/lib/desktop';
 import { BaseBackend } from '../BaseBackend';
+import { AudioBoost } from '../audioBoost';
 import { createVideoElement } from '../createVideoElement';
 import type { BackendKind, MediaSourceInput, MediaTrack } from '../types';
 
@@ -15,6 +16,12 @@ export class NativeBackend extends BaseBackend {
   private video: HTMLVideoElement | null = null;
   private objectUrl: string | null = null;
   private detachListeners: (() => void) | null = null;
+  private readonly boost = new AudioBoost();
+  /* The volume that was asked for, which can exceed what the element can hold.
+     Reported back instead of `video.volume`, because that is clamped to 1 and
+     echoing it would erase an amplification the moment any volume event
+     fired. */
+  private requestedVolume = 1;
 
   protected onAttach(container: HTMLElement): void {
     const video = createVideoElement();
@@ -70,7 +77,7 @@ export class NativeBackend extends BaseBackend {
     };
     const onRateChange = () => this.setState({ rate: video.playbackRate });
     const onVolumeChange = () =>
-      this.setState({ volume: video.volume, muted: video.muted });
+      this.setState({ volume: this.requestedVolume, muted: video.muted });
 
     const pairs: [string, EventListener][] = [
       ['loadedmetadata', onLoadedMetadata],
@@ -177,6 +184,10 @@ export class NativeBackend extends BaseBackend {
          exchange, and it is the right way round: playing is the feature. */
       video.src = source.url;
     }
+    /* A link is the one source that cannot be amplified: routing it into Web
+       Audio is what the missing permission forbids, and the penalty is silence
+       rather than an error. Everything else is ours to route. */
+    this.boost.attach(video, source.kind !== 'url');
     video.load();
   }
 
@@ -205,8 +216,22 @@ export class NativeBackend extends BaseBackend {
     this.setState({ currentTime: target, seeking: true }, true);
   }
 
+  /**
+   * @param volume 0 to 1 is the element's own; above 1 is amplification, which
+   * only a source that may be routed through Web Audio can be given.
+   */
   setVolume(volume: number): void {
+    this.requestedVolume = Math.max(0, volume);
     if (this.video) this.video.volume = Math.max(0, Math.min(1, volume));
+    this.boost.setBoost(volume);
+    /* Published here rather than left to the element's `volumechange`.
+       
+       Above full volume the element is already at 1 and setting it to 1 again
+       fires no event, so waiting for one leaves this backend's state holding
+       the old figure, and every subsequent state flush overwrites the
+       amplified value with it. The amplifier then runs at a level nothing on
+       screen agrees with. */
+    this.setState({ volume: this.requestedVolume });
   }
 
   setMuted(muted: boolean): void {
@@ -254,6 +279,7 @@ export class NativeBackend extends BaseBackend {
   }
 
   protected onDestroy(): void {
+    this.boost.release();
     this.detachListeners?.();
     this.detachListeners = null;
 

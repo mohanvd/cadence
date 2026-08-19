@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createEngine, describeBackend } from '@/engine/createEngine';
 import { decodes, markUndecodable } from '@/engine/decoding';
+import { MAX_BOOST } from '@/engine/audioBoost';
 import type { ProbeOptions } from '@/engine/probe';
 import type {
   BackendKind,
@@ -48,6 +49,15 @@ interface PlayerStore extends PlayerSnapshot {
   videoEl: HTMLVideoElement | null;
   source: MediaSourceInput | null;
   probe: ProbeResult | null;
+  /**
+   * Whether this source can be amplified past full volume.
+   *
+   * False for one case only: a link the browser plays directly. Amplifying
+   * means routing the element through Web Audio, and a cross-origin file
+   * without permission answers that by going silent rather than by refusing,
+   * so the control has to know before it is offered rather than after.
+   */
+  canBoost: boolean;
   backend: BackendKind | null;
   tracks: MediaTrack[];
   selectedAudioId: string | null;
@@ -167,6 +177,7 @@ async function attempt(
     source,
     probe: null,
     backend: null,
+    canBoost: true,
     tracks: [],
     selectedAudioId: null,
     selectedSubtitleId: null,
@@ -244,13 +255,33 @@ async function attempt(
 
   engine.attach(container);
   // Publish the element only after attach, when the backend has created it.
+  /* A link handed straight to the browser is the only source that cannot be
+     amplified. The same link routed through FFmpeg can be: what reaches the
+     element then is a buffer built in this document, which carries this page's
+     origin no matter where the bytes came from. */
+  const canBoost = !(source.kind === 'url' && probe.backend === 'native');
+
   set({
     engine,
     videoEl: engine.getVideoElement(),
     probe,
     backend: probe.backend,
     tracks: probe.tracks,
+    canBoost,
   });
+
+  /* Hand the new engine what the store already holds.
+     
+     Volume is a preference restored from disk the moment the file key changes,
+     which is before this engine exists and before anything knows whether the
+     source can be amplified. Pushing it here rather than relying on that order
+     is what makes a remembered boost survive into the next film, and what
+     stops one being shown on a file that cannot take it. Set directly rather
+     than through the action, which would also unmute. */
+  const volume = Math.max(0, Math.min(canBoost ? MAX_BOOST : 1, get().volume));
+  engine.setVolume(volume);
+  engine.setMuted(get().muted);
+  if (volume !== get().volume) set({ volume });
 
   try {
     await engine.load(source);
@@ -280,6 +311,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   source: null,
   probe: null,
   backend: null,
+  canBoost: true,
   tracks: [],
   selectedAudioId: null,
   selectedSubtitleId: null,
@@ -300,6 +332,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       source: null,
       probe: null,
       backend: null,
+      canBoost: true,
       tracks: [],
     });
   },
@@ -329,7 +362,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   setVolume: (volume) => {
-    const clamped = Math.max(0, Math.min(1, volume));
+    /* One number covers both halves of the control: up to 1 it is the
+       element's own volume, above it the amplifier. Keeping them as a single
+       value is what lets the slider, the keyboard and the stored setting stay
+       unaware that there are two mechanisms underneath. */
+    const ceiling = get().canBoost ? MAX_BOOST : 1;
+    const clamped = Math.max(0, Math.min(ceiling, volume));
     const engine = get().engine;
     engine?.setVolume(clamped);
     // Raising the volume from a muted state should unmute, matching how every
@@ -389,7 +427,9 @@ export const useVideoEl = () => usePlayerStore((s) => s.videoEl);
 export const usePlaybackRate = () => usePlayerStore((s) => s.rate);
 
 export const useVolumeState = () =>
-  usePlayerStore(useShallow((s) => ({ volume: s.volume, muted: s.muted })));
+  usePlayerStore(
+    useShallow((s) => ({ volume: s.volume, muted: s.muted, canBoost: s.canBoost })),
+  );
 
 export const useTrackState = () =>
   usePlayerStore(
