@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createEngine, describeBackend } from '@/engine/createEngine';
 import { decodes, markUndecodable } from '@/engine/decoding';
-import { MAX_BOOST } from '@/engine/audioBoost';
+import { MAX_BOOST } from '@/engine/audioChain';
 import type { ProbeOptions } from '@/engine/probe';
 import type {
   BackendKind,
@@ -33,6 +33,8 @@ export interface PlayerSnapshot {
   ended: boolean;
   volume: number;
   muted: boolean;
+  /** Amplification past full volume. 1 is untouched. */
+  boost: number;
   rate: number;
 }
 
@@ -73,6 +75,7 @@ interface PlayerStore extends PlayerSnapshot {
   seek: (seconds: number) => void;
   seekBy: (delta: number) => void;
   setVolume: (volume: number) => void;
+  setBoost: (multiplier: number) => void;
   toggleMute: () => void;
   setRate: (rate: number) => void;
   selectAudioTrack: (id: string) => void;
@@ -90,6 +93,7 @@ const INITIAL: PlayerSnapshot = {
   ended: false,
   volume: 1,
   muted: false,
+  boost: 1,
   rate: 1,
 };
 
@@ -278,10 +282,11 @@ async function attempt(
      is what makes a remembered boost survive into the next film, and what
      stops one being shown on a file that cannot take it. Set directly rather
      than through the action, which would also unmute. */
-  const volume = Math.max(0, Math.min(canBoost ? MAX_BOOST : 1, get().volume));
-  engine.setVolume(volume);
+  const boost = Math.max(1, Math.min(canBoost ? MAX_BOOST : 1, get().boost));
+  engine.setVolume(get().volume);
+  engine.setBoost(boost);
   engine.setMuted(get().muted);
-  if (volume !== get().volume) set({ volume });
+  if (boost !== get().boost) set({ boost });
 
   try {
     await engine.load(source);
@@ -362,18 +367,22 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   setVolume: (volume) => {
-    /* One number covers both halves of the control: up to 1 it is the
-       element's own volume, above it the amplifier. Keeping them as a single
-       value is what lets the slider, the keyboard and the stored setting stay
-       unaware that there are two mechanisms underneath. */
-    const ceiling = get().canBoost ? MAX_BOOST : 1;
-    const clamped = Math.max(0, Math.min(ceiling, volume));
+    const clamped = Math.max(0, Math.min(1, volume));
     const engine = get().engine;
     engine?.setVolume(clamped);
     // Raising the volume from a muted state should unmute, matching how every
     // desktop player behaves.
     if (clamped > 0 && get().muted) engine?.setMuted(false);
     set({ volume: clamped });
+  },
+
+  setBoost: (multiplier) => {
+    /* Clamped to 1 when the source cannot be routed, so the setting can never
+       claim an amplification that is not happening. */
+    const ceiling = get().canBoost ? MAX_BOOST : 1;
+    const clamped = Math.max(1, Math.min(ceiling, multiplier));
+    get().engine?.setBoost(clamped);
+    set({ boost: clamped });
   },
 
   toggleMute: () => {
@@ -428,8 +437,11 @@ export const usePlaybackRate = () => usePlayerStore((s) => s.rate);
 
 export const useVolumeState = () =>
   usePlayerStore(
-    useShallow((s) => ({ volume: s.volume, muted: s.muted, canBoost: s.canBoost })),
+    useShallow((s) => ({ volume: s.volume, muted: s.muted, boost: s.boost })),
   );
+
+export const useBoostState = () =>
+  usePlayerStore(useShallow((s) => ({ boost: s.boost, canBoost: s.canBoost })));
 
 export const useTrackState = () =>
   usePlayerStore(
@@ -453,6 +465,7 @@ export const usePlayerActions = () =>
       seek: s.seek,
       seekBy: s.seekBy,
       setVolume: s.setVolume,
+      setBoost: s.setBoost,
       toggleMute: s.toggleMute,
       setRate: s.setRate,
       selectAudioTrack: s.selectAudioTrack,

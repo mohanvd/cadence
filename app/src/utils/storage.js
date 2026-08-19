@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   POSITION: 'cadence-position-',
   RECENT: 'cadence-recent-files',
   VOLUME: 'cadence-volume',
+  BOOST: 'cadence-boost',
   SPEED: 'cadence-speed',
   TIME_DISPLAY: 'cadence-time-display',
   LOOP: 'cadence-loop',
@@ -181,6 +182,35 @@ export function saveVolume(volume) {
     localStorage.setItem(STORAGE_KEYS.VOLUME, String(volume));
   } catch {
     /* ignore */
+  }
+}
+
+/**
+ * Save the volume boost.
+ *
+ * Kept apart from the volume itself because they answer different questions:
+ * how loud you want it now, and how much this machine's speakers need help.
+ * @param {number} boost
+ */
+export function saveBoost(boost) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.BOOST, String(boost));
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Load the saved volume boost.
+ * @returns {number}
+ */
+export function loadBoost() {
+  try {
+    const v = localStorage.getItem(STORAGE_KEYS.BOOST);
+    const parsed = v !== null ? parseFloat(v) : 1;
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+  } catch {
+    return 1;
   }
 }
 

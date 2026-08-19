@@ -1,5 +1,5 @@
 /**
- * Amplification past what the media element can do on its own.
+ * The one place the audio leaves the media element.
  *
  * `video.volume` is capped at 1 by the HTML specification, so anything louder
  * has to leave the element and go through Web Audio. Two things make that
@@ -16,13 +16,29 @@
  *
  * The second is that routing an element into Web Audio is irreversible, and
  * silences it outright when the media is cross-origin without permission. A
- * pasted link is exactly that. So nothing here is built until a boost is
+ * pasted link is exactly that. So nothing here is built until something is
  * actually asked for, and the caller has to say whether the source can take
- * one; guessing wrong costs the user their audio for the rest of the file.
+ * it; guessing wrong costs the user their audio for the rest of the file.
+ *
+ * And it is one graph rather than one per feature, because an element can only
+ * be captured once. The equalizer and the amplifier each used to build their
+ * own, which meant whichever was switched on second was refused and did
+ * nothing at all, silently. They share these nodes now:
+ *
+ *     element → equalizer bands → amplifier → limiter → soft clip → output
  */
 
 /** The most the chain will amplify. Past this there is more hiss than film. */
 export const MAX_BOOST = 3;
+
+/** The equalizer's bands, in the order their sliders appear. */
+export const EQ_BANDS = [
+  { freq: 60, label: '60', type: 'lowshelf' },
+  { freq: 250, label: '250', type: 'peaking' },
+  { freq: 1000, label: '1K', type: 'peaking' },
+  { freq: 4000, label: '4K', type: 'peaking' },
+  { freq: 16000, label: '16K', type: 'highshelf' },
+] as const;
 
 /*
  * One context for the whole application.
@@ -70,11 +86,16 @@ function softClipCurve(): Float32Array<ArrayBuffer> {
   return curve;
 }
 
-export class AudioBoost {
+export class AudioChain {
   private source: MediaElementAudioSourceNode | null = null;
   private gain: GainNode | null = null;
+  private bands: BiquadFilterNode[] = [];
+  /* Remembered for the same reason as the boost: the equalizer's settings are
+     restored from disk before any file is open, and must survive until there
+     is a graph to put them in. */
+  private eqGains: number[] = EQ_BANDS.map(() => 0);
   private video: HTMLVideoElement | null = null;
-  private boostable = false;
+  private routable = false;
   /** Remembered so a boost set before the file loaded is not lost. */
   private wanted = 1;
 
@@ -83,17 +104,56 @@ export class AudioBoost {
    *
    * Called on every load, because a backend builds a new element per file.
    */
-  attach(video: HTMLVideoElement, boostable: boolean): void {
-    if (this.video === video && this.boostable === boostable) return;
-    this.release();
+  attach(video: HTMLVideoElement, routable: boolean): void {
+    if (this.video === video && this.routable === routable) return;
+    // Unconditional: this is the handover to a new element, and the graph
+    // belonging to the previous one is exactly what should go.
+    this.release(null);
     this.video = video;
-    this.boostable = boostable;
+    this.routable = routable;
+    /* Flat for the new file. The equalizer reports itself off when the element
+       changes, and carrying the previous curve into a graph the menu says is
+       off would make the two disagree. The boost is not reset with it: it is a
+       property of the speakers, not of the film. */
+    this.eqGains = EQ_BANDS.map(() => 0);
     if (this.wanted > 1) this.apply(this.wanted);
   }
 
-  /** Whether asking for more than 1 would do anything. */
+  /** Whether this source may be routed through Web Audio at all. */
   get available(): boolean {
-    return this.boostable;
+    return this.routable;
+  }
+
+  /**
+   * Bring the graph into existence for a feature other than the amplifier.
+   *
+   * @returns whether the audio is now going through it.
+   */
+  ensure(): boolean {
+    if (this.gain) return true;
+    if (!this.routable || !this.video) return false;
+    const ctx = context();
+    if (!ctx) return false;
+    if (ctx.state !== 'running') {
+      void ctx.resume().then(() => this.ensure());
+      return false;
+    }
+    return this.build();
+  }
+
+  /**
+   * Set one equalizer band, in decibels.
+   *
+   * Kept even when there is no graph yet, so the stored curve is not lost
+   * between being restored and being connected.
+   */
+  setEqGain(index: number, db: number): void {
+    if (index < 0 || index >= EQ_BANDS.length) return;
+    this.eqGains[index] = db;
+    const band = this.bands[index];
+    if (band && sharedContext) {
+      band.gain.setTargetAtTime(db, sharedContext.currentTime, 0.01);
+    }
   }
 
   /**
@@ -107,10 +167,10 @@ export class AudioBoost {
 
   private apply(multiplier: number): void {
     // Building the graph is what costs the audio on a source that cannot take
-    // it, so a boost of exactly 1 never builds one. Nothing is gained by
-    // routing a signal through a chain that multiplies it by one.
+    // it, so a boost of exactly 1 never builds one on its own. Nothing is
+    // gained by routing a signal through a chain that multiplies it by one.
     if (multiplier <= 1 && !this.gain) return;
-    if (!this.boostable || !this.video) return;
+    if (!this.routable || !this.video) return;
 
     const ctx = context();
     if (!ctx) return;
@@ -152,6 +212,20 @@ export class AudioBoost {
       return false;
     }
 
+    /* Built flat, and flat biquads are arithmetically transparent, so they
+       cost a little CPU and change nothing until the equalizer is used. That
+       is worth more than the alternative, which is rebuilding the graph when
+       the equalizer is switched on and having to re-capture an element that
+       can only be captured once. */
+    this.bands = EQ_BANDS.map((band, i) => {
+      const filter = ctx.createBiquadFilter();
+      filter.type = band.type;
+      filter.frequency.value = band.freq;
+      filter.gain.value = this.eqGains[i] ?? 0;
+      if (band.type === 'peaking') filter.Q.value = 1.4;
+      return filter;
+    });
+
     this.gain = ctx.createGain();
     this.gain.gain.value = 1;
 
@@ -171,24 +245,51 @@ export class AudioBoost {
     // oversampling those fold back down as tones that were never in the film.
     shaper.oversample = '4x';
 
-    this.source.connect(this.gain);
+    /* The amplifier sits after the equalizer and before the limiter, which is
+       the only order that works: a band raised by 8 dB is as capable of
+       clipping as the amplifier is, so the limiter has to see the result of
+       both, not of one. */
+    let node: AudioNode = this.source;
+    for (const band of this.bands) {
+      node.connect(band);
+      node = band;
+    }
+    node.connect(this.gain);
     this.gain.connect(limiter);
     limiter.connect(shaper);
     shaper.connect(ctx.destination);
     return true;
   }
 
-  /** Drop the graph for the current element. */
-  release(): void {
+  /**
+   * Drop the graph, but only if it still belongs to the element named.
+   *
+   * A backend tears itself down after the next one has already attached, so an
+   * unconditional release here would dismantle the graph that was just built
+   * for the file now playing.
+   */
+  release(video: HTMLVideoElement | null): void {
+    if (video && this.video !== video) return;
     try {
       this.source?.disconnect();
       this.gain?.disconnect();
+      for (const band of this.bands) band.disconnect();
     } catch {
       /* Already gone. */
     }
     this.source = null;
     this.gain = null;
+    this.bands = [];
     this.video = null;
-    this.boostable = false;
+    this.routable = false;
   }
 }
+
+/**
+ * The application's audio graph.
+ *
+ * A singleton because an element can be captured only once and only one plays
+ * at a time: a chain per feature is what made the equalizer and the amplifier
+ * cancel each other out.
+ */
+export const audioChain = new AudioChain();

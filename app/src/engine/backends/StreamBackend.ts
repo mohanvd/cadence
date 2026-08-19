@@ -1,6 +1,6 @@
 import { streamUrl } from '@/lib/desktop';
 import { BaseBackend } from '../BaseBackend';
-import { AudioBoost } from '../audioBoost';
+import { audioChain } from '../audioChain';
 import { createVideoElement } from '../createVideoElement';
 import { mseCodecString } from '../capabilities';
 import type { BackendKind, MediaSourceInput, MediaTrack, ProbeResult } from '../types';
@@ -37,12 +37,7 @@ export class StreamBackend extends BaseBackend {
   private sourceBuffer: SourceBuffer | null = null;
   private objectUrl: string | null = null;
   private detachListeners: (() => void) | null = null;
-  private readonly boost = new AudioBoost();
-  /* The volume that was asked for, which can exceed what the element can hold.
-     Reported back instead of `video.volume`, because that is clamped to 1 and
-     echoing it would erase an amplification the moment any volume event
-     fired. */
-  private requestedVolume = 1;
+  private readonly chain = audioChain;
 
   private path = '';
   private duration = 0;
@@ -142,7 +137,7 @@ export class StreamBackend extends BaseBackend {
     video.src = this.objectUrl;
     /* Idempotent, and this runs again on every seek that rebuilds the source:
        the element is the same one, so the routing is not rebuilt with it. */
-    this.boost.attach(video, true);
+    this.chain.attach(video, true);
 
     mediaSource.addEventListener(
       'sourceopen',
@@ -369,7 +364,7 @@ export class StreamBackend extends BaseBackend {
       this.fail(video.error?.message ?? 'Playback failed.', true, video.error);
     const onRateChange = () => this.setState({ rate: video.playbackRate });
     const onVolumeChange = () =>
-      this.setState({ volume: this.requestedVolume, muted: video.muted });
+      this.setState({ volume: video.volume, muted: video.muted });
 
     const pairs: [string, EventListener][] = [
       ['loadedmetadata', onLoadedMetadata],
@@ -427,24 +422,12 @@ export class StreamBackend extends BaseBackend {
     void this.openAt(target);
   }
 
-  /**
-   * @param volume 0 to 1 is the element's own; above 1 is amplification.
-   *
-   * Always available here: the element is fed from a blob built in this
-   * document, so it carries this page's origin whatever the file came from.
-   */
   setVolume(volume: number): void {
-    this.requestedVolume = Math.max(0, volume);
     if (this.video) this.video.volume = Math.max(0, Math.min(1, volume));
-    this.boost.setBoost(volume);
-    /* Published here rather than left to the element's `volumechange`.
-       
-       Above full volume the element is already at 1 and setting it to 1 again
-       fires no event, so waiting for one leaves this backend's state holding
-       the old figure, and every subsequent state flush overwrites the
-       amplified value with it. The amplifier then runs at a level nothing on
-       screen agrees with. */
-    this.setState({ volume: this.requestedVolume });
+  }
+
+  setBoost(multiplier: number): void {
+    this.chain.setBoost(multiplier);
   }
 
   setMuted(muted: boolean): void {
@@ -484,7 +467,7 @@ export class StreamBackend extends BaseBackend {
     // Invalidates every pump still in flight before anything is torn down.
     this.generation += 1;
     void this.teardownStream();
-    this.boost.release();
+    this.chain.release(this.video);
     this.detachListeners?.();
     this.detachListeners = null;
     if (this.video) {
