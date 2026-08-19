@@ -119,24 +119,26 @@ export class AudioChain {
     if (this.wanted > 1) this.apply(this.wanted);
   }
 
-  /** Whether this source may be routed through Web Audio at all. */
-  get available(): boolean {
-    return this.routable;
-  }
-
   /**
    * Bring the graph into existence for a feature other than the amplifier.
    *
    * @returns whether the audio is now going through it.
    */
-  ensure(): boolean {
+  async ensure(): Promise<boolean> {
     if (this.gain) return true;
     if (!this.routable || !this.video) return false;
     const ctx = context();
     if (!ctx) return false;
+    /* Awaited rather than fired and forgotten. Resuming resolves on the
+       gesture that is already in progress, but not before this function would
+       have returned, and a caller told "no" turns into a menu item that does
+       nothing the first time it is pressed and works the second. */
     if (ctx.state !== 'running') {
-      void ctx.resume().then(() => this.ensure());
-      return false;
+      try {
+        await ctx.resume();
+      } catch {
+        return false;
+      }
     }
     return this.build();
   }

@@ -52,14 +52,15 @@ interface PlayerStore extends PlayerSnapshot {
   source: MediaSourceInput | null;
   probe: ProbeResult | null;
   /**
-   * Whether this source can be amplified past full volume.
+   * Whether this source's audio can be routed through Web Audio.
    *
-   * False for one case only: a link the browser plays directly. Amplifying
-   * means routing the element through Web Audio, and a cross-origin file
-   * without permission answers that by going silent rather than by refusing,
-   * so the control has to know before it is offered rather than after.
+   * False for one case only: a link the browser plays directly. Both the
+   * amplifier and the equalizer work by routing the element, and a
+   * cross-origin file without permission answers that by going silent rather
+   * than by refusing, so this has to be known before either is offered rather
+   * than after.
    */
-  canBoost: boolean;
+  canProcessAudio: boolean;
   backend: BackendKind | null;
   tracks: MediaTrack[];
   selectedAudioId: string | null;
@@ -181,7 +182,7 @@ async function attempt(
     source,
     probe: null,
     backend: null,
-    canBoost: true,
+    canProcessAudio: true,
     tracks: [],
     selectedAudioId: null,
     selectedSubtitleId: null,
@@ -263,7 +264,7 @@ async function attempt(
      amplified. The same link routed through FFmpeg can be: what reaches the
      element then is a buffer built in this document, which carries this page's
      origin no matter where the bytes came from. */
-  const canBoost = !(source.kind === 'url' && probe.backend === 'native');
+  const canProcessAudio = !(source.kind === 'url' && probe.backend === 'native');
 
   set({
     engine,
@@ -271,7 +272,7 @@ async function attempt(
     probe,
     backend: probe.backend,
     tracks: probe.tracks,
-    canBoost,
+    canProcessAudio,
   });
 
   /* Hand the new engine what the store already holds.
@@ -282,11 +283,11 @@ async function attempt(
      is what makes a remembered boost survive into the next film, and what
      stops one being shown on a file that cannot take it. Set directly rather
      than through the action, which would also unmute. */
-  const boost = Math.max(1, Math.min(canBoost ? MAX_BOOST : 1, get().boost));
   engine.setVolume(get().volume);
-  engine.setBoost(boost);
+  /* The stored preference reaches the engine only when this source can carry
+     it; the store keeps it either way. */
+  engine.setBoost(canProcessAudio ? get().boost : 1);
   engine.setMuted(get().muted);
-  if (boost !== get().boost) set({ boost });
 
   try {
     await engine.load(source);
@@ -316,7 +317,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   source: null,
   probe: null,
   backend: null,
-  canBoost: true,
+  canProcessAudio: true,
   tracks: [],
   selectedAudioId: null,
   selectedSubtitleId: null,
@@ -337,7 +338,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       source: null,
       probe: null,
       backend: null,
-      canBoost: true,
+      canProcessAudio: true,
       tracks: [],
     });
   },
@@ -377,12 +378,15 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   setBoost: (multiplier) => {
-    /* Clamped to 1 when the source cannot be routed, so the setting can never
-       claim an amplification that is not happening. */
-    const ceiling = get().canBoost ? MAX_BOOST : 1;
-    const clamped = Math.max(1, Math.min(ceiling, multiplier));
-    get().engine?.setBoost(clamped);
+    /* Kept as asked for, and only silenced at the engine.
+       
+       This is a preference about a machine or a badly mastered film, and a
+       link that happens to be unroutable is not a reason to forget it: writing
+       1 here would be written straight to disk and the setting would be gone
+       for every file afterwards. */
+    const clamped = Math.max(1, Math.min(MAX_BOOST, multiplier));
     set({ boost: clamped });
+    get().engine?.setBoost(get().canProcessAudio ? clamped : 1);
   },
 
   toggleMute: () => {
@@ -437,11 +441,18 @@ export const usePlaybackRate = () => usePlayerStore((s) => s.rate);
 
 export const useVolumeState = () =>
   usePlayerStore(
-    useShallow((s) => ({ volume: s.volume, muted: s.muted, boost: s.boost })),
+    useShallow((s) => ({
+      volume: s.volume,
+      muted: s.muted,
+      // The badge must not claim an amplification this source cannot take.
+      boost: s.canProcessAudio ? s.boost : 1,
+    })),
   );
 
-export const useBoostState = () =>
-  usePlayerStore(useShallow((s) => ({ boost: s.boost, canBoost: s.canBoost })));
+export const useAudioProcessing = () =>
+  usePlayerStore(
+    useShallow((s) => ({ boost: s.boost, canProcessAudio: s.canProcessAudio })),
+  );
 
 export const useTrackState = () =>
   usePlayerStore(

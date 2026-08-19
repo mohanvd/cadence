@@ -55,8 +55,8 @@ export function useEqualizer(videoRef) {
   const isFlat = useMemo(() => gains.every((g) => g === 0), [gains]);
 
   /** Route the audio through the graph and apply the stored curve to it. */
-  const initAudio = useCallback(() => {
-    if (!audioChain.ensure()) return;
+  const initAudio = useCallback(async () => {
+    if (!(await audioChain.ensure())) return;
     gains.forEach((g, i) => audioChain.setEqGain(i, g));
     setIsEnabled(true);
   }, [gains]);
@@ -94,7 +94,7 @@ export function useEqualizer(videoRef) {
   // Toggle EQ on/off
   const toggleEQ = useCallback(() => {
     if (!isEnabled) {
-      initAudio();
+      void initAudio();
       return;
     }
     // Flattened rather than unrouted: the graph cannot be taken back out, and
