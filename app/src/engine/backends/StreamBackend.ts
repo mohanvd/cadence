@@ -1,5 +1,6 @@
 import { streamUrl } from '@/lib/desktop';
 import { BaseBackend } from '../BaseBackend';
+import { audioChain } from '../audioChain';
 import { createVideoElement } from '../createVideoElement';
 import { mseCodecString } from '../capabilities';
 import type { BackendKind, MediaSourceInput, MediaTrack, ProbeResult } from '../types';
@@ -36,6 +37,7 @@ export class StreamBackend extends BaseBackend {
   private sourceBuffer: SourceBuffer | null = null;
   private objectUrl: string | null = null;
   private detachListeners: (() => void) | null = null;
+  private readonly chain = audioChain;
 
   private path = '';
   private duration = 0;
@@ -133,6 +135,9 @@ export class StreamBackend extends BaseBackend {
     this.mediaSource = mediaSource;
     this.objectUrl = URL.createObjectURL(mediaSource);
     video.src = this.objectUrl;
+    /* Idempotent, and this runs again on every seek that rebuilds the source:
+       the element is the same one, so the routing is not rebuilt with it. */
+    this.chain.attach(video, true);
 
     mediaSource.addEventListener(
       'sourceopen',
@@ -418,7 +423,11 @@ export class StreamBackend extends BaseBackend {
   }
 
   setVolume(volume: number): void {
-    if (this.video) this.video.volume = volume;
+    if (this.video) this.video.volume = Math.max(0, Math.min(1, volume));
+  }
+
+  setBoost(multiplier: number): void {
+    this.chain.setBoost(multiplier);
   }
 
   setMuted(muted: boolean): void {
@@ -458,6 +467,7 @@ export class StreamBackend extends BaseBackend {
     // Invalidates every pump still in flight before anything is torn down.
     this.generation += 1;
     void this.teardownStream();
+    this.chain.release(this.video);
     this.detachListeners?.();
     this.detachListeners = null;
     if (this.video) {

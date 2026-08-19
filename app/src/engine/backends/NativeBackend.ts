@@ -1,5 +1,6 @@
 import { toPlayableUrl } from '@/lib/desktop';
 import { BaseBackend } from '../BaseBackend';
+import { audioChain } from '../audioChain';
 import { createVideoElement } from '../createVideoElement';
 import type { BackendKind, MediaSourceInput, MediaTrack } from '../types';
 
@@ -15,6 +16,7 @@ export class NativeBackend extends BaseBackend {
   private video: HTMLVideoElement | null = null;
   private objectUrl: string | null = null;
   private detachListeners: (() => void) | null = null;
+  private readonly chain = audioChain;
 
   protected onAttach(container: HTMLElement): void {
     const video = createVideoElement();
@@ -177,6 +179,10 @@ export class NativeBackend extends BaseBackend {
          exchange, and it is the right way round: playing is the feature. */
       video.src = source.url;
     }
+    /* A link is the one source that cannot be amplified: routing it into Web
+       Audio is what the missing permission forbids, and the penalty is silence
+       rather than an error. Everything else is ours to route. */
+    this.chain.attach(video, source.kind !== 'url');
     video.load();
   }
 
@@ -207,6 +213,10 @@ export class NativeBackend extends BaseBackend {
 
   setVolume(volume: number): void {
     if (this.video) this.video.volume = Math.max(0, Math.min(1, volume));
+  }
+
+  setBoost(multiplier: number): void {
+    this.chain.setBoost(multiplier);
   }
 
   setMuted(muted: boolean): void {
@@ -254,6 +264,7 @@ export class NativeBackend extends BaseBackend {
   }
 
   protected onDestroy(): void {
+    this.chain.release(this.video);
     this.detachListeners?.();
     this.detachListeners = null;
 

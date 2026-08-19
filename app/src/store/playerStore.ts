@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createEngine, describeBackend } from '@/engine/createEngine';
 import { decodes, markUndecodable } from '@/engine/decoding';
+import { MAX_BOOST } from '@/engine/audioChain';
 import type { ProbeOptions } from '@/engine/probe';
 import type {
   BackendKind,
@@ -32,6 +33,8 @@ export interface PlayerSnapshot {
   ended: boolean;
   volume: number;
   muted: boolean;
+  /** Amplification past full volume. 1 is untouched. */
+  boost: number;
   rate: number;
 }
 
@@ -48,6 +51,16 @@ interface PlayerStore extends PlayerSnapshot {
   videoEl: HTMLVideoElement | null;
   source: MediaSourceInput | null;
   probe: ProbeResult | null;
+  /**
+   * Whether this source's audio can be routed through Web Audio.
+   *
+   * False for one case only: a link the browser plays directly. Both the
+   * amplifier and the equalizer work by routing the element, and a
+   * cross-origin file without permission answers that by going silent rather
+   * than by refusing, so this has to be known before either is offered rather
+   * than after.
+   */
+  canProcessAudio: boolean;
   backend: BackendKind | null;
   tracks: MediaTrack[];
   selectedAudioId: string | null;
@@ -63,6 +76,7 @@ interface PlayerStore extends PlayerSnapshot {
   seek: (seconds: number) => void;
   seekBy: (delta: number) => void;
   setVolume: (volume: number) => void;
+  setBoost: (multiplier: number) => void;
   toggleMute: () => void;
   setRate: (rate: number) => void;
   selectAudioTrack: (id: string) => void;
@@ -80,6 +94,7 @@ const INITIAL: PlayerSnapshot = {
   ended: false,
   volume: 1,
   muted: false,
+  boost: 1,
   rate: 1,
 };
 
@@ -167,6 +182,7 @@ async function attempt(
     source,
     probe: null,
     backend: null,
+    canProcessAudio: true,
     tracks: [],
     selectedAudioId: null,
     selectedSubtitleId: null,
@@ -244,13 +260,34 @@ async function attempt(
 
   engine.attach(container);
   // Publish the element only after attach, when the backend has created it.
+  /* A link handed straight to the browser is the only source that cannot be
+     amplified. The same link routed through FFmpeg can be: what reaches the
+     element then is a buffer built in this document, which carries this page's
+     origin no matter where the bytes came from. */
+  const canProcessAudio = !(source.kind === 'url' && probe.backend === 'native');
+
   set({
     engine,
     videoEl: engine.getVideoElement(),
     probe,
     backend: probe.backend,
     tracks: probe.tracks,
+    canProcessAudio,
   });
+
+  /* Hand the new engine what the store already holds.
+     
+     Volume is a preference restored from disk the moment the file key changes,
+     which is before this engine exists and before anything knows whether the
+     source can be amplified. Pushing it here rather than relying on that order
+     is what makes a remembered boost survive into the next film, and what
+     stops one being shown on a file that cannot take it. Set directly rather
+     than through the action, which would also unmute. */
+  engine.setVolume(get().volume);
+  /* The stored preference reaches the engine only when this source can carry
+     it; the store keeps it either way. */
+  engine.setBoost(canProcessAudio ? get().boost : 1);
+  engine.setMuted(get().muted);
 
   try {
     await engine.load(source);
@@ -280,6 +317,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   source: null,
   probe: null,
   backend: null,
+  canProcessAudio: true,
   tracks: [],
   selectedAudioId: null,
   selectedSubtitleId: null,
@@ -300,6 +338,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       source: null,
       probe: null,
       backend: null,
+      canProcessAudio: true,
       tracks: [],
     });
   },
@@ -336,6 +375,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     // desktop player behaves.
     if (clamped > 0 && get().muted) engine?.setMuted(false);
     set({ volume: clamped });
+  },
+
+  setBoost: (multiplier) => {
+    /* Kept as asked for, and only silenced at the engine.
+       
+       This is a preference about a machine or a badly mastered film, and a
+       link that happens to be unroutable is not a reason to forget it: writing
+       1 here would be written straight to disk and the setting would be gone
+       for every file afterwards. */
+    const clamped = Math.max(1, Math.min(MAX_BOOST, multiplier));
+    set({ boost: clamped });
+    get().engine?.setBoost(get().canProcessAudio ? clamped : 1);
   },
 
   toggleMute: () => {
@@ -389,7 +440,19 @@ export const useVideoEl = () => usePlayerStore((s) => s.videoEl);
 export const usePlaybackRate = () => usePlayerStore((s) => s.rate);
 
 export const useVolumeState = () =>
-  usePlayerStore(useShallow((s) => ({ volume: s.volume, muted: s.muted })));
+  usePlayerStore(
+    useShallow((s) => ({
+      volume: s.volume,
+      muted: s.muted,
+      // The badge must not claim an amplification this source cannot take.
+      boost: s.canProcessAudio ? s.boost : 1,
+    })),
+  );
+
+export const useAudioProcessing = () =>
+  usePlayerStore(
+    useShallow((s) => ({ boost: s.boost, canProcessAudio: s.canProcessAudio })),
+  );
 
 export const useTrackState = () =>
   usePlayerStore(
@@ -413,6 +476,7 @@ export const usePlayerActions = () =>
       seek: s.seek,
       seekBy: s.seekBy,
       setVolume: s.setVolume,
+      setBoost: s.setBoost,
       toggleMute: s.toggleMute,
       setRate: s.setRate,
       selectAudioTrack: s.selectAudioTrack,

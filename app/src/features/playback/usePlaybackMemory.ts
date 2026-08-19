@@ -3,9 +3,11 @@ import { usePlayerStore } from '@/store/playerStore';
 import {
   loadPosition,
   loadSpeed,
+  loadBoost,
   loadVolume,
   savePosition,
   saveSpeed,
+  saveBoost,
   saveVolume,
 } from '@/utils/storage';
 
@@ -48,18 +50,24 @@ export function usePlaybackMemory(fileKey: string): ResumeInfo | null {
   // Volume and speed are global preferences, applied as soon as an engine
   // exists rather than per file.
   React.useEffect(() => {
-    const { setVolume, setRate } = usePlayerStore.getState();
+    const { setVolume, setBoost, setRate } = usePlayerStore.getState();
     setVolume(loadVolume());
+    setBoost(loadBoost());
     setRate(loadSpeed());
   }, [fileKey]);
 
   React.useEffect(() => {
     let lastVolume = usePlayerStore.getState().volume;
+    let lastBoost = usePlayerStore.getState().boost;
     let lastRate = usePlayerStore.getState().rate;
     return usePlayerStore.subscribe((state) => {
       if (state.volume !== lastVolume) {
         lastVolume = state.volume;
         saveVolume(state.volume);
+      }
+      if (state.boost !== lastBoost) {
+        lastBoost = state.boost;
+        saveBoost(state.boost);
       }
       if (state.rate !== lastRate) {
         lastRate = state.rate;

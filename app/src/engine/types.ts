@@ -120,6 +120,16 @@ export interface PlaybackEngine {
   seek(seconds: number): void;
 
   setVolume(volume: number): void;
+  /**
+   * Amplify past full volume.
+   *
+   * Separate from `setVolume` because they are different questions. Volume is
+   * how loud you want it right now and is adjusted constantly; boost is a
+   * property of a quiet film or a quiet laptop, set once and left alone.
+   *
+   * @param multiplier 1 leaves the sound untouched.
+   */
+  setBoost(multiplier: number): void;
   setMuted(muted: boolean): void;
   setRate(rate: number): void;
 

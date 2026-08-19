@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import type { PlayerFeatures } from '@/features/usePlayerFeatures';
 import type { MusicModeApi } from '@/features/playback/useMusicMode';
 import type { VideoFitApi } from '@/features/playback/useVideoFit';
+import { useAudioProcessing } from '@/store/playerStore';
 import {
   ACCENTS,
   DENSITIES,
@@ -45,6 +46,7 @@ export interface SettingsMenuProps {
 export function SettingsMenu({ features, ambient, musicMode, fit }: SettingsMenuProps) {
   const { open, onOpenChange } = useExclusiveMenu('settings');
   const [panel, setPanel] = React.useState<Panel>('root');
+  const { canProcessAudio } = useAudioProcessing();
 
   // Always reopen at the top level; resuming in a nested panel is disorienting.
   React.useEffect(() => {
@@ -220,16 +222,25 @@ export function SettingsMenu({ features, ambient, musicMode, fit }: SettingsMenu
 
         {panel === 'audio' && (
           <PanelFrame title="Equalizer" onBack={() => setPanel('root')}>
-            {!equalizer.isEnabled && (
+            {!canProcessAudio && (
+              <div className="px-2.5 py-2 text-[12px] leading-relaxed text-fg-subtle">
+                A video played straight from a link cannot be equalised. Reading
+                its audio back out is what its origin forbids, and the browser
+                answers by going silent rather than by refusing.
+              </div>
+            )}
+            {canProcessAudio && !equalizer.isEnabled && (
               <div className="px-2.5 pb-2 text-[12px] leading-relaxed text-fg-subtle">
                 {/* Web Audio needs a user gesture and permanently re-routes the
                     element's output, so it is opt-in rather than always on. */}
                 Enabling routes audio through the equalizer for this session.
               </div>
             )}
-            <MenuItem active={equalizer.isEnabled} onSelect={equalizer.toggleEQ}>
-              {equalizer.isEnabled ? 'Equalizer on' : 'Enable equalizer'}
-            </MenuItem>
+            {canProcessAudio && (
+              <MenuItem active={equalizer.isEnabled} onSelect={equalizer.toggleEQ}>
+                {equalizer.isEnabled ? 'Equalizer on' : 'Enable equalizer'}
+              </MenuItem>
+            )}
             <MenuSeparator />
             <div className="grid grid-cols-3 gap-1 px-1.5 pb-1">
               {equalizer.presets.map((preset) => (
