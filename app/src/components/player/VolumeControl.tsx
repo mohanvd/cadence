@@ -1,3 +1,4 @@
+import * as React from 'react';
 import * as SliderPrimitive from '@radix-ui/react-slider';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icons';
@@ -49,12 +50,86 @@ export function VolumeControl() {
   const level = effective === 0 ? 'volumeOff' : effective < 0.5 ? 'volumeLow' : 'volumeHigh';
   const boosted = canProcessAudio && boost > 1;
   const atMax = canProcessAudio && !muted && volume > 0.99;
-  /* Held open while its own menu is: a control that slides out from under the
-     pointer the moment it is used cannot be used. */
-  const pinned = menu.open;
+
+  /*
+   * Held open by state rather than by `:hover`.
+   *
+   * With the CSS variant, closing the menu swapped the class that was holding
+   * the area open for one conditional on hover, and the two were resolved a
+   * frame apart: the slider collapsed and reappeared, which looks like a
+   * glitch because it is one. The button can also stop being offered at the
+   * exact moment it is pressed, and a zero-width element cannot be hovered, so
+   * the pointer would find itself outside an area it had never left.
+   *
+   * Tracking it here means the area closes when the pointer actually leaves
+   * and at no other time.
+   */
+  const [pointerInside, setPointerInside] = React.useState(false);
+  const [focusInside, setFocusInside] = React.useState(false);
+  const open = pointerInside || focusInside || menu.open;
+
+  /*
+   * Leaving is believed only after a moment. Arriving is believed at once.
+   *
+   * Closing the menu produces a leave and an enter in the same instant, one
+   * frame apart, and the area collapsed and reopened between them: a blink,
+   * every time the menu was dismissed. Rather than hunt for which layer
+   * generates the phantom pair, the area simply refuses to close on anything
+   * that brief. It reads better for a real departure too, since a pointer that
+   * clips the corner of the track on its way past no longer snaps it shut.
+   */
+  const closing = React.useRef<number | null>(null);
+
+  const holdOpen = React.useCallback(() => {
+    if (closing.current !== null) {
+      window.clearTimeout(closing.current);
+      closing.current = null;
+    }
+    setPointerInside(true);
+  }, []);
+
+  const letClose = React.useCallback(() => {
+    if (closing.current !== null) window.clearTimeout(closing.current);
+    closing.current = window.setTimeout(() => {
+      closing.current = null;
+      setPointerInside(false);
+    }, 180);
+  }, []);
+
+  React.useEffect(
+    () => () => {
+      if (closing.current !== null) window.clearTimeout(closing.current);
+    },
+    [],
+  );
 
   return (
-    <div className="group/volume flex items-center">
+    <div
+      className="flex items-center"
+      onPointerEnter={holdOpen}
+      onPointerLeave={letClose}
+      onFocusCapture={(event) => {
+        /* Keyboard focus only.
+         *
+         * Closing a menu hands focus back to the button that opened it, and
+         * counting that as a reason to stay open reopened the area a frame
+         * after a click outside had closed it: the flicker was the area
+         * obeying two rules that disagreed. Focus restored after a click is
+         * not `:focus-visible`; focus arrived at by tabbing is, and that is
+         * exactly the case that should hold the area open. */
+        const target = event.target as Element;
+        if (typeof target.matches === 'function' && target.matches(':focus-visible')) {
+          setFocusInside(true);
+        }
+      }}
+      onBlurCapture={(event) => {
+        // Only when focus has left the group altogether, not while it moves
+        // between the slider and the button inside it.
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setFocusInside(false);
+        }
+      }}
+    >
       <Tooltip label={muted ? 'Unmute' : 'Mute'} shortcut="M">
         <Button variant="chrome" size="icon" onClick={toggleMute} aria-label="Mute">
           <Icon name={level} />
@@ -64,7 +139,7 @@ export function VolumeControl() {
       <div
         className={cn(
           'overflow-hidden transition-[width] duration-200 ease-[var(--ease-out-quint)]',
-          pinned ? 'w-24' : 'w-0 group-hover/volume:w-24 group-focus-within/volume:w-24',
+          open ? 'w-24' : 'w-0',
         )}
       >
         <SliderPrimitive.Root
@@ -96,11 +171,9 @@ export function VolumeControl() {
       <div
         className={cn(
           'overflow-hidden transition-[max-width,opacity] duration-200 ease-[var(--ease-out-quint)]',
-          pinned
+          open && (boosted || atMax || menu.open)
             ? 'max-w-20 opacity-100'
-            : boosted || atMax
-              ? 'max-w-0 opacity-0 group-hover/volume:max-w-20 group-hover/volume:opacity-100 group-focus-within/volume:max-w-20 group-focus-within/volume:opacity-100'
-              : 'max-w-0 opacity-0',
+            : 'max-w-0 opacity-0',
         )}
       >
         <Popover {...menu}>

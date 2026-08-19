@@ -26,6 +26,22 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   figure crowding the track on one side and floating on the other.
 - The volume area collapsed while its own menu was open, so the menu could slide
   out from under the pointer on the way to it.
+- No menu in the player closed when the pointer went down outside it. Every one
+  of them had to be dismissed by pressing the button that opened it, which is
+  not how a menu behaves anywhere. It hid for so long because a menu is chrome,
+  and chrome fades out a few seconds after the pointer stops moving: a menu that
+  was still open looked exactly like one that had closed.
+- Dismissing a menu made the volume slider blink out and back. Closing hands
+  focus to the button that opened the menu, and the area was obeying two rules
+  that disagreed about what that meant. Only a keyboard focus ring holds it open
+  now, and a departure shorter than a moment is not believed at all.
+- Every menu handed focus back to its button on closing, which flashed that
+  button's tooltip for an instant each time one was dismissed with the mouse.
+  Shortcuts listen on the window, so nothing needed the focus.
+
+### Changed
+
+- Play and pause cross-fade into each other rather than swapping between frames.
 
 ## [0.3.0] - 2026-08-19
 

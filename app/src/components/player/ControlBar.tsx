@@ -29,8 +29,18 @@ function PlayButton() {
         className="[&_svg]:size-6"
       >
         {/* The only filled glyph in the bar, and the largest: see
-            components/ui/icons.tsx. */}
-        <Icon name={paused ? 'play' : 'pause'} size={24} />
+            components/ui/icons.tsx.
+            
+            Keyed on the state so React replaces the glyph rather than
+            reusing it, which is what lets the entry animation run on every
+            toggle. The mark is the one thing in the bar the eye returns to
+            most, and having it swap without a beat reads as a flicker. */}
+        <Icon
+          key={paused ? 'play' : 'pause'}
+          name={paused ? 'play' : 'pause'}
+          size={24}
+          className="animate-in fade-in-0 zoom-in-75 duration-200 ease-[var(--ease-out-quint)]"
+        />
       </Button>
     </Tooltip>
   );

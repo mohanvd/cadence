@@ -27,7 +27,41 @@ let activeMenuId: string | null = null;
 function setActiveMenu(id: string | null): void {
   if (activeMenuId === id) return;
   activeMenuId = id;
+  if (id) watchForOutsidePointer();
+  else stopWatchingForOutsidePointer();
   for (const listener of menuListeners) listener();
+}
+
+/*
+ * Close the open menu when the pointer goes down anywhere else.
+ *
+ * Radix dismisses its own layers on an outside pointer down, and here it did
+ * not: every menu in the player had to be closed by pressing the button that
+ * opened it, which is not how a menu behaves anywhere. Rather than work out
+ * which handler between the picture and the document was eating the event,
+ * this listens on the window in the capture phase, where nothing downstream
+ * can have stopped anything yet.
+ *
+ * The bug hid for a long time because a menu is chrome, and chrome fades out
+ * with the rest of the controls a few seconds after the pointer stops moving.
+ * A menu that was still open looked exactly like one that had closed.
+ */
+function onOutsidePointerDown(event: PointerEvent): void {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  // Inside the panel, or on the button that owns it: both already have their
+  // own behaviour, and a second opinion here would fight the toggle.
+  if (target.closest('[data-menu-panel]')) return;
+  if (target.closest('[aria-haspopup="dialog"]')) return;
+  setActiveMenu(null);
+}
+
+function watchForOutsidePointer(): void {
+  window.addEventListener('pointerdown', onOutsidePointerDown, true);
+}
+
+function stopWatchingForOutsidePointer(): void {
+  window.removeEventListener('pointerdown', onOutsidePointerDown, true);
 }
 
 function subscribeMenu(listener: () => void): () => void {
@@ -78,6 +112,18 @@ export const PopoverContent = React.forwardRef<
       // narrow side, where Radix would otherwise flush it against the bezel.
       collisionPadding={12}
       data-player-chrome
+      data-menu-panel
+      onCloseAutoFocus={(event) => {
+        /* Radix hands focus back to the button that opened the menu, and in a
+           player that is wrong twice over. Every one of these buttons carries
+           a tooltip, and a tooltip opens on focus as readily as on hover, so
+           dismissing any menu with the mouse flashed a label for an instant.
+           It also leaves a focus ring on a control the user has just finished
+           with. Shortcuts listen on the window, so nothing needs focus to
+           keep working. A caller that wants the focus back can say so: this
+           spreads before `props`. */
+        event.preventDefault();
+      }}
       className={cn(
         'z-50 w-64 rounded-[var(--radius-panel)] border border-line bg-surface-1/95 p-1.5 text-fg shadow-[var(--shadow-panel)] backdrop-blur-xl',
         'max-h-[min(70vh,440px)] overflow-x-hidden overflow-y-auto scroll-slim overscroll-contain',
