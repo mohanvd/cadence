@@ -12,13 +12,12 @@ import {
   useExclusiveMenu,
 } from '@/components/ui/popover';
 import { Tooltip } from '@/components/ui/tooltip';
-import { MAX_BOOST } from '@/engine/audioChain';
 import { formatTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { PlayerFeatures } from '@/features/usePlayerFeatures';
 import type { MusicModeApi } from '@/features/playback/useMusicMode';
 import type { VideoFitApi } from '@/features/playback/useVideoFit';
-import { useAudioProcessing, usePlayerActions } from '@/store/playerStore';
+import { useAudioProcessing } from '@/store/playerStore';
 import {
   ACCENTS,
   DENSITIES,
@@ -27,7 +26,7 @@ import {
   useAppearanceStore,
 } from '@/store/appearanceStore';
 
-type Panel = 'root' | 'video' | 'audio' | 'boost' | 'timer' | 'zoom' | 'appearance';
+type Panel = 'root' | 'video' | 'audio' | 'timer' | 'zoom' | 'appearance';
 
 /**
  * The settings popover.
@@ -47,8 +46,7 @@ export interface SettingsMenuProps {
 export function SettingsMenu({ features, ambient, musicMode, fit }: SettingsMenuProps) {
   const { open, onOpenChange } = useExclusiveMenu('settings');
   const [panel, setPanel] = React.useState<Panel>('root');
-  const { boost, canProcessAudio } = useAudioProcessing();
-  const { setBoost } = usePlayerActions();
+  const { canProcessAudio } = useAudioProcessing();
 
   // Always reopen at the top level; resuming in a nested panel is disorienting.
   React.useEffect(() => {
@@ -99,16 +97,6 @@ export function SettingsMenu({ features, ambient, musicMode, fit }: SettingsMenu
               }
             >
               Equalizer
-            </MenuItem>
-            <MenuItem
-              onSelect={() => setPanel('boost')}
-              trailing={
-                <span>
-                  {!canProcessAudio ? 'Unavailable' : boost > 1 ? `${Math.round(boost * 100)}%` : 'Off'}
-                </span>
-              }
-            >
-              Volume boost
             </MenuItem>
             <MenuItem
               onSelect={() => setPanel('zoom')}
@@ -229,37 +217,6 @@ export function SettingsMenu({ features, ambient, musicMode, fit }: SettingsMenu
             <MenuItem onSelect={filters.resetFilters} disabled={filters.isDefault}>
               Reset adjustments
             </MenuItem>
-          </PanelFrame>
-        )}
-
-        {panel === 'boost' && (
-          <PanelFrame title="Volume boost" onBack={() => setPanel('root')}>
-            {canProcessAudio ? (
-              <>
-                <div className="px-2.5 pb-2 text-[12px] leading-relaxed text-fg-subtle">
-                  For films mastered too quietly, or speakers that will not go
-                  loud enough. Peaks are held below full scale, so this cannot
-                  make the sound crackle, but a film that is already loud has no
-                  room to grow and will barely change.
-                </div>
-                <MenuSlider
-                  label="Boost"
-                  value={Math.round(boost * 100)}
-                  min={100}
-                  max={MAX_BOOST * 100}
-                  step={10}
-                  format={(v) => (v === 100 ? 'Off' : `${v}%`)}
-                  onChange={(v) => setBoost(v / 100)}
-                />
-              </>
-            ) : (
-              <div className="px-2.5 py-2 text-[12px] leading-relaxed text-fg-subtle">
-                A video played straight from a link cannot be amplified. Reading
-                its audio back out is what its origin forbids, and the browser
-                answers by going silent rather than by refusing, so Cadence does
-                not offer it here.
-              </div>
-            )}
           </PanelFrame>
         )}
 
