@@ -5,6 +5,28 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-08-19
+
+### Fixed
+
+- The volume boost multiplied the volume rather than extending it, so with the
+  boost at 3x the slider governed only the first third of what could be heard
+  and was dead across the rest of its travel. It now raises the top of the
+  range the slider runs to: full travel is 3x, a third of it is exactly normal
+  volume, and the slider is worth touching at any setting.
+- The boost badge stayed in the control bar whenever it was on. Among a row of
+  transport buttons a stray figure reads as another control rather than as the
+  state of the one beside it, so it appears and disappears with the volume
+  slider it belongs to.
+- Playback speed showed "1x" permanently, which in a row of icons looks like a
+  setting that is switched on, and it was the only text among them, so it never
+  matched their size or weight. It is the speed icon at normal speed and the
+  figure at any other.
+- The boost control was a fixed box with its contents centred, which left the
+  figure crowding the track on one side and floating on the other.
+- The volume area collapsed while its own menu was open, so the menu could slide
+  out from under the pointer on the way to it.
+
 ## [0.3.0] - 2026-08-19
 
 ### Added
