@@ -14,6 +14,7 @@ import {
   useWakeLock,
 } from '@/features/playback/useSystemIntegration';
 import { useMusicMode } from '@/features/playback/useMusicMode';
+import { useNowPlaying } from '@/features/playback/useNowPlaying';
 import { useVideoFit } from '@/features/playback/useVideoFit';
 import { MusicStage } from './MusicStage';
 import { Toaster, useToaster } from '@/components/ui/toaster';
@@ -120,12 +121,25 @@ export function PlayerSurface({
 
   // Volume, speed and playhead survive reloads and file switches.
   const resume = usePlaybackMemory(source.name);
-  // Media keys, the OS Now Playing panel, and the taskbar transport.
-  useMediaSession(title, position ? `${position.index} of ${position.total}` : '', {
-    next: onNext,
-    previous: onPrevious,
-  });
   const musicMode = useMusicMode(showToast);
+  /* Music, as opposed to a film being listened to with the picture off. The
+     forced flag is the honest test: it means the file has no video track at
+     all, which is what makes subtitles, brightness and a frame grab things
+     that cannot apply rather than things somebody turned off. */
+  const isMusic = musicMode.forced;
+  const song = useNowPlaying(source, isMusic);
+  const path = source.kind === 'path' ? source.path : null;
+  // Media keys, the OS Now Playing panel, and the taskbar transport.
+  useMediaSession(
+    song?.title ?? title,
+    /* Under the title in the Windows panel. Who it is by, when the file says
+       so; otherwise where it sits in the queue, which is what a film has
+       instead. */
+    song?.artist ?? (position ? `${position.index} of ${position.total}` : ''),
+    { next: onNext, previous: onPrevious },
+    song?.album ?? '',
+    isMusic,
+  );
   // Stop the display dimming mid-lecture, but only while actually playing, and
   // never in music mode, where holding the screen awake for audio is the exact
   // waste the mode exists to avoid.
@@ -385,7 +399,9 @@ export function PlayerSurface({
             nothing to sample and nothing to justify its cost. */}
         <AmbientGlow enabled={ambient && !musicMode.enabled} />
 
-        {musicMode.enabled && <MusicStage title={title} forced={musicMode.forced} />}
+        {musicMode.enabled && (
+          <MusicStage title={title} song={song} forced={musicMode.forced} path={path} />
+        )}
 
         {/* Engine-owned rendering surface. */}
         <PlayerContextMenu
@@ -463,7 +479,7 @@ export function PlayerSurface({
             <Icon name="back" />
           </Button>
           <h1 className="min-w-0 flex-1 truncate text-[15px] font-medium tracking-[-0.01em] text-white">
-            {title}
+            {song ? [song.title, song.artist].filter(Boolean).join(' — ') : title}
           </h1>
           {/* Where this file sits among the others beside it. Absent for a
               film on its own, where "1 of 1" is a fact nobody needed. */}
@@ -491,6 +507,7 @@ export function PlayerSurface({
           fit={fit}
           onNext={onNext}
           onPrevious={onPrevious}
+          music={isMusic}
         />
 
         {resume && chromeVisible && (

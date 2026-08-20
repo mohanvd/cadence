@@ -17,7 +17,7 @@ import { isDesktop } from '../lib/desktop';
  * needs no code: the player fullscreens its own element, so this sits outside
  * the fullscreened subtree and the compositor drops it.
  */
-export default function TitleBar() {
+export default function TitleBar({ screen, onScreen }) {
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
@@ -62,6 +62,31 @@ export default function TitleBar() {
       <span className="titlebar__brand" data-tauri-drag-region>
         Cadence
       </span>
+
+      {/* The application's only navigation, and it lives here because here is
+          the one strip that is on screen in every state the window has —
+          including while something is playing, which is exactly when somebody
+          wants to go back to the library and pick the next record without
+          stopping the one they are listening to. */}
+      {onScreen && (
+        <nav className="titlebar__nav">
+          {[
+            { id: 'home', label: 'Files', icon: 'dropTarget' },
+            { id: 'music', label: 'Music', icon: 'music' },
+          ].map(({ id, label, icon }) => (
+            <button
+              key={id}
+              type="button"
+              className="titlebar__tab"
+              data-active={screen === id ? '' : undefined}
+              onClick={() => onScreen(id)}
+            >
+              <Icon name={icon} size={13} stroke={CHROME_STROKE} />
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
 
       <div className="titlebar__controls">
         <button

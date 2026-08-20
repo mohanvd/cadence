@@ -451,7 +451,7 @@ async fn handle(
     let route = request.uri().path().to_owned();
     if !matches!(
         route.as_str(),
-        "/stream" | "/frame" | "/subtitle-image" | "/attachment" | "/font"
+        "/stream" | "/frame" | "/artwork" | "/subtitle-image" | "/attachment" | "/font"
     ) {
         return Ok(text(StatusCode::NOT_FOUND, "Cadence does not serve that."));
     }
@@ -500,6 +500,37 @@ async fn handle(
         .and_then(|value| value.parse::<f64>().ok())
         .filter(|value| value.is_finite() && *value > 0.0)
         .unwrap_or(0.0);
+
+    /* A sleeve. Its own route rather than a case of `/frame`, because the two
+    look for different things in different places: a film's thumbnail is a
+    moment part-way through a video stream, and a sleeve is a still with no
+    timeline, which may not be in the file at all. */
+    if route == "/artwork" {
+        let width = params
+            .get("w")
+            .and_then(|value| value.parse::<u32>().ok())
+            .unwrap_or(640);
+
+        return Ok(match media.artwork(&path, width).await {
+            Ok(jpeg) => Response::builder()
+                .status(StatusCode::OK)
+                .header("content-type", "image/jpeg")
+                .header("access-control-allow-origin", "*")
+                // A sleeve does not change while the app is open, and a library
+                // view asks for the same eighty of them every time it is
+                // scrolled back to.
+                .header("cache-control", "max-age=86400")
+                .body(
+                    Full::new(Bytes::from(jpeg))
+                        .map_err(|never| match never {})
+                        .boxed(),
+                )
+                .expect("an artwork response is always well formed"),
+            // Not an error worth a page: most files simply have no sleeve, and
+            // the tile has a placeholder for exactly this.
+            Err(_) => text(StatusCode::NOT_FOUND, "No artwork."),
+        });
+    }
 
     if route == "/frame" {
         let width = params
@@ -1136,6 +1167,68 @@ impl Media {
     /// playing: FFmpeg jumps to the nearest keyframe rather than decoding up to
     /// the timestamp, so a frame from the middle of a four gigabyte film costs
     /// what a frame from the start of it does.
+    /// The sleeve for a track, as a JPEG.
+    ///
+    /// Two places to look, and the order matters. Inside the file first,
+    /// because that picture is about the *track* — on a compilation every
+    /// track has its own, and the folder has one that belongs to none of them.
+    /// Beside the file second, which is where every ripper and every download
+    /// puts it when the tagger did not embed one.
+    ///
+    /// No `-ss` here, unlike a film's thumbnail. An embedded sleeve is one
+    /// frame at the start of a stream that has no other frames, and seeking
+    /// 12% into it lands past the end and returns nothing at all.
+    ///
+    /// Scaled on the way out, and that is not a nicety: sleeves are routinely
+    /// stored at three thousand pixels square, and a wall of eighty album
+    /// tiles at that size is several hundred megabytes of decoded bitmap held
+    /// by the webview to draw squares two hundred pixels wide.
+    pub async fn artwork(&self, path: &str, width: u32) -> Result<Vec<u8>, String> {
+        if let Ok(embedded) = self.picture_from(path, width).await {
+            return Ok(embedded);
+        }
+
+        let beside = crate::music::sleeve_beside(std::path::Path::new(path))
+            .ok_or_else(|| format!("no artwork for {path}"))?;
+        self.picture_from(&beside.to_string_lossy(), width).await
+    }
+
+    /// The first picture in a file, scaled. Used for both halves of `artwork`.
+    async fn picture_from(&self, path: &str, width: u32) -> Result<Vec<u8>, String> {
+        let output = ffmpeg_command(&self.ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                path,
+                "-map",
+                "0:v:0",
+                "-frames:v",
+                "1",
+                "-an",
+                "-vf",
+                &format!("scale={}:-2", width.clamp(16, 1920)),
+                "-f",
+                "image2",
+                "-c:v",
+                "mjpeg",
+                "-q:v",
+                "4",
+                "pipe:1",
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+            .await
+            .map_err(|err| err.to_string())?;
+
+        if output.stdout.is_empty() {
+            return Err(format!("no picture in {path}"));
+        }
+        Ok(output.stdout)
+    }
+
     pub async fn frame(&self, path: &str, at: Option<f64>, width: u32) -> Result<Vec<u8>, String> {
         // No timestamp asks for a frame that represents the file, which is not
         // the first one: films open on black, on a logo, or on a fade.

@@ -17,6 +17,21 @@ import { usePlayerStore } from '@/store/playerStore';
 
 const STORAGE_KEY = 'cadence-music-mode';
 
+/**
+ * Whether the file's name promised a picture.
+ *
+ * By extension rather than by inspection, because the question is not what is
+ * inside the file — that is already known by the time this is asked — but what
+ * the person who opened it expected. `.flac` promised nothing and delivered
+ * nothing; `.mkv` promised a picture and has none, and that is the surprise
+ * worth a word.
+ */
+const SOUND_ONLY = /\.(mp3|m4a|m4b|flac|wav|opus|ogg|oga|aac|wma|aiff?|ape|wv|mka)$/i;
+
+function looksLikeVideo(name: string): boolean {
+  return !SOUND_ONLY.test(name);
+}
+
 export interface MusicModeApi {
   enabled: boolean;
   /** True when the file has no playable video track, so this is the only sane view. */
@@ -50,13 +65,20 @@ export function useMusicMode(onToast?: (message: string) => void): MusicModeApi 
   }, [tracks]);
 
   /* Announce the switch once per file, and only when it was not the user's
-     doing, and an unexplained audio-only screen is the thing worth explaining. */
+     doing, and an unexplained audio-only screen is the thing worth explaining.
+     
+     Never for music. The message exists for the file that looks like video and
+     turns out not to be — a concert `.mkv` that is really a recording, an
+     `.mp4` rip of a podcast — where a black screen would otherwise need
+     explaining. Somebody who put on an album already knows it has no picture,
+     and saying so once per track is a notification every three minutes about
+     the thing they chose. */
   const announcedFor = React.useRef<string | null>(null);
   React.useEffect(() => {
     const name = source?.name ?? null;
     if (!forced || !name || announcedFor.current === name) return;
     announcedFor.current = name;
-    onToast?.('No video track. Playing as audio');
+    if (looksLikeVideo(name)) onToast?.('No video track. Playing as audio');
   }, [forced, source, onToast]);
 
   const toggle = React.useCallback(() => {

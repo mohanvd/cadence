@@ -253,6 +253,44 @@ video::cue {
   pointer-events: none;
 }
 
+/* Sits beside the wordmark rather than centred in the bar. `margin-right:auto`
+   rather than the parent's `space-between`, which with three children would
+   put this in the middle of the window and move it every time the window was
+   resized. */
+.titlebar__nav {
+  display: flex;
+  gap: 2px;
+  margin-left: 18px;
+  margin-right: auto;
+}
+
+.titlebar__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-3, var(--text-2));
+  cursor: default;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.titlebar__tab:hover {
+  background: var(--icon-hover-bg);
+  color: var(--text);
+}
+
+.titlebar__tab[data-active] {
+  background: var(--icon-hover-bg);
+  color: var(--text);
+}
+
 .titlebar__controls {
   display: flex;
   height: 100%;
@@ -547,4 +585,14 @@ video::cue {
   .video-card__delete {
     display: none;
   }
+}
+/* ── The music screen ── */
+
+/* Below the title bar, filling the rest of the window. Not `position: fixed`
+   like the player overlay: the player has to cover this, and a screen that
+   claimed the same layer would fight it for the top. */
+.music-screen {
+  position: absolute;
+  inset: var(--titlebar-h) 0 0 0;
+  overflow: hidden;
 }

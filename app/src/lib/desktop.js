@@ -326,8 +326,11 @@ export async function fileIsThere(path) {
 /**
  * @typedef {object} NowPlaying
  * @property {string} title The film, or empty when nothing is open.
- * @property {string} subtitle Under the title: which of how many, when a
- *   folder is being played.
+ * @property {string} subtitle Under the title: who it is by, or which of how
+ *   many when a folder of video is being played.
+ * @property {string} album The record it is from. Empty for anything else.
+ * @property {boolean} music Whether Windows should draw the music card, which
+ *   has a place for an artist and an album where the video one does not.
  * @property {boolean} playing
  * @property {number} duration
  * @property {number} position
@@ -575,4 +578,176 @@ export async function frameUrl(path, { at, width } = {}) {
   if (width !== undefined) query.set('w', String(width));
 
   return `${endpoint.base}/frame?${query}`;
+}
+
+/* ── The music library ── */
+
+/**
+ * @typedef {object} Song
+ * @property {string} path
+ * @property {string} file The file's own name, extension and all.
+ * @property {string} title Never empty: the file's name when there is no tag.
+ * @property {string | null} artist
+ * @property {string | null} albumArtist
+ * @property {string | null} album
+ * @property {number | null} track
+ * @property {number | null} disc
+ * @property {number | null} year
+ * @property {string | null} genre
+ * @property {number} duration Seconds.
+ * @property {boolean} art Whether a sleeve is embedded in the file.
+ * @property {number} modified
+ * @property {number} size
+ */
+
+/**
+ * The folders the library watches.
+ *
+ * @returns {Promise<string[]>}
+ */
+export async function libraryFolders() {
+  if (!isDesktop()) return [];
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    return await invoke('library_folders');
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Every track the library knows about, already sorted by album and track.
+ *
+ * @returns {Promise<Song[]>}
+ */
+export async function librarySongs() {
+  if (!isDesktop()) return [];
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    return await invoke('library_songs');
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Watch a folder. Resolves false when it was already covered by another.
+ *
+ * @param {string} folder
+ * @returns {Promise<boolean>}
+ */
+export async function libraryWatch(folder) {
+  if (!isDesktop()) return false;
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('library_watch', { folder });
+}
+
+/**
+ * Stop watching a folder, and forget what was found under it.
+ *
+ * @param {string} folder
+ */
+export async function libraryUnwatch(folder) {
+  if (!isDesktop()) return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('library_unwatch', { folder });
+}
+
+/**
+ * Walk the watched folders and read what is in them.
+ *
+ * Resolves with how many tracks were found, once the whole walk is over. Watch
+ * `onLibraryScan` for progress in the meantime: a first scan of a large
+ * collection is a minute of work, and a minute with no sign of movement is a
+ * minute somebody spends wondering whether it is broken.
+ *
+ * @returns {Promise<number>}
+ */
+export async function libraryScan() {
+  if (!isDesktop()) return 0;
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('library_scan');
+}
+
+/**
+ * How far along a running scan is.
+ *
+ * @param {(progress: { done: number, total: number }) => void} handler
+ * @returns {Promise<() => void>} Stops listening.
+ */
+export async function onLibraryScan(handler) {
+  if (!isDesktop()) return () => {};
+  const { listen } = await import('@tauri-apps/api/event');
+  return listen('library-scan', (event) => handler(event.payload));
+}
+
+/**
+ * When a scan has finished, whoever started it.
+ *
+ * The page keeps a copy of the library to draw from, and a copy is only as
+ * true as the last time it was refreshed. Reloading when the *store's* own
+ * scan resolves covers the ordinary case and nothing else — a scan started
+ * from anywhere else leaves the screen showing a library that no longer
+ * exists, which looks exactly like a scan that found nothing.
+ *
+ * @param {(found: number) => void} handler
+ * @returns {Promise<() => void>} Stops listening.
+ */
+export async function onLibraryScanned(handler) {
+  if (!isDesktop()) return () => {};
+  const { listen } = await import('@tauri-apps/api/event');
+  return listen('library-scanned', (event) => handler(Number(event.payload)));
+}
+
+/**
+ * One file's tags, read now.
+ *
+ * For a track that has never been scanned — opened by double-clicking it in
+ * Explorer, or dropped on the window — which still deserves to say who it is
+ * by while it plays.
+ *
+ * @param {string} path
+ * @returns {Promise<Song | null>}
+ */
+export async function musicTags(path) {
+  if (!isDesktop()) return null;
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    return await invoke('music_tags', { path });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where to fetch a track's sleeve from.
+ *
+ * Null when there is no pipeline to serve it. A missing sleeve is not an error
+ * here — most files have none — and the answer for one is a 404 from the
+ * address below rather than a null from this.
+ *
+ * @param {string} path
+ * @param {{ width?: number }} [options]
+ * @returns {Promise<string | null>}
+ */
+export async function artworkUrl(path, { width } = {}) {
+  const endpoint = await mediaEndpoint();
+  if (!endpoint) return null;
+
+  const query = new URLSearchParams({ token: endpoint.token, path });
+  if (width !== undefined) query.set('w', String(width));
+
+  return `${endpoint.base}/artwork?${query}`;
+}
+
+/**
+ * Ask the operating system for a folder, returning its path.
+ *
+ * @returns {Promise<string | null>}
+ */
+export async function pickFolder() {
+  if (!isDesktop()) return null;
+  const { open } = await import('@tauri-apps/plugin-dialog');
+  const selected = await open({ directory: true, multiple: false });
+  return typeof selected === 'string' ? selected : null;
 }

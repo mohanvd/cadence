@@ -8,7 +8,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-fg text-base hover:bg-fg/90',
+        /* The colour is spelled the long way round on purpose. `text-base` is
+           a *font size* in Tailwind and always has been, so writing it here to
+           mean the `--color-base` token produced white text on a white button
+           — invisible, and silently, because the class is real and the build
+           has nothing to warn about. This spelling can only be a colour. */
+        default: 'bg-fg text-[color:var(--color-base)] hover:bg-fg/90',
         accent: 'bg-accent text-accent-fg hover:bg-accent-hover',
         secondary: 'bg-surface-2 text-fg hover:bg-surface-3',
         outline: 'border border-line bg-transparent text-fg hover:bg-surface-2',

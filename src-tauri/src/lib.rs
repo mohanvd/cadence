@@ -7,6 +7,7 @@ use tauri::{Emitter, Manager};
 
 mod fonts;
 mod media;
+mod music;
 #[cfg(windows)]
 mod nowplaying;
 mod pgs;
@@ -179,6 +180,206 @@ async fn media_pictures(
         "height": track.height,
         "cues": cues,
     }))
+}
+
+/* ── The library ── */
+
+/// How many files one scan will take in, however many are down there.
+///
+/// Not a limit anybody should meet. It is here so that somebody who points
+/// Cadence at a whole drive finds out in a minute rather than in an hour, and
+/// so that a symlink loop surviving the walk's own depth cap still ends.
+const SCAN_LIMIT: usize = 60_000;
+
+/// The event names the page listens for while a scan runs.
+const SCAN_PROGRESS: &str = "library-scan";
+const SCAN_DONE: &str = "library-scanned";
+
+/// How many files are read at once during a scan.
+///
+/// Reading a tag costs a process, and almost all of that cost is Windows
+/// starting one. Several at a time turns a scan from something you leave the
+/// room for into something you watch finish. Bounded by the machine rather
+/// than by a number, and left with a core to spare, because a scan should not
+/// be the reason the film playing in the other half of the window stutters.
+fn scan_width() -> usize {
+    std::thread::available_parallelism()
+        .map(|count| count.get().saturating_sub(1).max(2))
+        .unwrap_or(4)
+}
+
+/// The folders the library watches.
+#[tauri::command]
+fn library_folders(library: tauri::State<'_, music::Library>) -> Vec<String> {
+    library.folders()
+}
+
+/// Everything the library knows, as it stands.
+///
+/// Read from memory: this is the list the whole music interface is drawn from,
+/// and it is asked for on every visit to it.
+#[tauri::command]
+fn library_songs(library: tauri::State<'_, music::Library>) -> Vec<music::Song> {
+    library.snapshot().songs
+}
+
+/// Watch a folder. Returns false when it was already covered by another.
+#[tauri::command]
+fn library_watch(
+    library: tauri::State<'_, music::Library>,
+    folder: String,
+) -> Result<bool, String> {
+    library.watch(folder)
+}
+
+/// Stop watching a folder, and forget what was found under it.
+#[tauri::command]
+fn library_unwatch(
+    library: tauri::State<'_, music::Library>,
+    folder: String,
+) -> Result<(), String> {
+    library.unwatch(&folder)
+}
+
+/// Walk every watched folder and read the tags of what is in them.
+///
+/// Two things keep this from being expensive twice. A file whose size and
+/// modification time are unchanged since the last scan is not read again — its
+/// record is carried across, which is what makes a rescan of a large library
+/// take a second rather than a minute. And a scan already running refuses a
+/// second one rather than doubling the work and racing itself to write the
+/// answer.
+///
+/// Progress is emitted rather than returned, because the useful thing about a
+/// long job is watching it move.
+#[tauri::command]
+async fn library_scan(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, MediaState>,
+    library: tauri::State<'_, music::Library>,
+) -> Result<usize, String> {
+    let Some(media) = pipeline(&state).await else {
+        return Err("playback support is not available".into());
+    };
+    let Some(_running) = library.begin_scan() else {
+        return Err("a scan is already running".into());
+    };
+
+    let folders = library.folders();
+    let known = library.known();
+
+    /* The walk is the cheap half: no process per file, only a directory read
+    per folder. It happens off the runtime all the same, because a disk that
+    has spun down can take seconds to answer the first question. */
+    let listed = tauri::async_runtime::spawn_blocking(move || {
+        let mut files = Vec::new();
+        for folder in &folders {
+            let remaining = SCAN_LIMIT.saturating_sub(files.len());
+            if remaining == 0 {
+                break;
+            }
+            files.extend(music::walk(std::path::Path::new(folder), remaining));
+        }
+        files
+    })
+    .await
+    .map_err(|err| err.to_string())?;
+
+    let total = listed.len();
+    let _ = app.emit(
+        SCAN_PROGRESS,
+        serde_json::json!({ "done": 0, "total": total }),
+    );
+
+    let mut songs: Vec<music::Song> = Vec::with_capacity(total);
+    let mut done = 0usize;
+
+    for chunk in listed.chunks(scan_width()) {
+        let reading = chunk.iter().map(|path| {
+            let carried = known.get(&path.to_string_lossy().into_owned()).cloned();
+            read_song(&media, path.clone(), carried)
+        });
+        songs.extend(
+            futures_util::future::join_all(reading)
+                .await
+                .into_iter()
+                .flatten(),
+        );
+
+        done += chunk.len();
+        /* Once per batch rather than once per file. A page told a number
+        several thousand times a second spends more effort drawing the number
+        than the scan spends reading tags. */
+        let _ = app.emit(
+            SCAN_PROGRESS,
+            serde_json::json!({ "done": done, "total": total }),
+        );
+    }
+
+    /* Sorted once, here, in the order a library is read in: by album, then by
+    disc and track within it. Doing it in the page would mean doing it again on
+    every render of a list that does not change between them. */
+    songs.sort_by(|a, b| {
+        let album = a
+            .album
+            .as_deref()
+            .unwrap_or_default()
+            .to_lowercase()
+            .cmp(&b.album.as_deref().unwrap_or_default().to_lowercase());
+        album
+            .then(a.disc.unwrap_or(1).cmp(&b.disc.unwrap_or(1)))
+            .then(a.track.unwrap_or(0).cmp(&b.track.unwrap_or(0)))
+            .then_with(|| natural_order(&a.file, &b.file))
+    });
+
+    let found = songs.len();
+    library.replace(songs)?;
+    let _ = app.emit(SCAN_DONE, found);
+    Ok(found)
+}
+
+/// One file's record, reusing the last one when the file has not changed.
+///
+/// The comparison is size and modification time, which is what every backup
+/// program on the machine also trusts, and is right for the same reasons.
+/// Re-tagging a file changes both.
+async fn read_song(
+    media: &media::Media,
+    path: std::path::PathBuf,
+    carried: Option<music::Song>,
+) -> Option<music::Song> {
+    let meta = std::fs::metadata(&path).ok()?;
+    let size = meta.len();
+    let modified = meta
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|since| since.as_secs())
+        .unwrap_or(0);
+
+    if let Some(known) = carried {
+        if known.size == size && known.modified == modified {
+            return Some(known);
+        }
+    }
+
+    let probe = media.probe(&path.to_string_lossy()).await.ok()?;
+    Some(music::Song::read(&path, &probe, modified, size))
+}
+
+/// One file's tags, read now, for something played from outside the library.
+///
+/// A track opened by double-clicking it in Explorer has never been scanned and
+/// may never be, and it still deserves to say who it is by while it plays.
+#[tauri::command]
+async fn music_tags(
+    state: tauri::State<'_, MediaState>,
+    path: String,
+) -> Result<Option<music::Song>, String> {
+    let Some(media) = pipeline(&state).await else {
+        return Ok(None);
+    };
+    Ok(read_song(&media, std::path::PathBuf::from(&path), None).await)
 }
 
 /// Whether a file is still where the page last saw it.
@@ -422,10 +623,27 @@ pub fn run() {
             file_is_there,
             media_pictures,
             folder_playlist,
+            library_folders,
+            library_songs,
+            library_watch,
+            library_unwatch,
+            library_scan,
+            music_tags,
             #[cfg(windows)]
             now_playing
         ])
         .setup(|app| {
+            /* The library, read back from where it was last written. Managed
+            here rather than beside the states above because it needs a place
+            to keep itself, and where that is is a question only the app can
+            answer. A machine that will not give up a data directory still
+            plays music; it just cannot remember it between launches. */
+            let store = app
+                .path()
+                .app_data_dir()
+                .unwrap_or_else(|_| std::env::temp_dir().join("cadence"));
+            app.manage(music::Library::open(store));
+
             /* The panel Windows shows for whatever is playing. Taken here
             because it belongs to a window, and the window exists by now. A
             machine that will not give it up still plays films. */

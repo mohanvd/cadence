@@ -1,11 +1,15 @@
+import * as React from 'react';
 import { useState, useCallback, useEffect } from 'react';
 import { addRecentFile, clearBookmarkStorage } from './utils/storage';
 import { capturePoster } from './utils/poster';
 import { useToast } from './hooks/useToast';
 import { useAppUpdates } from './hooks/useAppUpdates';
 import { isDesktop, onOpenFile, takeLaunchFile, basename } from './lib/desktop';
-import { useFolderQueue, useQueueControls } from './features/playback/useFolderQueue';
+import { useFolderQueue, useQueueControls as useFolderControls } from './features/playback/useFolderQueue';
+import { usePlayerStore } from './store/playerStore';
+import { useQueueStore } from './store/queueStore';
 import Home from './screens/Home';
+import Music from './screens/Music';
 import TitleBar from './components/TitleBar';
 import { PlayerSurface } from './components/player/PlayerSurface';
 import Toast from './components/Toast';
@@ -19,6 +23,10 @@ import UpdatePill from './components/UpdatePill';
  */
 export default function App() {
   const [playerOpen, setPlayerOpen] = useState(false);
+  /* Which of the two ways in is on screen behind the player. Not a route: the
+     player is an overlay over whichever it is, so going back from a track
+     lands on the library it was picked from rather than on the file screen. */
+  const [screen, setScreen] = useState('home');
   const [videoSource, setVideoSource] = useState(null);
   const [urlLoadError, setUrlLoadError] = useState('');
   const { toast, showToast } = useToast();
@@ -100,8 +108,107 @@ export default function App() {
    * opened, so it is right no matter how the file arrived — the launcher, a
    * double-click while Cadence was already running, or the end of the previous
    * episode. */
-  const queue = useFolderQueue(videoSource);
-  const { onNext, onPrevious } = useQueueControls(queue, playPath);
+  const folder = useFolderQueue(videoSource);
+  const folderControls = useFolderControls(folder, playPath);
+
+  /* The other queue: a list somebody chose in the library.
+   *
+   * Which of the two is in charge is decided by how playback started, not by a
+   * setting. Opening a file puts the folder in charge, as it always was.
+   * Playing something from the library puts this in charge, and it stays in
+   * charge until a file is opened from outside it. */
+  const chosen = useQueueStore((s) => s.items.length > 0);
+  const startQueue = useQueueStore((s) => s.start);
+  const advance = useQueueStore((s) => s.advance);
+  const retreat = useQueueStore((s) => s.retreat);
+  const clearQueue = useQueueStore((s) => s.clear);
+  const queueIndex = useQueueStore((s) => s.cursor + 1);
+  const queueTotal = useQueueStore((s) => s.items.length);
+
+  /** Play a list of tracks from the library, queueing the rest behind it. */
+  const playList = useCallback(
+    (songs, index, label) => {
+      const paths = songs.map((song) => song.path);
+      const first = startQueue(paths, index, label);
+      if (first) playPath(first);
+    },
+    [startQueue, playPath],
+  );
+
+  /* Shuffle from the library starts on a random track rather than on the first
+     one and then jumping. Starting on the first and shuffling after it would
+     mean every shuffled album opened with the same song. */
+  const shuffleList = useCallback(
+    (songs, label) => {
+      if (songs.length === 0) return;
+      if (!useQueueStore.getState().shuffle) useQueueStore.getState().toggleShuffle();
+      playList(songs, Math.floor(Math.random() * songs.length), label);
+    },
+    [playList],
+  );
+
+  /* Next and previous come from whichever queue is in charge. Repeat-one is
+     handled here rather than in the store because it is not a queue move at
+     all: the track does not change, it starts again, and only the player knows
+     how to do that. */
+  const onNext = useCallback(() => {
+    if (!chosen) {
+      folderControls.onNext?.();
+      return;
+    }
+    if (useQueueStore.getState().repeat === 'one') {
+      usePlayerStore.getState().seek(0);
+      usePlayerStore.getState().play();
+      return;
+    }
+    const next = advance();
+    if (next) playPath(next);
+  }, [chosen, folderControls, advance, playPath]);
+
+  const onPrevious = useCallback(() => {
+    if (!chosen) {
+      folderControls.onPrevious?.();
+      return;
+    }
+    const previous = retreat();
+    if (previous) playPath(previous);
+  }, [chosen, folderControls, retreat, playPath]);
+
+  /* A queue with nowhere left to go should not leave a dead button in the bar.
+     The folder answers with a path or nothing; this answers with whether the
+     cursor can move, which for repeat-all is always. */
+  const queueHasNext = useQueueStore(
+    (s) => s.repeat !== 'off' || s.cursor < s.order.length - 1,
+  );
+  const queueHasPrevious = useQueueStore((s) => s.repeat !== 'off' || s.cursor > 0);
+
+  const nextHandler = chosen
+    ? queueHasNext
+      ? onNext
+      : undefined
+    : folderControls.onNext;
+  const previousHandler = chosen
+    ? queueHasPrevious
+      ? onPrevious
+      : undefined
+    : folderControls.onPrevious;
+
+  const position = React.useMemo(() => {
+    if (!chosen) return folder.position;
+    return queueTotal > 1 ? { index: queueIndex, total: queueTotal } : null;
+  }, [chosen, folder.position, queueIndex, queueTotal]);
+
+  /* Opening a file from outside the library hands the queue back to the folder
+     it came from. Leaving a library queue standing would mean double-clicking
+     an episode in Explorer and then being taken to whatever album happened to
+     be playing an hour ago. */
+  const openFile = useCallback(
+    (path) => {
+      clearQueue();
+      playPath(path);
+    },
+    [clearQueue, playPath],
+  );
 
   // Load failures are now reported by the player surface itself, which can name
   // the offending codec rather than guessing from the source type.
@@ -112,22 +219,38 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <TitleBar />
+      <TitleBar screen={screen} onScreen={setScreen} />
 
-      {/* One screen, so no router. The player is an overlay over this rather
-          than a route of its own: it has to be able to appear without the
-          launcher unmounting, since going back to it should not mean rebuilding
-          the recent list. */}
-      <Home
-        onPlayFile={playFile}
-        onPlayUrl={playUrl}
-        onPlayPath={playPath}
-        urlLoadError={urlLoadError}
-        onClearUrlError={() => setUrlLoadError('')}
-        showToast={showToast}
-        updateStatus={updateStatus}
-        updateError={updateError}
-      />
+      {/* Two screens and no router. The player is an overlay over whichever is
+          showing rather than a route of its own: it has to be able to appear
+          without the screen behind it unmounting, since going back should not
+          mean rebuilding the recent list or the library.
+
+          Both stay mounted for the same reason, and the hidden one is hidden
+          with `display: none` rather than unmounted: switching to the library
+          and back should not re-read eight thousand tracks. */}
+      <div hidden={screen !== 'home'} className="contents">
+        <Home
+          onPlayFile={playFile}
+          onPlayUrl={playUrl}
+          onPlayPath={openFile}
+          urlLoadError={urlLoadError}
+          onClearUrlError={() => setUrlLoadError('')}
+          showToast={showToast}
+          updateStatus={updateStatus}
+          updateError={updateError}
+        />
+      </div>
+
+      {screen === 'music' && (
+        <div className="music-screen">
+          <Music
+            onPlay={playList}
+            onShuffle={shuffleList}
+            playing={videoSource?.kind === 'path' ? videoSource.path : null}
+          />
+        </div>
+      )}
 
       {playerOpen && videoSource && (
         <div className="player-overlay">
@@ -135,9 +258,9 @@ export default function App() {
             source={videoSource}
             title={videoSource.name}
             onBack={closePlayer}
-            onNext={onNext}
-            onPrevious={onPrevious}
-            position={queue.position}
+            onNext={nextHandler}
+            onPrevious={previousHandler}
+            position={position}
           />
         </div>
       )}

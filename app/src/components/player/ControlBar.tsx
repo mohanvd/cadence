@@ -8,6 +8,7 @@ import type { PlayerFeatures } from '@/features/usePlayerFeatures';
 import type { MusicModeApi } from '@/features/playback/useMusicMode';
 import type { VideoFitApi } from '@/features/playback/useVideoFit';
 import { useIsPaused, usePlayerActions } from '@/store/playerStore';
+import { useQueueControls } from '@/store/queueStore';
 import { BookmarkMenu } from './BookmarkMenu';
 import { SettingsMenu } from './SettingsMenu';
 import { SpeedMenu } from './SpeedMenu';
@@ -46,6 +47,51 @@ function PlayButton() {
   );
 }
 
+/**
+ * Shuffle and repeat, which only exist for music.
+ *
+ * Not hidden from video out of tidiness: they would be wrong there. A queue of
+ * films is a season in the order somebody arranged it, and offering to play it
+ * in a random order is offering to spoil it. This is the one place where the
+ * transport genuinely differs between the two, so it is the one place the bar
+ * is built differently.
+ */
+function QueueControls() {
+  const { shuffle, repeat, toggleShuffle, cycleRepeat } = useQueueControls();
+
+  const repeatLabel =
+    repeat === 'off' ? 'Repeat off' : repeat === 'all' ? 'Repeat all' : 'Repeat this track';
+
+  return (
+    <>
+      <Tooltip label={shuffle ? 'Shuffle on' : 'Shuffle'}>
+        <Button
+          variant="chrome"
+          size="icon"
+          onClick={toggleShuffle}
+          aria-label="Shuffle"
+          aria-pressed={shuffle}
+          className={cn(shuffle && 'text-accent')}
+        >
+          <Icon name="shuffle" />
+        </Button>
+      </Tooltip>
+      <Tooltip label={repeatLabel}>
+        <Button
+          variant="chrome"
+          size="icon"
+          onClick={cycleRepeat}
+          aria-label={repeatLabel}
+          aria-pressed={repeat !== 'off'}
+          className={cn(repeat !== 'off' && 'text-accent')}
+        >
+          <Icon name={repeat === 'one' ? 'repeatOne' : 'repeat'} />
+        </Button>
+      </Tooltip>
+    </>
+  );
+}
+
 export interface ControlBarProps {
   visible: boolean;
   isFullscreen: boolean;
@@ -56,6 +102,15 @@ export interface ControlBarProps {
   fit: VideoFitApi;
   onNext?: (() => void) | undefined;
   onPrevious?: (() => void) | undefined;
+  /**
+   * Whether this file is music rather than a film.
+   *
+   * Not the same question as `musicMode.enabled`, which is also true for a
+   * film somebody chose to listen to with the picture off. That still has
+   * subtitles worth reaching and a frame worth going back to; an album has
+   * neither.
+   */
+  music: boolean;
 }
 
 export function ControlBar({
@@ -68,6 +123,7 @@ export function ControlBar({
   fit,
   onNext,
   onPrevious,
+  music,
 }: ControlBarProps) {
   const { seekBy } = usePlayerActions();
 
@@ -153,6 +209,8 @@ export function ControlBar({
             </Tooltip>
           )}
 
+          {music && <QueueControls />}
+
           <Tooltip label="Back 10 seconds" shortcut="←">
             <Button
               variant="chrome"
@@ -188,13 +246,17 @@ export function ControlBar({
         <MenuGroup>
           <div className="flex items-center gap-0.5">
             <SpeedMenu />
-            <SubtitleMenu features={features} />
+            {/* An album has no subtitle track and never will. The button is
+                not disabled but absent: a control that can never do anything
+                is not a control, it is a thing to wonder about. */}
+            {!music && <SubtitleMenu features={features} />}
             <BookmarkMenu features={features} />
             <SettingsMenu
               features={features}
               ambient={ambient}
               musicMode={musicMode}
               fit={fit}
+              music={music}
             />
 
             <Tooltip label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'} shortcut="F">

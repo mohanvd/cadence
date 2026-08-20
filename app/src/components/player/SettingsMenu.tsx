@@ -41,9 +41,21 @@ export interface SettingsMenuProps {
   ambient: { enabled: boolean; toggle: () => void };
   musicMode: MusicModeApi;
   fit: VideoFitApi;
+  /**
+   * Whether this file is music, in which case half of this menu is about
+   * something that is not on screen.
+   *
+   * The rows below are not disabled for music, they are absent. A disabled
+   * control is a promise that it would do something under other
+   * circumstances, and "brightness" over an album is not a setting waiting for
+   * the right moment — it is a setting about a different kind of file. What is
+   * left is everything that is genuinely about sound, and it becomes the whole
+   * menu rather than one row in a list of picture controls.
+   */
+  music: boolean;
 }
 
-export function SettingsMenu({ features, ambient, musicMode, fit }: SettingsMenuProps) {
+export function SettingsMenu({ features, ambient, musicMode, fit, music }: SettingsMenuProps) {
   const { open, onOpenChange } = useExclusiveMenu('settings');
   const [panel, setPanel] = React.useState<Panel>('root');
   const { canProcessAudio } = useAudioProcessing();
@@ -78,12 +90,16 @@ export function SettingsMenu({ features, ambient, musicMode, fit }: SettingsMenu
       <PopoverContent className="w-72">
         {panel === 'root' && (
           <>
-            <MenuItem
-              onSelect={() => setPanel('video')}
-              trailing={<span>{filters.isDefault ? 'Off' : filters.activePreset ?? 'Custom'}</span>}
-            >
-              Video adjustments
-            </MenuItem>
+            {!music && (
+              <MenuItem
+                onSelect={() => setPanel('video')}
+                trailing={
+                  <span>{filters.isDefault ? 'Off' : (filters.activePreset ?? 'Custom')}</span>
+                }
+              >
+                Video adjustments
+              </MenuItem>
+            )}
             <MenuItem
               onSelect={() => setPanel('audio')}
               trailing={
@@ -98,12 +114,14 @@ export function SettingsMenu({ features, ambient, musicMode, fit }: SettingsMenu
             >
               Equalizer
             </MenuItem>
-            <MenuItem
-              onSelect={() => setPanel('zoom')}
-              trailing={<span>{zoomPan.zoom > 1 ? `${zoomPan.zoom.toFixed(1)}×` : 'Off'}</span>}
-            >
-              Zoom &amp; pan
-            </MenuItem>
+            {!music && (
+              <MenuItem
+                onSelect={() => setPanel('zoom')}
+                trailing={<span>{zoomPan.zoom > 1 ? `${zoomPan.zoom.toFixed(1)}×` : 'Off'}</span>}
+              >
+                Zoom &amp; pan
+              </MenuItem>
+            )}
             <MenuItem
               onSelect={() => setPanel('timer')}
               trailing={<span>{sleepTimer.display ?? 'Off'}</span>}
@@ -114,43 +132,52 @@ export function SettingsMenu({ features, ambient, musicMode, fit }: SettingsMenu
 
             <MenuSeparator />
 
-            <MenuItem
-              active={musicMode.enabled}
-              onSelect={musicMode.toggle}
-              // Forced on for a file with no video track, where turning it off
-              // would only reveal a black rectangle.
-              disabled={musicMode.forced}
-              trailing={
-                <span>{musicMode.forced ? 'No video' : musicMode.enabled ? 'On' : 'Off'}</span>
-              }
-            >
-              Music mode
-            </MenuItem>
-            <MenuItem
-              active={ambient.enabled}
-              onSelect={ambient.toggle}
-              trailing={<span>{ambient.enabled ? 'On' : 'Off'}</span>}
-            >
-              Ambient glow
-            </MenuItem>
-            {/* Nothing is stretched either way: this crops to the screen's
-                shape or letterboxes to the film's, and says which. */}
-            <MenuItem
-              active={fit.fills}
-              onSelect={fit.toggle}
-              disabled={musicMode.enabled}
-              trailing={<span>{fit.fills ? 'Filled' : 'Fitted'}</span>}
-            >
-              Fill the screen
-            </MenuItem>
+            {/* Everything from here down is about a picture. For a file that
+                has none, the separator above is the end of the menu. */}
+            {!music && (
+              <>
+                <MenuItem
+                  active={musicMode.enabled}
+                  onSelect={musicMode.toggle}
+                  // Forced on for a file with no video track, where turning it
+                  // off would only reveal a black rectangle.
+                  disabled={musicMode.forced}
+                  trailing={
+                    <span>{musicMode.forced ? 'No video' : musicMode.enabled ? 'On' : 'Off'}</span>
+                  }
+                >
+                  Music mode
+                </MenuItem>
+                <MenuItem
+                  active={ambient.enabled}
+                  onSelect={ambient.toggle}
+                  trailing={<span>{ambient.enabled ? 'On' : 'Off'}</span>}
+                >
+                  Ambient glow
+                </MenuItem>
+                {/* Nothing is stretched either way: this crops to the screen's
+                    shape or letterboxes to the film's, and says which. */}
+                <MenuItem
+                  active={fit.fills}
+                  onSelect={fit.toggle}
+                  disabled={musicMode.enabled}
+                  trailing={<span>{fit.fills ? 'Filled' : 'Fitted'}</span>}
+                >
+                  Fill the screen
+                </MenuItem>
+              </>
+            )}
+
             <MenuItem
               active={features.loop}
               onSelect={features.toggleLoop}
               trailing={<span>{features.loop ? 'On' : 'Off'}</span>}
             >
-              Loop file
+              {music ? 'Loop this track' : 'Loop file'}
             </MenuItem>
-            <MenuItem onSelect={features.takeScreenshot}>Save frame as PNG</MenuItem>
+            {!music && (
+              <MenuItem onSelect={features.takeScreenshot}>Save frame as PNG</MenuItem>
+            )}
 
             <MenuSeparator />
             <MenuLabel>A–B repeat</MenuLabel>

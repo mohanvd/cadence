@@ -19,8 +19,12 @@ export function useMediaSession(
   title: string,
   subtitle: string,
   handlers: { next?: (() => void) | undefined; previous?: (() => void) | undefined },
+  /** The record it is from, when the file says so. Blank for a film. */
+  album = '',
+  /** Whether Windows should file this under music rather than video. */
+  music = false,
 ): void {
-  useShellNowPlaying(title, subtitle, handlers);
+  useShellNowPlaying(title, subtitle, handlers, album, music);
 
   const handlerRef = React.useRef(handlers);
   handlerRef.current = handlers;
@@ -32,7 +36,11 @@ export function useMediaSession(
     session.metadata = new MediaMetadata({
       // Strip the extension: the OS panel is a place for a title, not a filename.
       title: title.replace(/\.[^.]+$/, ''),
-      artist: 'Cadence',
+      /* Who it is by when the file says so, and the program's own name when it
+         does not. A panel with an empty line where the artist goes reads as
+         something that failed to load rather than as a file with no tags. */
+      artist: subtitle || 'Cadence',
+      album,
     });
 
     const store = () => usePlayerStore.getState();
@@ -69,7 +77,7 @@ export function useMediaSession(
       }
       session.metadata = null;
     };
-  }, [title]);
+  }, [title, subtitle, album]);
 
   /** Keep the OS scrubber and play state in step with the engine. */
   React.useEffect(() => {
@@ -109,6 +117,8 @@ function useShellNowPlaying(
   title: string,
   subtitle: string,
   handlers: { next?: (() => void) | undefined; previous?: (() => void) | undefined },
+  album: string,
+  music: boolean,
 ): void {
   const handlerRef = React.useRef(handlers);
   handlerRef.current = handlers;
@@ -157,6 +167,8 @@ function useShellNowPlaying(
       void setNowPlaying({
         title: title.replace(/\.[^.]+$/, ''),
         subtitle,
+        album,
+        music,
         playing: !state.paused,
         duration: Number.isFinite(state.duration) ? state.duration : 0,
         position: state.currentTime,
@@ -180,6 +192,8 @@ function useShellNowPlaying(
       void setNowPlaying({
         title: '',
         subtitle: '',
+        album: '',
+        music: false,
         playing: false,
         duration: 0,
         position: 0,
@@ -187,7 +201,7 @@ function useShellNowPlaying(
         hasPrevious: false,
       });
     };
-  }, [title, subtitle, next, previous]);
+  }, [title, subtitle, album, music, next, previous]);
 }
 
 type WakeLock = { release: () => Promise<void>; released: boolean };

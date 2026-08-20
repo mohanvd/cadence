@@ -42,8 +42,18 @@ pub const PRESSED: &str = "now-playing";
 pub struct Playing {
     /// The film, without its extension. Empty means nothing is open.
     pub title: String,
-    /// Under the title. Which of how many, when a folder is being played.
+    /// Under the title: who it is by, or which of how many when a folder of
+    /// video is being played.
     pub subtitle: String,
+    /// The record it is from. Empty for anything that is not music.
+    pub album: String,
+    /// Whether Windows should file this under music rather than video.
+    ///
+    /// Not cosmetic. The panel draws a different card for each — music gets a
+    /// square sleeve, an artist line and an album line; video gets a wide
+    /// still and neither — and a track filed as video is a track whose artist
+    /// Windows has nowhere to put.
+    pub music: bool,
     pub playing: bool,
     pub duration: f64,
     pub position: f64,
@@ -150,10 +160,23 @@ impl NowPlaying {
         show(controls.SetIsPreviousEnabled(state.has_previous))?;
 
         let updater = controls.DisplayUpdater().map_err(|e| e.to_string())?;
-        show(updater.SetType(MediaPlaybackType::Video))?;
-        let video = updater.VideoProperties().map_err(|e| e.to_string())?;
-        show(video.SetTitle(&HSTRING::from(&state.title)))?;
-        show(video.SetSubtitle(&HSTRING::from(&state.subtitle)))?;
+
+        /* Two different cards, and which one Windows draws is decided here.
+        The properties are not interchangeable: setting the video ones while
+        the type says music leaves the panel with nothing to show, so the type
+        is set first and only the matching half is filled in. */
+        if state.music {
+            show(updater.SetType(MediaPlaybackType::Music))?;
+            let music = updater.MusicProperties().map_err(|e| e.to_string())?;
+            show(music.SetTitle(&HSTRING::from(&state.title)))?;
+            show(music.SetArtist(&HSTRING::from(&state.subtitle)))?;
+            show(music.SetAlbumTitle(&HSTRING::from(&state.album)))?;
+        } else {
+            show(updater.SetType(MediaPlaybackType::Video))?;
+            let video = updater.VideoProperties().map_err(|e| e.to_string())?;
+            show(video.SetTitle(&HSTRING::from(&state.title)))?;
+            show(video.SetSubtitle(&HSTRING::from(&state.subtitle)))?;
+        }
         show(updater.Update())?;
 
         // The scrubber. Only worth sending for something with a length: a live
