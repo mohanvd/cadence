@@ -60,9 +60,18 @@ export interface AlbumSheetProps {
   /** Play the album from a track, queueing the rest behind it. */
   onPlay: (index: number) => void;
   onShuffle: () => void;
+  /** Put one of its tracks in a playlist. */
+  onAdd?: ((song: import('@/store/libraryStore').Song) => void) | undefined;
 }
 
-export function AlbumSheet({ album, playing, onClose, onPlay, onShuffle }: AlbumSheetProps) {
+export function AlbumSheet({
+  album,
+  playing,
+  onClose,
+  onPlay,
+  onShuffle,
+  onAdd,
+}: AlbumSheetProps) {
   // Escape closes it, which is the key everybody presses at a panel.
   React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -122,6 +131,7 @@ export function AlbumSheet({ album, playing, onClose, onPlay, onShuffle }: Album
           playing={playing}
           numbered
           showArtist={false}
+          onAdd={onAdd}
         />
       </div>
     </div>

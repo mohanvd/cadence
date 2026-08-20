@@ -568,6 +568,20 @@ video::cue {
   background: #000;
 }
 
+/* Put away, not torn down. `display: none` rather than unmounting: the element
+   keeps its decoder and its position, and the audio does not stop for a frame
+   on the way in or out. The rule has to be here rather than left to the
+   `hidden` attribute, because the rule above sets `position` and any later
+   declaration of `display` in the same file would win. */
+.player-overlay[hidden] {
+  display: none;
+}
+
+/* Room for the bar along the bottom, on the screens that scroll. */
+.app-shell--playing .xn-home__scroll {
+  padding-bottom: 64px;
+}
+
 /* ── Mobile video cards ── */
 @media (max-width: 768px) {
   .video-card {
@@ -595,4 +609,40 @@ video::cue {
   position: absolute;
   inset: var(--titlebar-h) 0 0 0;
   overflow: hidden;
+}
+
+/* The bar along the bottom while something plays behind another screen. */
+.mini-player {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 64px;
+  padding: 0 14px;
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  border-top: 1px solid var(--divider-line);
+  backdrop-filter: blur(24px);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* A hairline across the top edge rather than a scrubbable bar: a two-pixel
+   target is not something anybody can hit on purpose. */
+.mini-player__progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: var(--color-accent);
+  transition: width 240ms linear;
+  pointer-events: none;
+}
+
+/* The library scrolls above the bar rather than under it. */
+.music-screen--playing {
+  bottom: 64px;
 }

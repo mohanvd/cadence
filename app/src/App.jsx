@@ -10,6 +10,7 @@ import { usePlayerStore } from './store/playerStore';
 import { useQueueStore } from './store/queueStore';
 import Home from './screens/Home';
 import Music from './screens/Music';
+import { MiniPlayer } from './components/music/MiniPlayer';
 import TitleBar from './components/TitleBar';
 import { PlayerSurface } from './components/player/PlayerSurface';
 import Toast from './components/Toast';
@@ -27,6 +28,11 @@ export default function App() {
      player is an overlay over whichever it is, so going back from a track
      lands on the library it was picked from rather than on the file screen. */
   const [screen, setScreen] = useState('home');
+  /* Hidden rather than closed. The player keeps its element, its decoder and
+     its position; only the overlay stops being painted. That is what lets
+     somebody go back to the library and keep listening, which is the whole
+     difference between a music player and a video player that plays music. */
+  const [minimised, setMinimised] = useState(false);
   const [videoSource, setVideoSource] = useState(null);
   const [urlLoadError, setUrlLoadError] = useState('');
   const { toast, showToast } = useToast();
@@ -130,7 +136,11 @@ export default function App() {
     (songs, index, label) => {
       const paths = songs.map((song) => song.path);
       const first = startQueue(paths, index, label);
-      if (first) playPath(first);
+      if (!first) return;
+      playPath(first);
+      // Stay where you are. Picking a track out of a library is not a request
+      // to be taken away from the library.
+      setMinimised(true);
     },
     [startQueue, playPath],
   );
@@ -206,6 +216,9 @@ export default function App() {
     (path) => {
       clearQueue();
       playPath(path);
+      // A file opened on purpose is a file somebody wants to watch, so the
+      // player comes to the front even if it was put away a moment ago.
+      setMinimised(false);
     },
     [clearQueue, playPath],
   );
@@ -215,11 +228,30 @@ export default function App() {
 
   const closePlayer = useCallback(() => {
     setPlayerOpen(false);
+    setMinimised(false);
+  }, []);
+
+  /* Changing screen while something is playing puts the player away rather
+     than stopping it. Anything else would mean the library is unreachable
+     while a record is on, which is the one moment somebody most wants it. */
+  const goToScreen = useCallback((next) => {
+    setScreen(next);
+    setMinimised(true);
+  }, []);
+
+  const expandPlayer = useCallback(() => setMinimised(false), []);
+
+  /* The back arrow, for a track. Goes to the library rather than to the file
+     screen, because the library is where the track came from and where the
+     next one is. */
+  const minimiseToMusic = useCallback(() => {
+    setScreen('music');
+    setMinimised(true);
   }, []);
 
   return (
-    <div className="app-shell">
-      <TitleBar screen={screen} onScreen={setScreen} />
+    <div className={`app-shell${playerOpen && minimised ? ' app-shell--playing' : ''}`}>
+      <TitleBar screen={screen} onScreen={goToScreen} />
 
       {/* Two screens and no router. The player is an overlay over whichever is
           showing rather than a route of its own: it has to be able to appear
@@ -243,7 +275,7 @@ export default function App() {
       </div>
 
       {screen === 'music' && (
-        <div className="music-screen">
+        <div className={`music-screen${playerOpen && minimised ? ' music-screen--playing' : ''}`}>
           <Music
             onPlay={playList}
             onShuffle={shuffleList}
@@ -253,16 +285,30 @@ export default function App() {
       )}
 
       {playerOpen && videoSource && (
-        <div className="player-overlay">
+        <div className="player-overlay" hidden={minimised}>
           <PlayerSurface
             source={videoSource}
             title={videoSource.name}
             onBack={closePlayer}
+            onMinimise={minimiseToMusic}
             onNext={nextHandler}
             onPrevious={previousHandler}
             position={position}
           />
         </div>
+      )}
+
+      {/* Only while the player is put away. Expanded, the real transport is on
+          screen and a second copy of it along the bottom would be two things
+          claiming to be in charge. */}
+      {playerOpen && minimised && videoSource && (
+        <MiniPlayer
+          path={videoSource.kind === 'path' ? videoSource.path : null}
+          title={videoSource.name}
+          onExpand={expandPlayer}
+          onNext={nextHandler}
+          onPrevious={previousHandler}
+        />
       )}
 
       <Toast toast={toast} />

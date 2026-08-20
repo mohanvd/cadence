@@ -49,6 +49,15 @@ export interface PlayerSurfaceProps {
   source: MediaSourceInput;
   title: string;
   onBack: () => void;
+  /**
+   * Put the player away without stopping it.
+   *
+   * What the back arrow means for music. Leaving a record playing while you go
+   * and look for the next one is the ordinary thing to do; stopping it because
+   * somebody wanted to see the library again is not. A film has no equivalent
+   * — nobody browses while watching one — so back there still means back.
+   */
+  onMinimise?: (() => void) | undefined;
   onNext?: (() => void) | undefined;
   onPrevious?: (() => void) | undefined;
   /** Where this file sits in its folder, when there is more than one. */
@@ -67,6 +76,7 @@ export function PlayerSurface({
   source,
   title,
   onBack,
+  onMinimise,
   onNext,
   onPrevious,
   position,
@@ -475,7 +485,12 @@ export function PlayerSurface({
           )}
           onClick={(event) => event.stopPropagation()}
         >
-          <Button variant="chrome" size="icon" onClick={onBack} aria-label="Back">
+          <Button
+            variant="chrome"
+            size="icon"
+            onClick={isMusic && onMinimise ? onMinimise : onBack}
+            aria-label={isMusic && onMinimise ? 'Back to your music' : 'Back'}
+          >
             <Icon name="back" />
           </Button>
           <h1 className="min-w-0 flex-1 truncate text-[15px] font-medium tracking-[-0.01em] text-white">

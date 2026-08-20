@@ -25,6 +25,47 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   read. That is one list rather than two on purpose, so an album sitting beside
   a video does not silently end the queue.
 
+- **Your music, as a library.** Point Cadence at the folder your music lives
+  in and it reads the tags once — title, artist, album, album artist, track,
+  disc, year, genre — and keeps them. Albums are a wall of sleeves, artists are
+  a list to read down, and the search box matches each word against any field,
+  so *auva light* finds *First Light* by Auva.
+
+  A first scan of a large collection takes about a minute; every scan after it
+  takes a second, because a file whose size and modification time have not
+  changed is not read again.
+
+  Nothing is scanned uninvited. A player that walks your disk the first time it
+  opens is spending your machine on a question you did not ask.
+
+- **Sleeves.** Inside the file first, because on a compilation that picture
+  belongs to the track; beside it second, which is where every ripper leaves
+  one. They are scaled on the way out — album art is routinely stored three
+  thousand pixels square — and they appear on the tiles, on the now-playing
+  card, and blurred behind it for colour.
+
+- **A queue you chose, with shuffle and repeat.** Play an album, an artist, a
+  search or a playlist and the rest follows behind it. Shuffling does not
+  scramble what is on screen, so the list stays readable; turning it off puts
+  you back in the written order on the same track. Opening a file from Explorer
+  still hands the queue back to the folder it came from, exactly as before.
+
+- **Playlists.** A name and an order and nothing else. Stored as paths, so they
+  survive a rescan, and a track on a drive that is unplugged today is still
+  there tomorrow rather than quietly deleted.
+
+- **Playback that continues while you look for the next record.** Going back to
+  the library puts the player away rather than stopping it, and a bar along the
+  bottom keeps the sleeve, the transport and the way back. Nothing is torn down
+  to get there: the same element keeps playing, hidden.
+
+- **A player that knows it is playing music.** The sleeve fills the frame, the
+  title and artist come from the tags rather than the filename, the transport
+  grows shuffle and repeat and loses subtitles, and the settings menu drops
+  everything that is about a picture — brightness, zoom, fill, frame grab —
+  rather than offering them greyed out. Windows gets the music card too, with
+  somewhere to put an artist and an album.
+
 ### Fixed
 
 - Cover art is no longer mistaken for a film. An MP3 with a sleeve embedded in
@@ -39,6 +80,15 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Audio and raw PCM cannot be copied and are converted to FLAC instead of to
   192k AAC. For a film that conversion cost nothing anybody could hear beside
   the video. For an album it was the whole reason the file was kept.
+
+- Music mode no longer announces the obvious. "No video track" is worth saying
+  about a concert `.mkv` that turns out to be a recording; about an album it is
+  a notification every three minutes concerning the thing you chose.
+
+- The white buttons had white text on them. `text-base` is a font size in
+  Tailwind rather than the colour token of that name, so the class was real,
+  the build had nothing to warn about, and the label was invisible. Nothing had
+  used that button style until now.
 
 - A file that has been deleted no longer teaches Cadence the wrong lesson. The
   browser reports a file it cannot fetch and a file it cannot decode as the

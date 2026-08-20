@@ -1,3 +1,4 @@
+import type * as React from 'react';
 import { Icon } from '@/components/ui/icons';
 import { formatTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,10 @@ export interface SongRowsProps {
   /** Shown under the title. Off inside an album, where it is the same name
       on every row. */
   showArtist?: boolean;
+  /** Put this track in a playlist. Absent means no button. */
+  onAdd?: ((song: Song) => void) | undefined;
+  /** Take this row out of the list it is in. Only inside a playlist. */
+  onRemove?: ((index: number) => void) | undefined;
 }
 
 export function SongRows({
@@ -37,21 +42,30 @@ export function SongRows({
   playing,
   numbered = false,
   showArtist = true,
+  onAdd,
+  onRemove,
 }: SongRowsProps) {
   return (
     <ol className="flex flex-col">
       {songs.map((song, index) => {
         const current = playing === song.path;
         return (
-          <li key={song.path}>
+          /* The row is a button and the two controls are buttons, so they
+             cannot be nested — a button inside a button is invalid and the
+             inner one stops being clickable in some browsers. The row's own
+             button fills the space instead, and the controls sit beside it. */
+          <li
+            key={`${song.path}-${index}`}
+            className={cn(
+              'group relative flex items-center rounded-[10px] transition-colors',
+              'hover:bg-surface-2',
+              current && 'bg-surface-2',
+            )}
+          >
             <button
               type="button"
               onClick={() => onPlay(index)}
-              className={cn(
-                'group flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left transition-colors',
-                'hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none',
-                current && 'bg-surface-2',
-              )}
+              className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left focus-visible:outline-none"
             >
               {numbered ? (
                 <span className="w-7 shrink-0 text-right text-[13px] tabular-nums text-fg-subtle">
@@ -89,9 +103,49 @@ export function SongRows({
                 {song.duration > 0 ? formatTime(song.duration) : '—'}
               </span>
             </button>
+
+            {/* Only on hover or when focused, because a row of icons repeated
+                down a list of eight thousand tracks is a texture rather than a
+                set of controls. */}
+            <span className="flex shrink-0 items-center gap-0.5 pr-2 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+              {onAdd && (
+                <RowButton label={`Add ${song.title} to a playlist`} onClick={() => onAdd(song)}>
+                  <Icon name="louder" size={14} />
+                </RowButton>
+              )}
+              {onRemove && (
+                <RowButton
+                  label={`Take ${song.title} out of this playlist`}
+                  onClick={() => onRemove(index)}
+                >
+                  <Icon name="remove" size={14} />
+                </RowButton>
+              )}
+            </span>
           </li>
         );
       })}
     </ol>
+  );
+}
+
+function RowButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className="flex size-7 items-center justify-center rounded-[7px] text-fg-subtle hover:bg-surface-3 hover:text-fg"
+    >
+      {children}
+    </button>
   );
 }

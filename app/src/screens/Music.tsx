@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 import { AlbumGrid, AlbumSheet } from '@/components/music/AlbumGrid';
 import { Artwork } from '@/components/music/Artwork';
 import { SongRows } from '@/components/music/SongRows';
+import { AddToPlaylist, Playlists } from '@/components/music/Playlists';
+import { usePlaylistStore } from '@/store/playlistStore';
 import { search, useLibraryStore, type Album, type Song } from '@/store/libraryStore';
 
 /**
@@ -27,12 +29,13 @@ import { search, useLibraryStore, type Album, type Song } from '@/store/libraryS
  * them.
  */
 
-type Tab = 'albums' | 'artists' | 'songs';
+type Tab = 'albums' | 'artists' | 'songs' | 'playlists';
 
-const TABS: { id: Tab; label: string; icon: 'album' | 'artist' | 'music' }[] = [
+const TABS: { id: Tab; label: string; icon: 'album' | 'artist' | 'music' | 'queue' }[] = [
   { id: 'albums', label: 'Albums', icon: 'album' },
   { id: 'artists', label: 'Artists', icon: 'artist' },
   { id: 'songs', label: 'Songs', icon: 'music' },
+  { id: 'playlists', label: 'Playlists', icon: 'queue' },
 ];
 
 export interface MusicProps {
@@ -56,9 +59,14 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
   const [query, setQuery] = React.useState('');
   const [openAlbum, setOpenAlbum] = React.useState<string | null>(null);
   const [managing, setManaging] = React.useState(false);
+  /* The track waiting to be filed. One at a time and one dialog for the whole
+     screen: there are as many rows as there is music, and one of these. */
+  const [filing, setFiling] = React.useState<Song | null>(null);
+  const loadPlaylists = usePlaylistStore((s) => s.load);
 
   React.useEffect(() => {
     void load();
+    void loadPlaylists();
     let stop: (() => void) | null = null;
     let live = true;
     void follow().then((off) => {
@@ -69,7 +77,7 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
       live = false;
       stop?.();
     };
-  }, [load, follow]);
+  }, [load, loadPlaylists, follow]);
 
   /* Searching narrows the tracks, and the albums and artists are re-derived
      from what is left. Filtering the albums by their own titles instead would
@@ -184,7 +192,7 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
       )}
 
       <div className="custom-scroll relative flex-1 overflow-y-auto px-6 py-6">
-        {!loaded ? null : songs.length === 0 ? (
+        {!loaded ? null : songs.length === 0 && tab !== 'playlists' ? (
           <Empty hasFolders={folders.length > 0} onPick={pick} onRescan={() => void scan()} />
         ) : searching && found.length === 0 ? (
           <p className="pt-16 text-center text-[14px] text-fg-subtle">
@@ -207,13 +215,24 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
               </section>
             ))}
           </div>
-        ) : (
+        ) : tab === 'songs' ? (
           <SongRows
             songs={found}
             playing={playing}
             onPlay={(index) => onPlay(found, index, searching ? `“${query.trim()}”` : 'Your music')}
+            onAdd={setFiling}
+          />
+        ) : (
+          <Playlists
+            songs={songs}
+            playing={playing}
+            onPlay={onPlay}
+            onShuffle={onShuffle}
+            onAdd={setFiling}
           />
         )}
+
+        {filing && <AddToPlaylist song={filing} onClose={() => setFiling(null)} />}
 
         {album && (
           <AlbumSheet
@@ -222,6 +241,7 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
             onClose={() => setOpenAlbum(null)}
             onPlay={(index) => playAlbum(album, index)}
             onShuffle={() => onShuffle(album.songs, album.title)}
+            onAdd={setFiling}
           />
         )}
       </div>

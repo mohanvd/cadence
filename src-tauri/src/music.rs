@@ -471,6 +471,131 @@ fn covers(folder: &str, path: &str) -> bool {
     path.starts_with(&prefix) || path.starts_with(&prefix.replace('\\', "/"))
 }
 
+/* ── Playlists ── */
+
+/// A list somebody made, as opposed to one a folder implied.
+///
+/// Paths rather than records, for the same reason the queue holds paths: a
+/// playlist outlives a rescan, and a rescan replaces every record in the
+/// library. A record kept here would be a stale copy of one within a second of
+/// the disk changing.
+///
+/// A path that no longer resolves is kept rather than dropped. A disk that is
+/// unplugged today is plugged in tomorrow, and a playlist that quietly deletes
+/// itself while a drive is disconnected is a playlist nobody can trust.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Playlist {
+    /// Stable across renames, because the name is the one thing that changes.
+    pub id: String,
+    pub name: String,
+    pub paths: Vec<String>,
+    /// Seconds since the epoch, for ordering the list of lists.
+    pub created: u64,
+}
+
+/// Every playlist, and where they are kept between launches.
+#[derive(Serialize, Deserialize, Default, Clone)]
+pub struct Playlists {
+    pub lists: Vec<Playlist>,
+}
+
+pub struct PlaylistStore {
+    inner: Mutex<Playlists>,
+    file: PathBuf,
+}
+
+impl PlaylistStore {
+    pub fn open(dir: PathBuf) -> Self {
+        let file = dir.join("playlists.json");
+        let lists = std::fs::read(&file)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Playlists>(&bytes).ok())
+            .unwrap_or_default();
+        Self {
+            inner: Mutex::new(lists),
+            file,
+        }
+    }
+
+    pub fn all(&self) -> Vec<Playlist> {
+        self.inner
+            .lock()
+            .map(|held| held.lists.clone())
+            .unwrap_or_default()
+    }
+
+    /// Make one, and hand back what was made.
+    ///
+    /// The id is the creation time and a counter rather than a random number,
+    /// because there is no randomness available here that would survive being
+    /// asked for twice in the same millisecond, and two playlists made in one
+    /// second must not be one playlist.
+    pub fn create(&self, name: String, paths: Vec<String>) -> Result<Playlist, String> {
+        let mut held = self.inner.lock().map_err(|_| "playlists are poisoned")?;
+        let created = now();
+        let mut id = format!("{created}");
+        let mut suffix = 1;
+        while held.lists.iter().any(|list| list.id == id) {
+            id = format!("{created}-{suffix}");
+            suffix += 1;
+        }
+        let list = Playlist {
+            id,
+            name: name.trim().to_owned(),
+            paths,
+            created,
+        };
+        held.lists.push(list.clone());
+        self.write(&held);
+        Ok(list)
+    }
+
+    /// Replace a list's tracks. Adding, removing and reordering are all this.
+    pub fn set(&self, id: &str, paths: Vec<String>) -> Result<(), String> {
+        let mut held = self.inner.lock().map_err(|_| "playlists are poisoned")?;
+        let Some(list) = held.lists.iter_mut().find(|list| list.id == id) else {
+            return Err(format!("no playlist {id}"));
+        };
+        list.paths = paths;
+        self.write(&held);
+        Ok(())
+    }
+
+    pub fn rename(&self, id: &str, name: String) -> Result<(), String> {
+        let mut held = self.inner.lock().map_err(|_| "playlists are poisoned")?;
+        let Some(list) = held.lists.iter_mut().find(|list| list.id == id) else {
+            return Err(format!("no playlist {id}"));
+        };
+        list.name = name.trim().to_owned();
+        self.write(&held);
+        Ok(())
+    }
+
+    pub fn delete(&self, id: &str) -> Result<(), String> {
+        let mut held = self.inner.lock().map_err(|_| "playlists are poisoned")?;
+        held.lists.retain(|list| list.id != id);
+        self.write(&held);
+        Ok(())
+    }
+
+    fn write(&self, lists: &Playlists) {
+        if let Some(folder) = self.file.parent() {
+            let _ = std::fs::create_dir_all(folder);
+        }
+        if let Ok(bytes) = serde_json::to_vec(lists) {
+            let _ = std::fs::write(&self.file, bytes);
+        }
+    }
+}
+
+fn now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_secs())
+        .unwrap_or(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

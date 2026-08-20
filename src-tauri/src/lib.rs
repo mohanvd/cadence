@@ -382,6 +382,56 @@ async fn music_tags(
     Ok(read_song(&media, std::path::PathBuf::from(&path), None).await)
 }
 
+/* ── Playlists ── */
+
+/// Every playlist, newest last, as they were made.
+#[tauri::command]
+fn playlists(store: tauri::State<'_, music::PlaylistStore>) -> Vec<music::Playlist> {
+    store.all()
+}
+
+/// Make a playlist, optionally with something already in it.
+///
+/// Both at once because both are how one gets made: from the button that says
+/// so, with nothing in it, and from a track being put somewhere that does not
+/// exist yet — which is the more common of the two and would otherwise be two
+/// round trips and a half-made list if the second failed.
+#[tauri::command]
+fn playlist_create(
+    store: tauri::State<'_, music::PlaylistStore>,
+    name: String,
+    paths: Vec<String>,
+) -> Result<music::Playlist, String> {
+    store.create(name, paths)
+}
+
+/// Replace what is in a playlist. Adding, removing and reordering are all this.
+#[tauri::command]
+fn playlist_set(
+    store: tauri::State<'_, music::PlaylistStore>,
+    id: String,
+    paths: Vec<String>,
+) -> Result<(), String> {
+    store.set(&id, paths)
+}
+
+#[tauri::command]
+fn playlist_rename(
+    store: tauri::State<'_, music::PlaylistStore>,
+    id: String,
+    name: String,
+) -> Result<(), String> {
+    store.rename(&id, name)
+}
+
+#[tauri::command]
+fn playlist_delete(
+    store: tauri::State<'_, music::PlaylistStore>,
+    id: String,
+) -> Result<(), String> {
+    store.delete(&id)
+}
+
 /// Whether a file is still where the page last saw it.
 ///
 /// Asked after a failure rather than before an attempt. The browser reports a
@@ -629,6 +679,11 @@ pub fn run() {
             library_unwatch,
             library_scan,
             music_tags,
+            playlists,
+            playlist_create,
+            playlist_set,
+            playlist_rename,
+            playlist_delete,
             #[cfg(windows)]
             now_playing
         ])
@@ -642,7 +697,8 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| std::env::temp_dir().join("cadence"));
-            app.manage(music::Library::open(store));
+            app.manage(music::Library::open(store.clone()));
+            app.manage(music::PlaylistStore::open(store));
 
             /* The panel Windows shows for whatever is playing. Taken here
             because it belongs to a window, and the window exists by now. A

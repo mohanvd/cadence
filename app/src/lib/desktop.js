@@ -751,3 +751,62 @@ export async function pickFolder() {
   const selected = await open({ directory: true, multiple: false });
   return typeof selected === 'string' ? selected : null;
 }
+
+/* ── Playlists ── */
+
+/**
+ * @typedef {object} Playlist
+ * @property {string} id Stable across renames.
+ * @property {string} name
+ * @property {string[]} paths The tracks, in the order they play.
+ * @property {number} created Seconds since the epoch.
+ */
+
+/** @returns {Promise<Playlist[]>} */
+export async function playlists() {
+  if (!isDesktop()) return [];
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    return await invoke('playlists');
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Make a playlist, optionally with something already in it.
+ *
+ * @param {string} name
+ * @param {string[]} [paths]
+ * @returns {Promise<Playlist>}
+ */
+export async function playlistCreate(name, paths = []) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('playlist_create', { name, paths });
+}
+
+/**
+ * Replace what is in a playlist. Adding, removing and reordering are all this.
+ *
+ * @param {string} id
+ * @param {string[]} paths
+ */
+export async function playlistSet(id, paths) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('playlist_set', { id, paths });
+}
+
+/**
+ * @param {string} id
+ * @param {string} name
+ */
+export async function playlistRename(id, name) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('playlist_rename', { id, name });
+}
+
+/** @param {string} id */
+export async function playlistDelete(id) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('playlist_delete', { id });
+}
