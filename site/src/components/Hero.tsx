@@ -1,6 +1,6 @@
 import { Download } from 'lucide-react';
 import GithubMark from './GithubMark';
-import { RELEASES_URL, INSTALLER_URL, INSTALLER_SIZE } from '../links';
+import { RELEASES_URL, INSTALLER_URL } from '../links';
 
 /**
  * The top of the page, and the only thing most visitors will read.
@@ -9,8 +9,11 @@ import { RELEASES_URL, INSTALLER_URL, INSTALLER_SIZE } from '../links';
  * section further down: what it costs, what it needs, and that it will not ask
  * for administrator rights. Those are the three questions that stop someone
  * clicking, and none of them is worth a scroll.
+ *
+ * The size arrives as a prop because it is measured, not written down: the
+ * page reads it off the release the button links to. See `resolveInstallerSize`.
  */
-export default function Hero() {
+export default function Hero({ installerSize }: { installerSize: string }) {
   return (
     <section className="ld-hero">
       <h1 className="ld-hero__title">
@@ -36,7 +39,7 @@ export default function Hero() {
       </div>
 
       <p className="ld-hero__meta">
-        Windows 10 and 11 · 64-bit · {INSTALLER_SIZE} · no administrator rights
+        Windows 10 and 11 · 64-bit · {installerSize} · no administrator rights
       </p>
     </section>
   );

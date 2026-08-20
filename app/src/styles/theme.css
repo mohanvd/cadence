@@ -21,8 +21,8 @@
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
-/* The faces, the tokens and the older screens' styling, which the website
-   imports on its own without any of the Tailwind above. See tokens.css. */
+/* The faces, the tokens and the older screens' styling, kept separable from
+   the Tailwind above rather than folded into it. See tokens.css. */
 @import './tokens.css' layer(legacy);
 
 @theme {

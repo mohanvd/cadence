@@ -16,7 +16,7 @@ export default function Footer() {
   return (
     <footer className="xn-footer">
       <p className="xn-footer__wordmark" aria-hidden>
-        <span className="xn-footer__word ld-footer__word">Cadence</span>
+        <span className="xn-footer__word">Cadence</span>
       </p>
     </footer>
   );

@@ -4,10 +4,6 @@
   "exclude": ["dist"],
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "react",
-    "paths": {
-      "@player/*": ["../app/src/*"]
-    },
-    "types": ["../app/src/globals.d.ts"]
+    "jsxImportSource": "react"
   }
 }

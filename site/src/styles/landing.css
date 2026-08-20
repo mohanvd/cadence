@@ -1,41 +1,119 @@
 /**
- * Styles for cadence.auva.dev, loaded only by the landing entry.
+ * cadence.auva.dev, in full.
  *
- * The page shares the application's tokens and its section furniture, so what
- * lives here is the part that has no counterpart in the app: the hero, the
- * screenshot frame, the two calls to action and the claims grid. Keeping it out
- * of home.css is what stops any of it reaching the installer.
+ * Everything the page draws is here, including the parts that are a picture of
+ * the application: the window, and the drop card inside it. Those used to be
+ * imported from the player so that the drawing could not drift from the thing
+ * it draws. They are copied now — see the note at the top of `base.css` for
+ * what that import cost — and the class names are the player's, unchanged, so
+ * that a repaint is a matter of reading the two files side by side.
+ *
+ * What that import was never able to give the page anyway is worth saying: the
+ * player's rules describe live controls, and half of what arrived here had to
+ * be undone at the other end. The drop card is a button that opens a file; here
+ * it is a `<span>` inside an `inert` subtree, which can be hovered by nothing
+ * and disabled never. So the hover states, the focus states and the transitions
+ * are gone, and the two rules that used to put a submitted-looking URL field
+ * back to the state the player actually opens in are gone with them: the field
+ * is simply drawn the way it looks.
  */
 
-/* ── Undo the application's shell ──
-
-   The player is a fixed frame with a scrolling region inside it, because a
-   window with chrome pinned to its edges has to be: `html` and `body` are
-   locked at full height with overflow hidden, and one inner element scrolls.
-
-   Those rules arrive here with the shared stylesheet and are wrong for a
-   document. A page should scroll as a page: one scrollbar, at the edge of the
-   window, the one every other site has. */
-html,
-body {
-  height: auto;
-  overflow: visible;
+/* ── The page ──
+   The navigation is fixed, so the document starts below where it ends. */
+.ld-main {
+  padding-top: calc(56px + env(safe-area-inset-top));
 }
 
-/* `.xn-home` is the player's frame: fixed to the viewport, clipped, with a
-   scrolling child. Everything about that is right for a window and wrong for a
-   page, where it pins the document at one screen tall and hides the rest. */
-.ld-page {
-  position: static;
-  height: auto;
-  overflow: visible;
-  scroll-behavior: smooth;
+.ld-column {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: clamp(36px, 7vh, 76px) 24px 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.ld-page .xn-home__scroll {
-  flex: none;
-  min-height: 0;
-  overflow: visible;
+/* ── Navigation ── */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: calc(56px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(9, 10, 12, 0.78);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.navbar__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.navbar__brand {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+/* The wordmark is the whole logo, so it carries the brand face. */
+.navbar__brand-bold {
+  font-family: var(--xn-brand);
+  font-weight: 400;
+  font-size: 19px;
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+.navbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navbar__action {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.navbar__action:hover {
+  color: var(--text);
+}
+
+.ld-nav-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 140ms ease;
+}
+
+.ld-nav-cta:hover {
+  opacity: 0.86;
 }
 
 /* ── Hero ── */
@@ -130,38 +208,6 @@ body {
   color: var(--text);
 }
 
-.ld-nav-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 14px;
-  border-radius: 8px;
-  background: var(--text);
-  color: var(--bg);
-  font-size: 12.5px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: opacity 140ms ease;
-}
-
-.ld-nav-cta:hover {
-  opacity: 0.86;
-}
-
-.navbar__action--link {
-  display: inline-flex;
-  align-items: center;
-  font-size: 13px;
-  color: var(--text-2);
-  text-decoration: none;
-  transition: color 140ms ease;
-}
-
-.navbar__action--link:hover {
-  color: var(--text);
-}
-
-/* ── Screenshot ── */
 /* ── The application, drawn in the page ──
 
    Nothing behind it. The page and the application are painted the same
@@ -244,6 +290,360 @@ body {
   margin-top: clamp(22px, 3vw, 34px);
   font-size: 11.5px;
   letter-spacing: 0.03em;
+  color: var(--text-3);
+}
+
+/* ── The drop card, inside the window ──
+   The player's, with the moving parts left out: see the note at the top. */
+.xn-drop {
+  width: 100%;
+  max-width: 660px;
+  margin-top: clamp(32px, 5vh, 48px);
+  padding: 12px 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--xn-panel);
+}
+
+.xn-drop__target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 30px 24px 28px;
+  border: 1px dashed var(--border-2);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.012);
+}
+
+.xn-drop__icon {
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+}
+
+.xn-drop__title {
+  margin-top: 18px;
+  font-family: var(--xn-display);
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.xn-drop__hint {
+  margin-top: 8px;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.xn-drop__hint-link {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--border-2);
+  text-underline-offset: 3px;
+}
+
+.xn-drop__formats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 20px;
+}
+
+.xn-drop__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 6px 14px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.xn-drop__divider::before,
+.xn-drop__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--xn-hairline);
+}
+
+/* Also worn by the format list on the engine card, which is why it is not
+   scoped to the window. */
+.xn-chip {
+  padding: 3px 8px;
+  border: 1px solid var(--xn-hairline);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+/* ── The URL row, inside the drop card ── */
+.xn-url {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 6px;
+}
+
+.xn-url__icon {
+  position: absolute;
+  left: 13px;
+  color: var(--text-3);
+}
+
+.xn-url__input {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 44px;
+  padding: 0 48px 0 36px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: #0a0b0d;
+  /* The dim value the player shows as placeholder text, not the bright one it
+     shows for something typed. */
+  color: var(--text-3);
+  font-size: 13.5px;
+}
+
+.xn-url__go {
+  position: absolute;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  /* Its disabled face. The button only takes the accent once the field has
+     something in it, and this field never will. */
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+/* ── Section scaffolding ── */
+.xn-section {
+  width: 100%;
+  margin-top: clamp(48px, 8vh, 76px);
+}
+
+.xn-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.xn-section__title {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.xn-section__meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ── Feature bento ──
+   Twelve columns, split 7/5 then 4/4/4. The unequal first row is what marks the
+   engine card as the headline; a badge saying so would be the same information
+   spelled out for a reader who has already understood it from the size. */
+.xn-bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 14px;
+}
+
+.xn-feat {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 24px 26px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--xn-panel);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.xn-feat:hover {
+  border-color: var(--border-2);
+  background: #131418;
+}
+
+.xn-feat--lead {
+  grid-column: span 7;
+}
+
+.xn-feat--wide {
+  grid-column: span 5;
+}
+
+.xn-feat--third {
+  grid-column: span 4;
+}
+
+.xn-feat__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--xn-hairline);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-2);
+}
+
+/* The one card that gets the accent. Spending it here and nowhere else in the
+   grid is what makes the hierarchy legible at a glance rather than on reading. */
+.xn-feat--accent .xn-feat__icon {
+  border-color: transparent;
+  background: oklch(0.72 0.17 250 / 0.14);
+  color: var(--xn-accent-strong);
+}
+
+.xn-feat__lede {
+  margin-top: 18px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.xn-feat__title {
+  margin-top: 9px;
+  font-family: var(--xn-display);
+  font-weight: 600;
+  font-size: 16.5px;
+  line-height: 1.28;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.xn-feat--lead .xn-feat__title {
+  font-size: clamp(19px, 1.9vw, 22px);
+}
+
+.xn-feat__body {
+  margin-top: 10px;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--text-2);
+}
+
+/* Pinned to the bottom so the two cards on the first row rule off at the same
+   height even though their paragraphs do not run to the same length. */
+.xn-feat__note {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+.xn-feat__formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+/* ── Keyboard legend ──
+   A wrapping row of pills rather than a fixed table: the count of bindings and
+   the width of the column both change, and a grid would answer that with
+   half-empty cells at most sizes. */
+.xn-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.xn-keys__row {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 13px 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--xn-panel);
+  transition: border-color 160ms ease;
+}
+
+.xn-keys__row:hover {
+  border-color: var(--border-2);
+}
+
+.xn-keys__caps {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* A keycap reads as one because of the heavier bottom edge, which is the trick a
+   real keyboard plays with light, at a cost of one border-width declaration
+   rather than a drop shadow this page has no other use for. */
+.xn-key {
+  display: inline-grid;
+  place-items: center;
+  min-width: 23px;
+  height: 23px;
+  padding: 0 6px;
+  border: 1px solid var(--border-2);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: #17181d;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text);
+}
+
+.xn-keys__range {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.xn-keys__label {
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+/* ── Capability index ──
+   Ruled rows in flowing columns. Each item carries its own bottom hairline, so
+   a short last column ends where its content ends instead of leaving the empty
+   cells a bordered grid would have to draw. */
+.xn-caps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  gap: 0 28px;
+  list-style: none;
+}
+
+.xn-caps__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--xn-hairline);
+  font-size: 13.2px;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+
+.xn-caps__icon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.xn-caps__note {
   color: var(--text-3);
 }
 
@@ -336,7 +736,75 @@ body {
   text-wrap: pretty;
 }
 
+/* ── Footer ──
+   Full bleed on purpose: the rest of the page lives in a 1080px column, and
+   the footer breaking out of it is what makes the wordmark read as a sign-off
+   rather than as one more section. */
+.xn-footer {
+  container-type: inline-size;
+  width: 100%;
+  max-width: 1800px;
+  margin: clamp(72px, 11vh, 120px) auto 0;
+  padding: clamp(24px, 4vh, 48px) clamp(20px, 3vw, 48px) 28px;
+  border-top: 1px solid var(--border);
+  /* Belt and braces: the wordmark is fitted to this box, and can never spill
+     out of it even if a measurement lands a fraction of a pixel wide. */
+  overflow: hidden;
+}
+
+/* The word inside sets its own size, so this one is only the line's: the
+   paragraph's own strut is taller than the descenders of the word it holds, and
+   it is what puts the last few pixels of air under the sign-off. */
+.xn-footer__wordmark {
+  display: block;
+  font-size: 22cqw;
+  line-height: 0.78;
+  text-align: center;
+}
+
+/* The name at the size of a sign, sized without a measurement pass.
+   3.838 is the width of "Cadence" in Agbalumo expressed in em, measured once.
+   Dividing the container width by it is what makes the word fill the line.
+   The player solves for this at runtime, because its name is in a variable;
+   here the word is fixed, so the ratio can be too. See Footer.tsx. */
+.xn-footer__word {
+  display: inline-block;
+  font-family: var(--xn-brand);
+  font-weight: 400;
+  font-size: calc(100cqw / 3.838);
+  /* The brand face is already tightly fitted; grotesque-style negative tracking
+     would collide its round terminals. */
+  letter-spacing: 0;
+  line-height: inherit;
+  color: #e3e5ea;
+  white-space: nowrap;
+}
+
+/* ── Mid viewports ──
+   Below the point where a 7/5 row still has room to breathe, the two lead cards
+   go full width and the trio pairs off. The odd one out takes the full row
+   rather than sitting half-width beside a gap. */
+@media (max-width: 980px) {
+  .xn-feat--lead,
+  .xn-feat--wide {
+    grid-column: span 12;
+  }
+
+  .xn-feat--third {
+    grid-column: span 6;
+  }
+
+  .xn-feat--third:last-child {
+    grid-column: span 12;
+  }
+}
+
+/* ── Narrow viewports ── */
 @media (max-width: 640px) {
+  .ld-column {
+    padding: 28px 18px 56px;
+  }
+
   .ld-hero {
     padding-top: 44px;
   }
@@ -353,64 +821,25 @@ body {
   .ld-ghost {
     justify-content: center;
   }
-}
 
-/* The footer wordmark, sized without a measurement pass.
-   3.838 is the width of "Cadence" in Agbalumo expressed in em, measured once.
-   Dividing the container width by it is what makes the word fill the line.
-   See the note in components/Footer.tsx. */
-.ld-footer__word {
-  font-size: calc(100cqw / 3.838);
-}
+  .xn-drop__target {
+    padding: 26px 18px 24px;
+  }
 
-/* ── The page's scrollbar ──
+  .xn-bento {
+    gap: 10px;
+  }
 
-   The one the browser draws is a pale system bar against a near-black page,
-   and it is the full height of the document, so it is the most persistent
-   light thing on screen. This is the same treatment the player gives its own
-   scrolling regions, a little wider: 6px is fine for a panel a mouse rarely
-   grabs, and mean for a bar someone may actually drag. */
-html {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-2) transparent;
-}
+  .xn-feat,
+  .xn-feat--lead {
+    padding: 19px 18px 21px;
+  }
 
-html::-webkit-scrollbar {
-  width: 10px;
-}
+  .xn-feat--third {
+    grid-column: span 12;
+  }
 
-html::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-html::-webkit-scrollbar-thumb {
-  background: var(--border-2);
-  border-radius: 99px;
-  /* Inset from the edge so the thumb reads as floating rather than as a rail
-     welded to the side of the window. */
-  border: 3px solid transparent;
-  background-clip: content-box;
-}
-
-html::-webkit-scrollbar-thumb:hover {
-  background: var(--text-3);
-  background-clip: content-box;
-}
-
-/* ── The URL row inside the preview ──
-
-   The player draws this field empty: the URL is placeholder text and the
-   button is `disabled` until something is typed. The preview is markup, not a
-   form, so a `<span>` can never be `:disabled` and picks up the active state
-   instead: a bright value and an accent button, a field that looks submitted.
-   These put it back to the state the player actually opens in. */
-.ld-window .xn-url__input {
-  display: flex;
-  align-items: center;
-  color: var(--text-3);
-}
-
-.ld-window .xn-url__go {
-  background: var(--surface-2);
-  color: var(--text-3);
+  .xn-caps {
+    gap: 0 18px;
+  }
 }

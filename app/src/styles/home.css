@@ -16,7 +16,7 @@
 
 .xn-home {
   /* Cadence light: the one saturated hue on an otherwise achromatic page.
-     Matches --color-accent in theme.css so the site and the player agree. */
+     Matches --color-accent in theme.css. */
   --xn-accent: oklch(0.72 0.17 250);
   --xn-accent-strong: oklch(0.81 0.15 250);
   --xn-accent-ink: oklch(0.16 0.025 255);

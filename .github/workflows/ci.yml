@@ -36,11 +36,9 @@ jobs:
           cache: npm
           cache-dependency-path: site/package-lock.json
 
-      # The site imports the design tokens and one component from `app/`, so
-      # its dependencies have to be installed too or those imports resolve to
-      # nothing. This is also what proves the cross-directory imports work
-      # before Vercel finds out the hard way.
-      - run: npm ci
+      # Only the site's own dependencies. Nothing here reaches into `app/`, and
+      # this job installing only what Vercel installs is what keeps it that way:
+      # an import that creeps back across the boundary fails here first.
       - run: npm ci
         working-directory: site
       - run: npm run typecheck

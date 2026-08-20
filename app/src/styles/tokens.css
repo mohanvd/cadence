@@ -3,17 +3,16 @@
  *
  * This is the half of `theme.css` that describes what Cadence looks like: the
  * colour ramp, the two display faces, the section furniture and the drop card.
- * The other half is Tailwind, which the player's newer components use and the
- * website does not use at all.
+ * The other half is Tailwind, which the player's newer components use.
  *
- * Splitting them is what lets the website share this. `@import 'tailwindcss'`
- * resolves against the importing file's own directory, so a website that
- * imported `theme.css` would go looking for Tailwind in the player's
- * `node_modules` — which is a different project's, and on a deployment that
- * builds only the website, is not there at all.
- *
- * Anything a component and a marketing page could both need belongs here.
- * Anything only the player needs belongs in `theme.css` above it.
+ * The split exists because the website used to import this file, and could not
+ * import `theme.css`: `@import 'tailwindcss'` resolves against the importing
+ * file's own directory, so a website importing it went looking for Tailwind in
+ * the player's `node_modules` — a different project's, and on a deployment that
+ * builds only the website, not there at all. The website carries its own copy
+ * of all of this now — see `site/src/styles/base.css` — and nothing outside
+ * `app/` reads these files. The seam is still worth keeping: unlayered rules and
+ * Tailwind's layers do not cascade alike, and this is where that line is drawn.
  */
 
 @import './fonts.css';

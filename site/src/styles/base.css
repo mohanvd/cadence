@@ -1,0 +1,111 @@
+/**
+ * The palette, the two display faces, and what a document looks like before
+ * anything on this page has had its say.
+ *
+ * These values began as the player's, and the site used to read them straight
+ * out of `app/src/styles/` so that the two could not drift. That import cost
+ * more than it was worth: Vercel uploads only the deployed root directory, so a
+ * build of `site/` could not see `app/` at all without a project setting turned
+ * on to permit it, and the failure it produced said nothing about why.
+ *
+ * So this is the site's own copy, and the only thing it owes the player is a
+ * likeness. What the page draws of the application — the window, the drop card
+ * inside it — is a picture, and a picture is allowed to be repainted when the
+ * thing it depicts changes. The names are kept identical to the player's for
+ * that repaint: when the two disagree, `app/src/index.css` and
+ * `app/src/styles/home.css` are what this file is read against.
+ */
+
+@import './fonts.css';
+
+:root {
+  /* ── The ramp ──
+     Achromatic, and shallow on purpose: depth on this page comes from hairline
+     borders and small steps in surface lightness, never from a glow. */
+  --bg: #080808;
+  --surface-2: #1a1a1a;
+  --border: #2a2a2a;
+  --border-2: #3a3a3a;
+  --divider-line: #1f1f1f;
+  --text: #f5f5f5;
+  --text-2: #a1a1aa;
+  --text-3: #52525b;
+
+  /* The panel the drop card and the feature cards sit on, and the hairline
+     drawn inside them: both a shade off the page rather than a step up from
+     it. */
+  --xn-panel: #0f1013;
+  --xn-hairline: #1d1f24;
+
+  /* Cadence light, the one saturated hue on an otherwise achromatic page, and
+     it is spent in exactly one place: the icon on the engine card. Anything
+     else reaching for it is what stops that card reading as the headline. */
+  --xn-accent-strong: oklch(0.81 0.15 250);
+
+  /* Two display faces with different jobs. The brand face is worn only by the
+     name itself, in the navigation and the footer sign-off; headings use the
+     grotesque, which stays out of the way of what it is labelling. Letting the
+     brand face leak into headings is what makes a page read as a toy. */
+  --xn-brand: 'Agbalumo', 'Schibsted Grotesk', 'Inter', system-ui, sans-serif;
+  --xn-display: 'Schibsted Grotesk', 'Inter', system-ui, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+/* ── The page's scrollbar ──
+
+   A page, and it scrolls as one: one scrollbar, at the edge of the window, the
+   one every other site has. The player locks `html` and `body` at full height
+   with overflow hidden and scrolls a region inside them, because a window with
+   chrome pinned to its edges has to. Nothing here is pinned to anything.
+
+   The bar the browser draws is pale against a near-black page and is as tall as
+   the document, so it is the most persistent light thing on screen. This is the
+   treatment the player gives its own scrolling regions, a little wider: 6px is
+   fine for a panel a mouse rarely grabs, and mean for a bar someone may
+   actually drag. */
+html {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
+}
+
+html::-webkit-scrollbar {
+  width: 10px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 99px;
+  /* Inset from the edge so the thumb reads as floating rather than as a rail
+     welded to the side of the window. */
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: var(--text-3);
+  background-clip: content-box;
+}
