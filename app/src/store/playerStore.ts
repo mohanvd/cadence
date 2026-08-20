@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { createEngine, describeBackend } from '@/engine/createEngine';
 import { decodes, markUndecodable } from '@/engine/decoding';
 import { MAX_BOOST } from '@/engine/audioChain';
+import { fileIsThere } from '@/lib/desktop';
 import type { ProbeOptions } from '@/engine/probe';
 import type {
   BackendKind,
@@ -207,9 +208,9 @@ async function attempt(
     created = await createEngine(source, options);
   } catch (err) {
     if (token !== loadToken) return;
-    set({
-      loading: false,
-      error: err instanceof Error ? err.message : 'Could not open this file.',
+    const said = err instanceof Error ? err.message : 'Could not open this file.';
+    void whyItFailed(source, said).then((reason) => {
+      if (token === loadToken) set({ loading: false, error: reason });
     });
     return;
   }
@@ -285,7 +286,9 @@ async function attempt(
       }
     }
 
-    set({ error: message, loading: false });
+    void whyItFailed(source, message).then((reason) => {
+      if (token === loadToken) set({ error: reason, loading: false });
+    });
   });
 
   engine.attach(container);
@@ -332,11 +335,29 @@ async function attempt(
     void engine.play().catch(() => {});
   } catch (err) {
     if (token !== loadToken) return;
-    set({
-      loading: false,
-      error: err instanceof Error ? err.message : 'Playback failed.',
+    const said = err instanceof Error ? err.message : 'Playback failed.';
+    void whyItFailed(source, said).then((reason) => {
+      if (token === loadToken) set({ loading: false, error: reason });
     });
   }
+}
+
+/**
+ * Why a file would not play, checked against the disk before it is repeated.
+ *
+ * The browser reports a file it cannot fetch and a file it cannot decode as
+ * the same failure — an unsupported source — so a video that has been deleted,
+ * renamed, or left on an external disk that is no longer plugged in used to be
+ * explained as an unsupported format. That is an answer to a question nobody
+ * asked, and it sends the reader to look for a codec rather than for the file.
+ *
+ * Only paths are checked. A link that will not load has its own reasons and
+ * this is not one of them.
+ */
+async function whyItFailed(source: MediaSourceInput, message: string): Promise<string> {
+  if (source.kind !== 'path') return message;
+  if (await fileIsThere(source.path)) return message;
+  return 'It is not where it was. The file may have been moved, renamed, or deleted since it was last opened.';
 }
 
 export const usePlayerStore = create<PlayerStore>((set, get) => ({

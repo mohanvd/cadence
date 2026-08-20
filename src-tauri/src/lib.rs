@@ -7,6 +7,8 @@ use tauri::{Emitter, Manager};
 
 mod fonts;
 mod media;
+#[cfg(windows)]
+mod nowplaying;
 mod pgs;
 
 /// The FFmpeg pipeline, and whether it is still being built.
@@ -179,6 +181,18 @@ async fn media_pictures(
     }))
 }
 
+/// Whether a file is still where the page last saw it.
+///
+/// Asked after a failure rather than before an attempt. The browser reports a
+/// file it cannot fetch and a file it cannot decode as the same thing — a
+/// source it does not support — so a video deleted while it sat in a folder
+/// queue used to be explained as an unsupported format, which is an answer
+/// about the wrong subject entirely.
+#[tauri::command]
+fn file_is_there(path: String) -> bool {
+    std::path::Path::new(&path).is_file()
+}
+
 /// Extensions Cadence will open, for deciding what counts as the next video.
 ///
 /// The same list the installer registers Cadence for. It is deliberately the
@@ -310,7 +324,49 @@ fn file_from_args(args: &[String]) -> Option<String> {
     args.iter().skip(1).find(|a| !a.starts_with('-')).cloned()
 }
 
+/// Tell Windows which application this process is.
+///
+/// Without it the "Now Playing" panel — the one the volume keys and a headset
+/// button reach — says "Unknown app" over the title of the film. The panel is
+/// drawn by Windows from whatever is playing audio, and what is playing audio
+/// is the webview: a process called `msedgewebview2.exe`, which Windows has
+/// never heard of and cannot name.
+///
+/// This is the string the installer already writes onto the Start menu
+/// shortcut, which is what Windows looks the name and icon up from. It has to
+/// be set before the webview exists, because a child process takes the
+/// identity its parent had when it was started.
+#[cfg(windows)]
+fn name_this_program() {
+    // The same string as `identifier` in tauri.conf.json, which is what the
+    // installer puts on the shortcut. They have to agree or Windows finds
+    // nothing to look up.
+    let id: Vec<u16> = "dev.auva.cadence".encode_utf16().chain(Some(0)).collect();
+    // Safety: the pointer is to a nul-terminated buffer that outlives the call,
+    // and the function copies what it is given.
+    unsafe {
+        let _ = windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(id.as_ptr());
+    }
+}
+
+/// What is playing, for the panel Windows draws.
+///
+/// Pushed by the page rather than read from here, because the page is the only
+/// one that knows: the shell hands out streams and has no idea which of them is
+/// on screen, how far in it is, or whether there is another file after it.
+#[cfg(windows)]
+#[tauri::command]
+fn now_playing(
+    state: tauri::State<'_, nowplaying::NowPlaying>,
+    playing: nowplaying::Playing,
+) -> Result<(), String> {
+    state.update(&playing)
+}
+
 pub fn run() {
+    #[cfg(windows)]
+    name_this_program();
+
     let argv: Vec<String> = std::env::args().collect();
     let launch_file = file_from_args(&argv);
 
@@ -338,10 +394,15 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init());
 
-    builder
+    let builder = builder
         .plugin(tauri_plugin_dialog::init())
         .manage(PendingOpen(Mutex::new(launch_file)))
-        .manage(MediaState(Mutex::new(Pipeline::Starting)))
+        .manage(MediaState(Mutex::new(Pipeline::Starting)));
+
+    #[cfg(windows)]
+    let builder = builder.manage(nowplaying::NowPlaying::idle());
+
+    builder
         .invoke_handler(tauri::generate_handler![
             take_launch_file,
             media_endpoint,
@@ -349,10 +410,21 @@ pub fn run() {
             media_subtitle,
             media_script,
             media_font_names,
+            file_is_there,
             media_pictures,
-            folder_playlist
+            folder_playlist,
+            #[cfg(windows)]
+            now_playing
         ])
         .setup(|app| {
+            /* The panel Windows shows for whatever is playing. Taken here
+            because it belongs to a window, and the window exists by now. A
+            machine that will not give it up still plays films. */
+            #[cfg(windows)]
+            if let Err(err) = app.state::<nowplaying::NowPlaying>().attach(app.handle()) {
+                eprintln!("no Now Playing panel: {err}");
+            }
+
             /* Started in the background rather than awaited here. Preparing it
             means running FFmpeg twice to find out what it can do, and the
             window should be on screen before that finishes: someone who

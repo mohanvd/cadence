@@ -5,6 +5,41 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The Windows "Now Playing" panel says **Cadence** rather than **Unknown app**.
+  It is the panel the volume keys raise and a headset button reaches, and it
+  had the right title and the right buttons over the wrong name since the day
+  it was wired up.
+
+  The cause is worth writing down, because nothing about it is visible from the
+  page. A web page can ask Windows for that panel, and Cadence did — but
+  Windows names the panel after the *process* that asked, and the process that
+  asks on a page's behalf is the browser it runs in. Here that is WebView2, a
+  program Windows knows only as `msedgewebview2.exe` and cannot name or draw an
+  icon for. No amount of correcting the page could have fixed it.
+
+  So the shell asks instead. It is an ordinary program with a name and an icon
+  Windows already has — the installer writes both onto the Start menu shortcut —
+  and it takes the panel for its own window. The browser's copy is switched off
+  in the same breath, or there would be two entries in the flyout. What the
+  page keeps is everything that needs knowing: what is playing, how far in,
+  whether there is another file after this one, and what to do when a button is
+  pressed.
+
+- A file that is no longer there says so. Deleted, renamed, or on a disk that
+  has been unplugged, it used to be reported as a file "in a format the browser
+  cannot play", which is an answer to a question nobody asked and sends the
+  reader looking for a codec.
+
+  The browser is not being careless: it reports a file it cannot fetch and a
+  file it cannot decode as the same failure, and from inside the page the two
+  are genuinely indistinguishable. The shell can simply look, so now it does —
+  after the failure rather than before every attempt, because the check is only
+  worth making once something has already gone wrong.
+
 ## [0.5.0] - 2026-08-20
 
 ### Added

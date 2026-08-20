@@ -277,6 +277,74 @@ export async function subtitleTrack(path, index) {
 }
 
 /**
+ * Whether a file is still where it was.
+ *
+ * Asked only to explain a failure. `true` when there is no way to find out,
+ * because "this file has been deleted" is a strong claim and guessing it wrong
+ * sends somebody looking for a file that is sitting where they left it.
+ *
+ * @param {string} path
+ * @returns {Promise<boolean>}
+ */
+export async function fileIsThere(path) {
+  if (!isDesktop()) return true;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return await invoke('file_is_there', { path });
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * @typedef {object} NowPlaying
+ * @property {string} title The film, or empty when nothing is open.
+ * @property {string} subtitle Under the title: which of how many, when a
+ *   folder is being played.
+ * @property {boolean} playing
+ * @property {number} duration
+ * @property {number} position
+ * @property {boolean} hasNext
+ * @property {boolean} hasPrevious
+ */
+
+/**
+ * Tell Windows what is playing, for the panel behind the volume keys.
+ *
+ * The page could ask for that panel itself — `navigator.mediaSession` exists
+ * and works — and the reason it does not is that Windows names the panel after
+ * the process that asked. A page's request is made by the browser it runs in,
+ * which here is WebView2, a program Windows knows only as
+ * `msedgewebview2.exe`: hence the **Unknown app** that used to sit over the
+ * title of the film. The shell has a name and an icon, so the shell asks, and
+ * this says what to put in it.
+ *
+ * @param {NowPlaying} playing
+ */
+export async function setNowPlaying(playing) {
+  if (!isDesktop()) return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    await invoke('now_playing', { playing });
+  } catch {
+    // A machine that will not give up the panel still plays films.
+  }
+}
+
+/**
+ * Act on the panel's buttons: `play`, `pause`, `next`, `previous`.
+ *
+ * @param {(action: string) => void} handler
+ * @returns {Promise<() => void>} Stops listening.
+ */
+export async function onNowPlaying(handler) {
+  if (!isDesktop()) return () => {};
+  const { listen } = await import('@tauri-apps/api/event');
+  const stop = await listen('now-playing', (event) => handler(String(event.payload)));
+  return stop;
+}
+
+/**
  * Every font on this machine, by name, each pointing at where to fetch it.
  *
  * A script names the faces it wants and expects the machine to have them, which

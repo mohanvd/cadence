@@ -121,7 +121,10 @@ export function PlayerSurface({
   // Volume, speed and playhead survive reloads and file switches.
   const resume = usePlaybackMemory(source.name);
   // Media keys, the OS Now Playing panel, and the taskbar transport.
-  useMediaSession(title, { next: onNext, previous: onPrevious });
+  useMediaSession(title, position ? `${position.index} of ${position.total}` : '', {
+    next: onNext,
+    previous: onPrevious,
+  });
   const musicMode = useMusicMode(showToast);
   // Stop the display dimming mid-lecture, but only while actually playing, and
   // never in music mode, where holding the screen awake for audio is the exact

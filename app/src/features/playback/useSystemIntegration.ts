@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { usePlayerStore } from '@/store/playerStore';
+import { isDesktop, onNowPlaying, setNowPlaying } from '@/lib/desktop';
 
 /**
  * Wires the player into the operating system.
@@ -8,11 +9,19 @@ import { usePlayerStore } from '@/store/playerStore';
  * button, the Windows volume flyout and the macOS Now Playing panel control
  * *this* player. It is a handful of lines and it is the difference between a
  * web page and something that behaves like an installed app.
+ *
+ * On the desktop the shell asks for the same panel as well, and the browser's
+ * copy is switched off — see `useShellNowPlaying` below for why. The page's
+ * own is kept for everywhere that is not the desktop app, where it is the only
+ * one there is.
  */
 export function useMediaSession(
   title: string,
+  subtitle: string,
   handlers: { next?: (() => void) | undefined; previous?: (() => void) | undefined },
 ): void {
+  useShellNowPlaying(title, subtitle, handlers);
+
   const handlerRef = React.useRef(handlers);
   handlerRef.current = handlers;
 
@@ -80,6 +89,105 @@ export function useMediaSession(
       }
     });
   }, []);
+}
+
+/**
+ * The same panel, asked for by the shell rather than by the page.
+ *
+ * On Windows the page's own request produces a panel headed **Unknown app**,
+ * because Windows names it after the process that asked and the process that
+ * asks for a page is the browser — here WebView2, which it knows only as
+ * `msedgewebview2.exe`. The shell has a name and an icon, so it asks instead,
+ * and the browser's copy is switched off in the window's arguments so that
+ * only one entry appears.
+ *
+ * What the page keeps is everything that requires knowing: what is playing,
+ * how far in, whether there is another file after this one, and what to do
+ * when a button is pressed.
+ */
+function useShellNowPlaying(
+  title: string,
+  subtitle: string,
+  handlers: { next?: (() => void) | undefined; previous?: (() => void) | undefined },
+): void {
+  const handlerRef = React.useRef(handlers);
+  handlerRef.current = handlers;
+
+  React.useEffect(() => {
+    if (!isDesktop()) return undefined;
+
+    let stop: (() => void) | null = null;
+    let live = true;
+
+    void onNowPlaying((action) => {
+      const store = usePlayerStore.getState();
+      if (action === 'play') store.play();
+      else if (action === 'pause') store.pause();
+      else if (action === 'next') handlerRef.current.next?.();
+      else if (action === 'previous') handlerRef.current.previous?.();
+    }).then((off) => {
+      if (live) stop = off;
+      else off();
+    });
+
+    return () => {
+      live = false;
+      stop?.();
+    };
+  }, []);
+
+  const next = !!handlers.next;
+  const previous = !!handlers.previous;
+
+  React.useEffect(() => {
+    if (!isDesktop()) return undefined;
+
+    /* The clock moves constantly and the panel does not need to hear about it
+       constantly: a scrubber that is a second out is a scrubber nobody can see
+       is a second out. Everything else — a pause, a new file, the end of a
+       queue — goes over the moment it happens, because those are the things
+       somebody is looking at the panel to check. */
+    let sent = 0;
+
+    const push = (force: boolean) => {
+      const state = usePlayerStore.getState();
+      const now = performance.now();
+      if (!force && now - sent < 1000) return;
+      sent = now;
+      void setNowPlaying({
+        title: title.replace(/\.[^.]+$/, ''),
+        subtitle,
+        playing: !state.paused,
+        duration: Number.isFinite(state.duration) ? state.duration : 0,
+        position: state.currentTime,
+        hasNext: next,
+        hasPrevious: previous,
+      });
+    };
+
+    push(true);
+    let paused = usePlayerStore.getState().paused;
+    const unsubscribe = usePlayerStore.subscribe((state) => {
+      const changed = state.paused !== paused;
+      paused = state.paused;
+      push(changed);
+    });
+
+    return () => {
+      unsubscribe();
+      // Nothing is open any more, and a panel still offering to pause a film
+      // that has been closed is a panel telling a lie.
+      void setNowPlaying({
+        title: '',
+        subtitle: '',
+        playing: false,
+        duration: 0,
+        position: 0,
+        hasNext: false,
+        hasPrevious: false,
+      });
+    };
+  }, [title, subtitle, next, previous]);
 }
 
 type WakeLock = { release: () => Promise<void>; released: boolean };

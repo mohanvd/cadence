@@ -23,7 +23,8 @@
         "decorations": false,
         "theme": "Dark",
         "backgroundColor": "#0a0a0a",
-        "dragDropEnabled": true
+        "dragDropEnabled": true,
+      "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,MediaSessionService"
       }
     ],
     "security": {

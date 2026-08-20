@@ -49,6 +49,19 @@ png = "0.17"
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"
 
+# Two things Windows will only hear from a program, not from a web page: which
+# fonts are installed, and which application this is. Already in Tauri's tree.
+windows-sys = { version = "0.59", features = ["Win32_UI_Shell", "Win32_Foundation"] }
+
+# The "Now Playing" panel. It is a WinRT interface, so it wants the other
+# binding — the one with the projections rather than the raw functions.
+windows = { version = "0.61", features = [
+    "Foundation",
+    "Media",
+    "Win32_Foundation",
+    "Win32_System_WinRT",
+] }
+
 # Desktop-only. The updater has no meaning on mobile, where the store owns
 # installation, and single-instance is a windowing concept that does not exist
 # there either.
