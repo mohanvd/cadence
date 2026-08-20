@@ -373,6 +373,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "uuid",
+ "winreg",
 ]
 
 [[package]]

@@ -277,6 +277,96 @@ export async function subtitleTrack(path, index) {
 }
 
 /**
+ * Every font on this machine, by name, each pointing at where to fetch it.
+ *
+ * A script names the faces it wants and expects the machine to have them, which
+ * every player before a browser-based one could simply assume. libass here runs
+ * inside the webview, and a webview may not read the fonts on the computer it
+ * is running on without asking permission first — a question nobody can answer
+ * usefully, asked in the middle of a film. The shell has no such restriction,
+ * so it reads them and this is the list of what it found.
+ *
+ * Names rather than bytes. A machine carries hundreds of faces and a subtitle
+ * wants two or three; the renderer fetches the ones it turns out to need.
+ *
+ * Read once. Fonts are installed by a person at a keyboard, which does not
+ * happen while a film is playing.
+ *
+ * @type {Promise<Record<string, string>> | null}
+ */
+let fontsPromise = null;
+
+export async function installedFonts() {
+  fontsPromise ??= (async () => {
+    const endpoint = await mediaEndpoint();
+    if (!endpoint) return {};
+    const { invoke } = await import('@tauri-apps/api/core');
+    const names = await invoke('media_font_names');
+
+    return Object.fromEntries(
+      names.map((name) => [
+        name,
+        `${endpoint.base}/font?${new URLSearchParams({ token: endpoint.token, name })}`,
+      ]),
+    );
+  })();
+
+  try {
+    return await fontsPromise;
+  } catch {
+    // A machine whose fonts could not be read still plays films. What it
+    // cannot do is render a script in a face it does not have, and the
+    // renderer already knows what to do about that.
+    fontsPromise = null;
+    return {};
+  }
+}
+
+/**
+ * @typedef {object} SubtitleScript
+ * @property {string} text The ASS document itself.
+ * @property {string[]} fonts URLs of the fonts the film carries for it.
+ * @property {Record<string, string>} installed Every font on this machine, by
+ *   name, for the faces the film does not carry and assumes are already here.
+ */
+
+/**
+ * A subtitle track as the script it already is, with the fonts it asks for.
+ *
+ * The difference from `subtitleTrack` is everything except the sentences. ASS
+ * says where a line sits, in what face, at what angle, in what colour and how
+ * it moves; converting it to WebVTT keeps the words and discards all of that,
+ * which turns a sign painted on a wall into a caption underneath the picture.
+ *
+ * The fonts come as URLs rather than bytes because some of them are not small
+ * — a CJK face runs to megabytes — and the webview fetches and caches them
+ * perfectly well on its own.
+ *
+ * @param {string} path
+ * @param {number} index
+ * @returns {Promise<SubtitleScript>}
+ */
+export async function scriptSubtitleTrack(path, index) {
+  if (!isDesktop()) throw new Error('Subtitles inside a file need the desktop app');
+  const { invoke } = await import('@tauri-apps/api/core');
+  const result = await invoke('media_script', { path, index });
+
+  const endpoint = await mediaEndpoint();
+  const fonts = endpoint
+    ? result.fonts.map(
+        (attachment) =>
+          `${endpoint.base}/attachment?${new URLSearchParams({
+            token: endpoint.token,
+            path,
+            index: String(attachment),
+          })}`,
+      )
+    : [];
+
+  return { text: result.script, fonts, installed: await installedFonts() };
+}
+
+/**
  * @typedef {object} PictureCue
  * @property {number} start Seconds into the film.
  * @property {number} end

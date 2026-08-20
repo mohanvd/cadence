@@ -83,18 +83,20 @@ export function SubtitleMenu({ features }: { features: PlayerFeatures }) {
       </Tooltip>
 
       <PopoverContent className="w-[19rem]">
-        <input ref={inputRef} type="file" accept=".srt,.vtt" hidden onChange={onPick} />
+        <input ref={inputRef} type="file" accept=".srt,.vtt,.ass,.ssa" hidden onChange={onPick} />
 
         {panel === 'tracks' && (
           <>
             <PanelHeader
               title="Subtitles"
               action={
-                /* Nothing in there applies to a picture. A Blu-ray's
-                   subtitles were drawn once, with their font and colour and
-                   place already decided, so an Options button would open a
-                   panel of controls that change nothing. */
-                subtitles.hasSubtitles && !subtitles.pictures
+                /* Only when there is something in there to change. The
+                   appearance controls apply to cues Cadence draws itself and
+                   to nothing else: a Blu-ray's subtitles were drawn once by
+                   the disc, and a script decides its own fonts and colours and
+                   positions, so for those two the panel holds only Timing —
+                   and Timing is offered only for a file from disk. */
+                subtitles.hasSubtitles && (stylable(subtitles) || subtitles.sourceId === 'file')
                   ? { label: 'Options', onSelect: () => setPanel('options') }
                   : undefined
               }
@@ -149,8 +151,8 @@ export function SubtitleMenu({ features }: { features: PlayerFeatures }) {
                 viewer is looking at. */}
             {embedded.length === 0 && !subtitles.hasSubtitles && (
               <div className="px-2.5 pt-0.5 pb-1.5 text-[11px] leading-relaxed text-fg-subtle">
-                This file carries no subtitles of its own. Drop an .srt or .vtt
-                onto the video, or choose one above.
+                This file carries no subtitles of its own. Drop an .srt, .vtt
+                or .ass onto the video, or choose one above.
               </div>
             )}
           </>
@@ -218,6 +220,18 @@ function PanelHeader({
   );
 }
 
+/**
+ * Whether the showing track is one Cadence draws, and can therefore restyle.
+ *
+ * The other two draw themselves. A Blu-ray's subtitles are pictures the disc
+ * already made; a script says what font and colour and place it wants and is
+ * rendered as it asks. Overriding either would be answering a question the
+ * author already answered.
+ */
+function stylable(subtitles: PlayerFeatures['subtitles']): boolean {
+  return !subtitles.pictures && !subtitles.script;
+}
+
 /** Everything about a showing track that is not which track it is. */
 function Options({
   subtitles,
@@ -249,20 +263,26 @@ function Options({
         </MenuItem>
       )}
 
-      {(Object.keys(SETTINGS) as (keyof SubtitleStyle)[]).map((key) => (
-        <MenuItem
-          key={key}
-          onSelect={() => onOpen(key)}
-          trailing={<Value>{labelFor(key, subtitles.style[key])}</Value>}
-        >
-          {SETTINGS[key]}
-        </MenuItem>
-      ))}
+      {/* A track that draws itself has no appearance to set here. Showing
+          these greyed would suggest they might apply to something. */}
+      {stylable(subtitles) && (
+        <>
+          {(Object.keys(SETTINGS) as (keyof SubtitleStyle)[]).map((key) => (
+            <MenuItem
+              key={key}
+              onSelect={() => onOpen(key)}
+              trailing={<Value>{labelFor(key, subtitles.style[key])}</Value>}
+            >
+              {SETTINGS[key]}
+            </MenuItem>
+          ))}
 
-      <MenuSeparator />
-      <MenuItem disabled={subtitles.isStyleDefault} onSelect={subtitles.resetStyle}>
-        Reset appearance
-      </MenuItem>
+          <MenuSeparator />
+          <MenuItem disabled={subtitles.isStyleDefault} onSelect={subtitles.resetStyle}>
+            Reset appearance
+          </MenuItem>
+        </>
+      )}
     </>
   );
 }

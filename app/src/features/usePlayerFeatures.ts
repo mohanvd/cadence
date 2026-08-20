@@ -113,7 +113,7 @@ export function usePlayerFeatures({ fileKey, onToast }: PlayerFeatureOptions) {
   const loadSubtitleFile = React.useCallback(
     async (file: File) => {
       const ok = await subtitles.loadFile(file);
-      onToast(ok ? `Subtitles loaded, ${file.name}` : 'Only .srt and .vtt are supported');
+      onToast(ok ? `Subtitles loaded, ${file.name}` : 'Subtitles come as .srt, .vtt, .ass or .ssa');
       return ok;
     },
     [subtitles, onToast],
@@ -134,10 +134,15 @@ export function usePlayerFeatures({ fileKey, onToast }: PlayerFeatureOptions) {
         return;
       }
       const name = describeTrack(track);
-      // Words and pictures come out of the file by different routes: one is
-      // converted to WebVTT and parsed, the other is decoded into images this
-      // player positions itself. Which one this is was settled by the probe.
-      const load = track.pictures ? subtitles.loadPictures : subtitles.loadEmbedded;
+      /* Three kinds come out of a file by three routes: words are converted
+         to WebVTT and parsed, a script goes to libass as it stands, and
+         pictures are decoded into images this player positions itself. Which
+         one this is was settled by the probe. */
+      const load = track.pictures
+        ? subtitles.loadPictures
+        : track.script
+          ? subtitles.loadScript
+          : subtitles.loadEmbedded;
       const { ok, error } = await load(source.path, Number(track.id), name);
       if (!ok && error) onToast(error);
     },

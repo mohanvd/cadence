@@ -57,17 +57,35 @@ const POSTER_FRACTION: f64 = 0.12;
 /// AC-3 and DTS, is re-encoded, which costs almost nothing beside video.
 pub const COPYABLE_AUDIO: &[&str] = &["aac", "mp3"];
 
-/// Subtitle codecs that are text, and can therefore be lifted out as WebVTT.
+/// Subtitle codecs that are plain words, and can be lifted out as WebVTT.
 ///
 /// The fragments carry no subtitles at all, so a track inside the container
 /// reaches the viewer only by being extracted separately. That works for these
-/// because they are words: converting them is a re-encoding of the same
-/// sentences into different punctuation.
+/// because they are words and nothing else: converting one is a re-encoding of
+/// the same sentences into different punctuation, and nothing is lost because
+/// there was nothing else there.
+pub const TEXT_SUBTITLES: &[&str] = &["subrip", "srt", "mov_text", "webvtt", "text"];
+
+/// Subtitles that are a script: text, and instructions for drawing it.
 ///
-/// What is missing from this list is the bitmap formats, which are not words
-/// but pictures of words. They are handled by `PICTURE_SUBTITLES` below rather
-/// than being converted, because there is nothing to convert them into.
-pub const TEXT_SUBTITLES: &[&str] = &["subrip", "srt", "ass", "ssa", "mov_text", "webvtt", "text"];
+/// ASS carries where each line sits, in what font, at what angle, in what
+/// colour, and how it moves — which is how a translated sign appears on the
+/// wall it is written on rather than as a caption underneath. Converting one to
+/// WebVTT keeps the sentences and throws all of that away, which this player
+/// used to do, so a translated sign arrived as a line of text at the bottom of
+/// the screen with no clue what it was labelling.
+///
+/// They are handed to libass instead, which is the program that renders these
+/// everywhere else they are rendered properly.
+pub const SCRIPT_SUBTITLES: &[&str] = &["ass", "ssa"];
+
+/// Attachment formats that are fonts.
+///
+/// A script names the fonts it wants and a rip carries them, because the
+/// alternative is a sign that reads correctly and looks nothing like the sign.
+/// Anything else attached — cover art, a text file, the release notes — is not
+/// wanted here.
+pub const FONT_ATTACHMENTS: &[&str] = &["ttf", "otf", "woff", "woff2"];
 
 /// Subtitles that are pictures, and can be shown as pictures.
 ///
@@ -371,8 +389,11 @@ async fn handle(
     media: Arc<Media>,
 ) -> Result<Response<StreamBody>, Infallible> {
     let route = request.uri().path().to_owned();
-    if route != "/stream" && route != "/frame" && route != "/subtitle-image" {
-        return Ok(text(StatusCode::NOT_FOUND, "Cadence serves three routes."));
+    if !matches!(
+        route.as_str(),
+        "/stream" | "/frame" | "/subtitle-image" | "/attachment" | "/font"
+    ) {
+        return Ok(text(StatusCode::NOT_FOUND, "Cadence does not serve that."));
     }
 
     let params = query(request.uri());
@@ -382,6 +403,32 @@ async fn handle(
     files, so an unauthenticated request never gets as far as naming one. */
     if params.get("token").map(String::as_str) != Some(media.token.as_str()) {
         return Ok(text(StatusCode::FORBIDDEN, "Not for you."));
+    }
+
+    /* A font off this machine, by the name a script asked for. Named rather
+    than pathed: what may be served is exactly what was found installed, so
+    there is nothing here for a made-up path to reach. */
+    if route == "/font" {
+        let wanted = params.get("name").and_then(|name| crate::fonts::path(name));
+
+        let Some(file) = wanted else {
+            return Ok(text(StatusCode::NOT_FOUND, "No such font."));
+        };
+
+        return Ok(match std::fs::read(file) {
+            Ok(bytes) => Response::builder()
+                .status(StatusCode::OK)
+                .header("content-type", "font/ttf")
+                .header("access-control-allow-origin", "*")
+                .header("cache-control", "max-age=86400")
+                .body(
+                    Full::new(Bytes::from(bytes))
+                        .map_err(|never| match never {})
+                        .boxed(),
+                )
+                .expect("a font response is always well formed"),
+            Err(err) => text(StatusCode::UNPROCESSABLE_ENTITY, &err.to_string()),
+        });
     }
 
     let Some(path) = params.get("path").cloned() else {
@@ -416,6 +463,34 @@ async fn handle(
                         .boxed(),
                 )
                 .expect("a frame response is always well formed"),
+            Err(err) => text(StatusCode::UNPROCESSABLE_ENTITY, &err),
+        });
+    }
+
+    /* A font out of the film. A script names the fonts it wants, and a rip
+    carries them precisely because the machine playing it will not have them.
+    Serving them from here rather than passing them through a message keeps a
+    twelve-megabyte CJK face off the IPC and lets the webview cache it. */
+    if route == "/attachment" {
+        let Some(index) = params
+            .get("index")
+            .and_then(|value| value.parse::<u32>().ok())
+        else {
+            return Ok(text(StatusCode::BAD_REQUEST, "No such attachment."));
+        };
+
+        return Ok(match media.attachment(&path, index).await {
+            Ok(font) => Response::builder()
+                .status(StatusCode::OK)
+                .header("content-type", "font/ttf")
+                .header("access-control-allow-origin", "*")
+                .header("cache-control", "max-age=86400")
+                .body(
+                    Full::new(Bytes::from(font))
+                        .map_err(|never| match never {})
+                        .boxed(),
+                )
+                .expect("an attachment response is always well formed"),
             Err(err) => text(StatusCode::UNPROCESSABLE_ENTITY, &err),
         });
     }
@@ -586,12 +661,36 @@ impl Media {
             .unwrap_or_default()
     }
 
+    /// Which attachment streams are fonts a script might ask for.
+    ///
+    /// By stream index, because that is what fetching one has to pass back.
+    fn fonts_in(probe: &serde_json::Value) -> Vec<u64> {
+        probe
+            .get("streams")
+            .and_then(|value| value.as_array())
+            .map(|streams| {
+                streams
+                    .iter()
+                    .filter(|stream| {
+                        stream.get("codec_type").and_then(|v| v.as_str()) == Some("attachment")
+                            && stream
+                                .get("codec_name")
+                                .and_then(|v| v.as_str())
+                                .is_some_and(|name| FONT_ATTACHMENTS.contains(&name))
+                    })
+                    .filter_map(|stream| stream.get("index").and_then(|v| v.as_u64()))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     /// A file's streams, with what Cadence intends to do about them attached.
     pub async fn describe(&self, path: &str) -> Result<serde_json::Value, String> {
         let mut probe = self.probe(path).await?;
         let (copy_video, copy_audio) = Self::decisions(&probe);
         let subtitles = Self::subtitles_in(&probe, TEXT_SUBTITLES);
         let pictures = Self::subtitles_in(&probe, PICTURE_SUBTITLES);
+        let scripts = Self::subtitles_in(&probe, SCRIPT_SUBTITLES);
 
         if let Some(fields) = probe.as_object_mut() {
             fields.insert(
@@ -600,11 +699,14 @@ impl Media {
                     "copyVideo": copy_video,
                     "copyAudio": copy_audio,
                     "subtitles": subtitles,
-                    // Kept apart from the text ones rather than merged into a
-                    // single list of what works, because the page fetches them
-                    // by two different routes and paints them two different
-                    // ways. One list would have to be taken apart again.
+                    /* Three lists rather than one list of what works, because
+                    the page fetches each by its own route and draws each its
+                    own way — words into a track element, a script into libass,
+                    a picture onto the frame where the disc put it. A single
+                    list would only have to be taken apart again, and the three
+                    are disjoint: a codec is in exactly one of them. */
                     "pictures": pictures,
+                    "scripts": scripts,
                 }),
             );
         }
@@ -676,6 +778,110 @@ impl Media {
         }
 
         Ok(text)
+    }
+
+    /// One subtitle stream, as the script it already is.
+    ///
+    /// Unlike the WebVTT conversion beside this, nothing is discarded: the
+    /// styles, the positions, the override tags and the fonts each line asks
+    /// for all come out as they went in. What reads them is libass, which is
+    /// what reads them in every other player that renders these correctly.
+    pub async fn script(&self, path: &str, index: u32) -> Result<String, String> {
+        let output = ffmpeg_command(&self.ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                path,
+                "-map",
+                &format!("0:{index}"),
+                "-c:s",
+                "ass",
+                "-f",
+                "ass",
+                "pipe:1",
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await
+            .map_err(|err| err.to_string())?;
+
+        if !output.status.success() {
+            let why = String::from_utf8_lossy(&output.stderr);
+            let why = why.lines().last().unwrap_or("").trim();
+            return Err(if why.is_empty() {
+                format!("could not read subtitle track {index}")
+            } else {
+                why.to_owned()
+            });
+        }
+
+        // An ASS file is UTF-8 by the format's own account and FFmpeg emits
+        // UTF-8 regardless, so there is nothing to detect here — unlike a
+        // script found loose on a disk, which declares nothing about itself.
+        let text = String::from_utf8(output.stdout)
+            .map_err(|_| format!("subtitle track {index} is not a script"))?;
+        if !text.contains("Dialogue:") {
+            return Err(format!("subtitle track {index} is empty"));
+        }
+
+        Ok(text)
+    }
+
+    /// Which attachments in a file are fonts.
+    ///
+    /// Asked alongside a script rather than reported with everything else: a
+    /// film's fonts matter only to whoever is about to draw its signs, and the
+    /// inspection this reads is already done and kept.
+    pub async fn fonts(&self, path: &str) -> Result<Vec<u64>, String> {
+        Ok(Self::fonts_in(&self.probe(path).await?))
+    }
+
+    /// One attachment, as bytes.
+    ///
+    /// FFmpeg writes attachments to a file and offers no way to have one on a
+    /// pipe, so it is written and read and removed. The name is never reused,
+    /// because the page may well ask for the same font twice at once and two
+    /// FFmpegs writing one path would hand back whatever was left of it.
+    pub async fn attachment(&self, path: &str, index: u32) -> Result<Vec<u8>, String> {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let ticket = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let scratch = std::env::temp_dir().join(format!("cadence-{}-{ticket}", self.token));
+
+        let output = ffmpeg_command(&self.ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                &format!("-dump_attachment:{index}"),
+                &scratch.to_string_lossy(),
+                "-i",
+                path,
+                "-f",
+                "null",
+                "-",
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()
+            .await
+            .map_err(|err| err.to_string())?;
+
+        let bytes = std::fs::read(&scratch);
+        let _ = std::fs::remove_file(&scratch);
+
+        bytes.map_err(|_| {
+            let why = String::from_utf8_lossy(&output.stderr);
+            let why = why.lines().last().unwrap_or("").trim().to_owned();
+            if why.is_empty() {
+                format!("could not read attachment {index}")
+            } else {
+                why
+            }
+        })
     }
 
     /// One picture subtitle track, decoded into images.
@@ -899,13 +1105,29 @@ mod tests {
                 { "index": 3, "codec_type": "subtitle", "codec_name": "hdmv_pgs_subtitle" },
                 { "index": 4, "codec_type": "subtitle", "codec_name": "ass" },
                 { "index": 5, "codec_type": "subtitle", "codec_name": "dvd_subtitle" },
+                { "index": 6, "codec_type": "attachment", "codec_name": "ttf" },
+                { "index": 7, "codec_type": "attachment", "codec_name": "mjpeg" },
             ]
         })
     }
 
     #[test]
     fn the_text_tracks_are_found() {
-        assert_eq!(Media::subtitles_in(&probe(), TEXT_SUBTITLES), vec![2, 4]);
+        assert_eq!(Media::subtitles_in(&probe(), TEXT_SUBTITLES), vec![2]);
+    }
+
+    /// ASS is text and is deliberately not among the text ones. Converting it
+    /// to WebVTT keeps the sentences and loses everything else the format is
+    /// for, so it goes to libass instead and has to be told apart to get there.
+    #[test]
+    fn a_script_is_not_treated_as_plain_words() {
+        assert_eq!(Media::subtitles_in(&probe(), SCRIPT_SUBTITLES), vec![4]);
+        assert!(!Media::subtitles_in(&probe(), TEXT_SUBTITLES).contains(&4));
+    }
+
+    #[test]
+    fn the_fonts_a_script_may_want_are_found() {
+        assert_eq!(Media::fonts_in(&probe()), vec![6]);
     }
 
     /// The Blu-ray track is its own kind, and must not appear among the text

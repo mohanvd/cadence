@@ -49,6 +49,7 @@ interface ProbePayload {
     copyAudio?: boolean;
     subtitles?: number[];
     pictures?: number[];
+    scripts?: number[];
   };
 }
 
@@ -116,7 +117,11 @@ function route(
   return { backend: 'stream', copyVideo: false, copyAudio: false };
 }
 
-function trackFrom(stream: ProbeStream, playable: boolean, pictures = false): MediaTrack | null {
+function trackFrom(
+  stream: ProbeStream,
+  playable: boolean,
+  kind: { pictures?: boolean; script?: boolean } = {},
+): MediaTrack | null {
   const type = stream.codec_type;
   if (type !== 'video' && type !== 'audio' && type !== 'subtitle') return null;
 
@@ -133,7 +138,8 @@ function trackFrom(stream: ProbeStream, playable: boolean, pictures = false): Me
     forced: stream.disposition?.forced === 1,
     hearingImpaired: stream.disposition?.hearing_impaired === 1,
     playable,
-    pictures: pictures || undefined,
+    pictures: kind.pictures || undefined,
+    script: kind.script || undefined,
     channels: stream.channels,
     sampleRate: Number.isFinite(sampleRate) ? sampleRate : undefined,
     width: stream.width,
@@ -206,24 +212,24 @@ export async function probeSource(
      unplayable. Nothing subtitled reaches the browser through the fragments —
      the muxer carries picture and sound and drops the rest — so a track shown
      here is a promise that FFmpeg will be asked for it separately when it is
-     chosen. The shell says which of them it can keep that promise for, in two
-     lists: the ones it can hand over as words, and the ones that are pictures
-     and are shown as pictures. Both play. They are kept apart because they
-     arrive by different routes and are painted differently, and because there
-     is nothing to restyle about a picture.
+     chosen. The shell says which of them it can keep that promise for, in
+     three lists: plain words, a script, and pictures. All three play. They are
+     kept apart because each arrives by its own route and is drawn its own way.
 
-     What is in neither list is a bitmap format nobody has written the reader
-     for yet — DVD subtitles, today. Those appear greyed rather than not at
-     all, because a rip whose only subtitles cannot be shown should say so
-     rather than look like a film nobody subtitled. */
+     What is in none of the three is a format nobody has written the reader for
+     yet — DVD subtitles, today. Those appear greyed rather than not at all,
+     because a rip whose only subtitles cannot be shown should say so rather
+     than look like a film nobody subtitled. */
   const extractable = new Set(payload.cadence?.subtitles ?? []);
   const drawn = new Set(payload.cadence?.pictures ?? []);
+  const scripted = new Set(payload.cadence?.scripts ?? []);
   const tracks = payload.streams
     .map((stream) => {
       if (stream.codec_type !== 'subtitle') return trackFrom(stream, true);
       const index = stream.index ?? -1;
-      const picture = drawn.has(index);
-      return trackFrom(stream, picture || extractable.has(index), picture);
+      const kind = { pictures: drawn.has(index), script: scripted.has(index) };
+      const playable = kind.pictures || kind.script || extractable.has(index);
+      return trackFrom(stream, playable, kind);
     })
     .filter((track): track is MediaTrack => track !== null);
 

@@ -38,6 +38,9 @@ import {
 import { ControlBar } from './ControlBar';
 import { SubtitleOverlay } from './SubtitleOverlay';
 
+/** What a subtitle file may be called. The menu's file picker offers the same. */
+const SUBTITLE_EXTENSIONS = ['srt', 'vtt', 'ass', 'ssa'];
+
 /** Hide the cursor and chrome after this long without pointer movement. */
 const IDLE_MS = 2600;
 
@@ -162,7 +165,7 @@ export function PlayerSurface({
       const file = event.dataTransfer?.files?.[0];
       if (!file) return;
       const ext = file.name.split('.').pop()?.toLowerCase();
-      if (ext !== 'srt' && ext !== 'vtt') return;
+      if (!SUBTITLE_EXTENSIONS.includes(ext ?? '')) return;
       event.preventDefault();
       await features.loadSubtitleFile(file);
     },
@@ -413,6 +416,7 @@ export function PlayerSurface({
         <SubtitleOverlay
           track={features.subtitles.textTrack}
           pictures={features.subtitles.pictures}
+          script={features.subtitles.script}
           style={features.subtitles.style}
           visible={features.subtitles.enabled && !musicMode.enabled}
           lifted={chromeVisible}

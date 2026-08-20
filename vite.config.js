@@ -43,6 +43,10 @@ export default defineConfig({
       ignored: ['**/src-tauri/**', '**/site/**'],
     },
   },
+  /* libass runs in a worker and is loaded as a module, so the worker Vite
+     builds has to be one too. The default is a self-contained script, which
+     the renderer refuses because it starts it with `type: 'module'`. */
+  worker: { format: 'es' },
   envPrefix: ['VITE_', 'TAURI_ENV_'],
   define: {
     __APP_VERSION__: JSON.stringify(version),

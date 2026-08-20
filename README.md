@@ -22,8 +22,8 @@ applied the next time you restart it.
 - Frame-accurate stepping and A–B looping
 - Timestamp bookmarks with notes
 - Subtitles from inside the file — every track it carries, by name and
-  language, words or Blu-ray pictures alike — or from a local `.srt` or
-  `.vtt`, with adjustable timing
+  language: plain text, styled ASS drawn by libass, or Blu-ray pictures — or
+  from a local `.srt`, `.vtt`, `.ass` or `.ssa`, with adjustable timing
 - Plays the rest of the folder: the next file starts when one ends, in the
   order the names read
 - Resumes each video where you stopped
@@ -86,7 +86,7 @@ loop for work that does not touch the desktop shell. Playback there is limited
 to what the browser opens by itself, because the pipeline below lives in the
 shell.
 
-Four things are worth knowing, because none of them has anywhere to say so:
+Five things are worth knowing, because none of them has anywhere to say so:
 
 - Cadence plays what it plays because FFmpeg is bundled with it. The binaries
   are not in the repository: they are 138MB of somebody else's build output and
@@ -94,6 +94,14 @@ Four things are worth knowing, because none of them has anywhere to say so:
   downloads a pinned LGPL build into `src-tauri/ffmpeg/`. The bundler treats
   that directory as a resource, and a build without it produces an installer
   that runs and cannot open a Matroska file.
+
+- Subtitle scripts — ASS and SSA — are drawn by libass, compiled to
+  WebAssembly and shipped as `jassub`. It is the library mpv and VLC draw them
+  with, and it is here for the same reason FFmpeg is: the format has no
+  specification worth the name, so a second implementation would only be a
+  second set of answers. Like FFmpeg it is LGPL, and like FFmpeg it is pinned
+  to an exact version — the player names files inside the package, which is
+  not something a minor release promises to keep still.
 
 - `version` in `src-tauri/tauri.conf.json` is a path to `package.json` rather
   than a number. That file is the only place a version is written, so the

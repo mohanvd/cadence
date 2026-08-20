@@ -1,6 +1,16 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import type { PictureCue, PictureTrack, SubtitleStyle } from '@/hooks';
+import type JASSUB from 'jassub';
+// The renderer's own pieces, named rather than left to be found. A worker and
+// two builds of the same WebAssembly — one using SIMD instructions and one for
+// machines without them — which the library picks between at load.
+import workerUrl from 'jassub/dist/worker/worker.js?worker&url';
+import wasmUrl from 'jassub/dist/wasm/jassub-worker.wasm?url';
+import modernWasmUrl from 'jassub/dist/wasm/jassub-worker-modern.wasm?url';
+// Metrically identical to Arial, which is what a script that names no font it
+// carries is usually asking for.
+import fallbackFont from 'jassub/dist/default.woff2?url';
+import type { PictureCue, PictureTrack, SubtitleScript, SubtitleStyle } from '@/hooks';
 
 /**
  * Draws the active subtitle cues over the video.
@@ -18,13 +28,15 @@ import type { PictureCue, PictureTrack, SubtitleStyle } from '@/hooks';
  * current without painting, and the cues are rendered here as ordinary
  * elements.
  *
- * A Blu-ray's subtitles are not words at all but pictures, and are drawn by
- * `PictureLayer` below instead. The two never appear together: one track is
- * showing, and it is made of one thing or the other.
+ * Two kinds of track go elsewhere. A Blu-ray's subtitles are not words but
+ * pictures, drawn by `PictureLayer`; a script carries its own drawing and is
+ * given to libass in `ScriptLayer`. Only one track shows at a time, and it is
+ * made of one of the three things.
  */
 export function SubtitleOverlay({
   track,
   pictures,
+  script,
   style,
   visible,
   lifted,
@@ -35,6 +47,8 @@ export function SubtitleOverlay({
   track: TextTrack | null;
   /** The showing track, when it is pictures rather than words. */
   pictures: PictureTrack | null;
+  /** The showing track, when it is a script that draws itself. */
+  script: SubtitleScript | null;
   style: SubtitleStyle;
   visible: boolean;
   /** True while the control bar is on screen, which the text steps above. */
@@ -66,6 +80,10 @@ export function SubtitleOverlay({
 
   if (!visible) return null;
 
+  if (script) {
+    return <ScriptLayer script={script} video={video} offset={offset} />;
+  }
+
   if (pictures) {
     return <PictureLayer track={pictures} video={video} lifted={lifted} offset={offset} />;
   }
@@ -90,6 +108,99 @@ export function SubtitleOverlay({
       ))}
     </div>
   );
+}
+
+/**
+ * Draws a subtitle track that is a script.
+ *
+ * ASS is not a subtitle format so much as a small drawing language: a line
+ * carries where it sits, in what face, at what size and angle and colour, how
+ * it is outlined, and how any of that changes over the seconds it is on screen.
+ * It is what a fansub uses to put the translation of a sign onto the sign, and
+ * what a karaoke line is written in.
+ *
+ * None of that survives a conversion to WebVTT, which has no position and no
+ * colours, so Cadence used to keep the sentences and quietly lose the rest —
+ * a sign painted on a wall arrived as a caption underneath the picture with no
+ * indication of what it was labelling.
+ *
+ * What draws it here is libass, compiled to WebAssembly and run in a worker. It
+ * is the same library mpv and VLC draw these with, which is the point: ASS has
+ * no specification worth the name, and its real definition is what libass does
+ * with it. A second implementation would be a second set of answers.
+ */
+function ScriptLayer({
+  script,
+  video,
+  offset,
+}: {
+  script: SubtitleScript;
+  video: HTMLVideoElement | null;
+  /** Seconds the viewer has nudged the cues by. */
+  offset: number;
+}) {
+  const [renderer, setRenderer] = React.useState<JASSUB | null>(null);
+
+  React.useEffect(() => {
+    if (!video) return undefined;
+
+    let live = true;
+    let instance: JASSUB | null = null;
+
+    /* Loaded on demand rather than with the page. The renderer is a couple of
+       megabytes of WebAssembly, and most of what anybody plays has no script
+       in it at all — there is no reason for a film with an `.srt` beside it to
+       pay for a font shaper it will never call. */
+    void import('jassub').then(({ default: JASSUB }) => {
+      if (!live) return;
+      instance = new JASSUB({
+        video,
+        subContent: script.text,
+        // The fonts the film carries for it, and one to fall back on for a
+        // face it names that nobody has.
+        /* The film's own fonts, and the ones it names but expects the machine
+           to have. Both are loaded before the first frame is drawn rather than
+           when libass first misses one: a font that arrives after the frame it
+           was needed for leaves that frame blank, which on a paused picture is
+           a subtitle that simply is not there. */
+        fonts: [...script.fonts, ...facesIn(script.text, script.installed)],
+        /* And the rest of the machine's faces by name, for anything the script
+           asks for in a way not worth parsing. Named, not loaded: the renderer
+           fetches one only if it turns out to want it. */
+        availableFonts: { ...script.installed, 'liberation sans': fallbackFont },
+        defaultFont: 'liberation sans',
+        /* The renderer's own way of finding local fonts asks the person for
+           permission, mid-film, for a question about typography. The shell has
+           already answered it above. */
+        queryFonts: false,
+        workerUrl,
+        wasmUrl,
+        modernWasmUrl,
+        timeOffset: offset,
+      });
+      setRenderer(instance);
+    });
+
+    return () => {
+      live = false;
+      setRenderer(null);
+      void instance?.destroy();
+    };
+    // `offset` is deliberately absent: it is applied below rather than here,
+    // because rebuilding the renderer to nudge the timing by a tenth of a
+    // second would reload the fonts and blank the screen while it did.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [script, video]);
+
+  React.useEffect(() => {
+    if (renderer) renderer.timeOffset = offset;
+  }, [renderer, offset]);
+
+  /* Nothing is rendered here. libass draws onto a canvas of its own, which it
+     puts beside the video element and keeps exactly the size and position of
+     the picture — letterboxing included. Every coordinate in a script is
+     measured against the frame, so that is the only place the canvas can be. */
+  return null;
 }
 
 /**
@@ -192,6 +303,34 @@ function PictureLayer({
       </div>
     </div>
   );
+}
+
+/**
+ * The fonts a script names, as URLs to fetch them from.
+ *
+ * Two places name one: the style definitions at the top, and a `\fn` override
+ * on a line that wants something other than its style's face. What is not here
+ * is anything a script asks for by some other means, which the renderer will
+ * still find by name — this list exists to have the common ones in hand before
+ * the first frame rather than one frame after it.
+ *
+ * A leading `@` marks a face to be drawn vertically, which is a instruction
+ * about the writing and not part of the name.
+ */
+function facesIn(script: string, installed: Record<string, string>): string[] {
+  const named = new Set<string>();
+  const add = (name: string | undefined) => {
+    const face = name?.trim().replace(/^@/, '').toLowerCase();
+    if (face && installed[face]) named.add(installed[face]);
+  };
+
+  for (const line of script.split(/\r?\n/)) {
+    // `Style: Name,Fontname,Fontsize,…`
+    if (line.startsWith('Style:')) add(line.slice(6).split(',')[1]);
+  }
+  for (const [, name] of script.matchAll(/\\fn([^\\}]+)/g)) add(name);
+
+  return [...named];
 }
 
 /**

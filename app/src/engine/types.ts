@@ -55,6 +55,13 @@ export interface MediaTrack {
    * which is why it is marked rather than merely playable.
    */
   pictures?: boolean;
+  /**
+   * A subtitle track that is a script — ASS or SSA — carrying not only the
+   * words but where they go, in what font and at what angle. Drawn by libass
+   * rather than converted, which is what keeps a translated sign on the wall
+   * it is written on.
+   */
+  script?: boolean;
   channels?: number;
   sampleRate?: number;
   width?: number;

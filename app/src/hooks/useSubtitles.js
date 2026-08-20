@@ -1,6 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { loadSubtitleFile } from '../utils/subtitles';
-import { subtitleTrack, pictureSubtitleTrack } from '../lib/desktop';
+import { decodeSubtitle, loadSubtitleFile } from '../utils/subtitles';
+import {
+  subtitleTrack,
+  scriptSubtitleTrack,
+  pictureSubtitleTrack,
+  installedFonts,
+} from '../lib/desktop';
 
 const STORAGE_KEY = 'cadence-subtitle-style';
 
@@ -127,6 +132,16 @@ export function useSubtitles(videoRef, videoEl = null) {
    * @type {[import('../lib/desktop').PictureTrack | null, Function]}
    */
   const [pictures, setPictures] = useState(null);
+
+  /**
+   * A script track, when the chosen one is ASS or SSA.
+   *
+   * The third of three, and like the other two it is set only when the others
+   * are null. A track is words, or a script, or pictures.
+   *
+   * @type {[import('../lib/desktop').SubtitleScript | null, Function]}
+   */
+  const [script, setScript] = useState(null);
   /**
    * The parsed track itself, for the component that draws its active cues.
    */
@@ -271,9 +286,10 @@ export function useSubtitles(videoRef, videoEl = null) {
   const adopt = useCallback(
     (vtt, name, id) => {
       revokeUrl();
-      // The two kinds are mutually exclusive: choosing one track replaces
+      // The three kinds are mutually exclusive: choosing one track replaces
       // whatever was on screen, whether or not it was made of the same stuff.
       setPictures(null);
+      setScript(null);
       const url = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
       urlRef.current = url;
       setLabel(name);
@@ -285,13 +301,49 @@ export function useSubtitles(videoRef, videoEl = null) {
     [revokeUrl]
   );
 
+  /**
+   * Put a script on screen, whatever produced it.
+   *
+   * @param {import('../lib/desktop').SubtitleScript} next
+   * @param {string} name Shown in the menu.
+   * @param {string} id `'file'`, or a demuxer stream index.
+   */
+  const adoptScript = useCallback(
+    (next, name, id) => {
+      revokeUrl();
+      setTrackUrl(null);
+      setPictures(null);
+      setScript(next);
+      setLabel(name);
+      setSourceId(id);
+      setEnabled(true);
+      setOffset(0);
+    },
+    [revokeUrl]
+  );
+
   const loadFile = useCallback(
     async (file) => {
       const ext = file.name.split('.').pop()?.toLowerCase();
+
+      /* A script from disk goes the same way as one from inside a film, and
+         needs the one thing that one does not: its encoding worked out. A
+         `.ass` downloaded from the internet declares nothing about itself. */
+      if (ext === 'ass' || ext === 'ssa') {
+        requestRef.current += 1;
+        adoptScript(
+          { text: decodeSubtitle(await file.arrayBuffer()), fonts: [], installed: await installedFonts() },
+          file.name,
+          'file'
+        );
+        return true;
+      }
+
       if (ext !== 'srt' && ext !== 'vtt') return false;
       requestRef.current += 1;
       revokeUrl();
       setPictures(null);
+      setScript(null);
       const url = await loadSubtitleFile(file);
       urlRef.current = url;
       setLabel(file.name);
@@ -301,7 +353,7 @@ export function useSubtitles(videoRef, videoEl = null) {
       setOffset(0);
       return true;
     },
-    [revokeUrl]
+    [revokeUrl, adoptScript]
   );
 
   /**
@@ -365,6 +417,7 @@ export function useSubtitles(videoRef, videoEl = null) {
         if (request !== requestRef.current) return { ok: false };
         revokeUrl();
         setTrackUrl(null);
+        setScript(null);
         setPictures(track);
         setLabel(name);
         setSourceId(String(index));
@@ -379,6 +432,40 @@ export function useSubtitles(videoRef, videoEl = null) {
       }
     },
     [revokeUrl]
+  );
+
+  /**
+   * Show a subtitle track that is a script rather than plain words.
+   *
+   * ASS carries the drawing along with the sentences — where each line sits, in
+   * what face, at what angle, in what colour, and how it moves. Converting it
+   * to WebVTT keeps the words and loses the rest, which is why this route
+   * exists: the script is handed to libass, unchanged, along with whatever
+   * fonts the film carries for it.
+   *
+   * @param {string} path The file being played.
+   * @param {number} index Demuxer stream index of the subtitle track.
+   * @param {string} name Shown in the menu.
+   * @returns {Promise<{ ok: boolean, error?: string }>}
+   */
+  const loadScript = useCallback(
+    async (path, index, name) => {
+      requestRef.current += 1;
+      const request = requestRef.current;
+      setPendingId(String(index));
+      try {
+        const next = await scriptSubtitleTrack(path, index);
+        if (request !== requestRef.current) return { ok: false };
+        adoptScript(next, name, String(index));
+        return { ok: true };
+      } catch (err) {
+        if (request !== requestRef.current) return { ok: false };
+        return { ok: false, error: String(err) };
+      } finally {
+        if (request === requestRef.current) setPendingId(null);
+      }
+    },
+    [adoptScript]
   );
 
   const changeOffset = useCallback((delta) => {
@@ -417,9 +504,9 @@ export function useSubtitles(videoRef, videoEl = null) {
   }, []);
 
   const toggle = useCallback(() => {
-    if (!trackUrl && !pictures) return;
+    if (!trackUrl && !pictures && !script) return;
     setEnabled((v) => !v);
-  }, [trackUrl, pictures]);
+  }, [trackUrl, pictures, script]);
 
   const clear = useCallback(() => {
     // Bumped so an extraction still running is disowned rather than adopted
@@ -428,6 +515,7 @@ export function useSubtitles(videoRef, videoEl = null) {
     revokeUrl();
     setTrackUrl(null);
     setPictures(null);
+    setScript(null);
     setLabel('Subtitles');
     setSourceId(null);
     setPendingId(null);
@@ -444,11 +532,13 @@ export function useSubtitles(videoRef, videoEl = null) {
     loading: pendingId !== null,
     enabled,
     pictures,
-    hasSubtitles: !!trackUrl || !!pictures,
+    script,
+    hasSubtitles: !!trackUrl || !!pictures || !!script,
     offset,
     style,
     loadFile,
     loadEmbedded,
+    loadScript,
     loadPictures,
     toggle,
     clear,

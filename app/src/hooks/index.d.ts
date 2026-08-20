@@ -59,6 +59,19 @@ export interface SubtitleStyle {
 export type SubtitleOption<T> = { value: T; label: string };
 
 
+/** A subtitle track that is a script, with the fonts it asks for. */
+export interface SubtitleScript {
+  /** The ASS document itself. */
+  text: string;
+  /** URLs of the fonts the film carries for it. */
+  fonts: string[];
+  /**
+   * Every font on this machine, by name. For the faces a script names and
+   * assumes are installed, which the webview may not read for itself.
+   */
+  installed: Record<string, string>;
+}
+
 /** One drawn subtitle, and where on the authoring canvas it belongs. */
 export interface PictureCue {
   start: number;
@@ -108,12 +121,23 @@ export interface SubtitlesApi {
    * browser parses, the other a list the overlay walks itself.
    */
   pictures: PictureTrack | null;
+  /**
+   * The showing track, when it is a script — ASS or SSA — that carries its own
+   * drawing. Never set at the same time as the other two.
+   */
+  script: SubtitleScript | null;
   hasSubtitles: boolean;
   offset: number;
   style: SubtitleStyle;
   loadFile: (file: File) => Promise<boolean>;
   /** Extract a subtitle stream from the file being played, and show it. */
   loadEmbedded: (
+    path: string,
+    index: number,
+    label: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  /** The same, for a stream whose subtitles are a script libass draws. */
+  loadScript: (
     path: string,
     index: number,
     label: string,

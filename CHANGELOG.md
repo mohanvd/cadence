@@ -5,6 +5,56 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- ASS and SSA subtitles are drawn as they were written. The format is not a
+  subtitle format so much as a small drawing language: a line carries where it
+  sits on the frame, in what face, at what size and angle and colour, how it is
+  outlined, and how any of that changes while it is on screen. It is what a
+  translated sign is written in, and what puts the translation onto the sign
+  rather than under the picture.
+
+  Cadence used to convert these to WebVTT, which has none of that. The
+  sentences arrived and everything else was quietly dropped, so a sign painted
+  on a wall came out as a caption at the bottom with no indication of what it
+  was labelling, and a line of karaoke came out as a line of text.
+
+  They are given to libass now, unconverted. It is the library mpv and VLC draw
+  these with, and using it rather than writing another one is the whole point:
+  ASS has no specification worth the name, and its real definition is what
+  libass does with it.
+
+- The fonts a script asks for. Two sources, because scripts use both: the faces
+  a rip carries inside itself, extracted from the file, and the faces it names
+  and assumes the machine has, read from the machine.
+
+  The second half is not a nicety. libass runs inside the webview, and a
+  webview may not read the fonts on the computer it is running on without
+  asking permission first — a question nobody can answer usefully, asked in the
+  middle of a film. So the shell reads them, which it is an ordinary program
+  and perfectly allowed to do, and hands over the ones asked for. Without it an
+  Arabic subtitle is drawn in a font with no Arabic in it and every letter
+  arrives as an empty box.
+
+  The faces a script names are fetched before the first frame rather than when
+  the renderer first misses one, because a font that arrives after the frame it
+  was wanted for leaves that frame blank.
+
+- `.ass` and `.ssa` files from disk, dropped on the window or chosen from the
+  menu, alongside `.srt` and `.vtt`. They are read with the same encoding
+  detection, which they need for the same reason: a script downloaded from the
+  internet declares nothing about how it was written.
+
+### Changed
+
+- The appearance settings are offered only for subtitles Cadence draws itself.
+  A script chooses its own fonts and colours and positions, and a Blu-ray's
+  were drawn once by the disc; for those the panel holds only Timing, and
+  Timing only for a file from disk. Overriding either would be answering a
+  question the author already answered.
+
 ## [0.4.1] - 2026-08-20
 
 ### Added

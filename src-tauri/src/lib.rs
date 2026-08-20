@@ -5,6 +5,7 @@ use std::sync::Mutex;
 #[cfg(desktop)]
 use tauri::{Emitter, Manager};
 
+mod fonts;
 mod media;
 mod pgs;
 
@@ -93,6 +94,44 @@ async fn media_subtitle(
         Some(media) => media.subtitle(&path, index).await,
         None => Err("playback support is not available".into()),
     }
+}
+
+/// One subtitle track as the script it already is, styles and all.
+///
+/// Separate from `media_subtitle` because they answer different questions. That
+/// one asks for the sentences and gets WebVTT; this asks for the whole script —
+/// where each line goes, in what font, at what angle — and gets ASS, which is
+/// what libass in the page reads.
+/// Every font installed on this machine, by name.
+///
+/// Handed to the renderer as the list of what it may ask for, rather than as
+/// the fonts themselves: a machine has hundreds and a script wants three, so
+/// they are named here and fetched one at a time as libass finds it needs them.
+#[tauri::command]
+fn media_font_names() -> Vec<&'static str> {
+    fonts::names()
+}
+
+/// The fonts come with it. A script that names a face the machine does not have
+/// is drawn in something else, which for a sign painted onto a wall is the
+/// difference between a translation and a caption — so the rip carries the
+/// fonts, and they are no use to the page unless it is told they are there.
+#[tauri::command]
+async fn media_script(
+    state: tauri::State<'_, MediaState>,
+    path: String,
+    index: u32,
+) -> Result<serde_json::Value, String> {
+    let Some(media) = pipeline(&state).await else {
+        return Err("playback support is not available".into());
+    };
+
+    let script = media.script(&path, index).await?;
+    // A film with no fonts attached is ordinary, not an error: most subtitles
+    // ask for faces every machine already has.
+    let fonts = media.fonts(&path).await.unwrap_or_default();
+
+    Ok(serde_json::json!({ "script": script, "fonts": fonts }))
 }
 
 /// The shape of a picture subtitle track: when each line appears, where on the
@@ -308,6 +347,8 @@ pub fn run() {
             media_endpoint,
             media_probe,
             media_subtitle,
+            media_script,
+            media_font_names,
             media_pictures,
             folder_playlist
         ])

@@ -44,6 +44,11 @@ tokio = { version = "1", features = ["io-util", "net", "process", "rt", "time"] 
 # on the screen. Already in Tauri's tree, so this costs no extra build either.
 png = "0.17"
 
+# The fonts a subtitle script asks for live where Windows records them, and the
+# webview is not allowed to look. Already in Tauri's tree.
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+
 # Desktop-only. The updater has no meaning on mobile, where the store owns
 # installation, and single-instance is a windowing concept that does not exist
 # there either.
