@@ -3,7 +3,7 @@ import { formatFileSize } from '../../utils/formatFileSize';
 import { formatRelativeTime } from '../../utils/formatRelativeTime';
 
 /**
- * Recently opened videos, as cards rather than a text list.
+ * Recently opened files, as cards rather than a text list.
  *
  * A tile shows a frame from the file itself, sampled once when the file was
  * opened and kept beside the entry. Entries added before that existed, and
@@ -17,7 +17,7 @@ export default function RecentRail({ files, onOpen }) {
       <header className="xn-section__head">
         <h2 className="xn-section__title">Recent</h2>
         <span className="xn-section__meta">
-          {files.length} {files.length === 1 ? 'video' : 'videos'}
+          {files.length} {files.length === 1 ? 'file' : 'files'}
         </span>
       </header>
 

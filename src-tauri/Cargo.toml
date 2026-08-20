@@ -3,7 +3,7 @@ name = "cadence"
 # Not what the installer is versioned from: see `version` in tauri.conf.json,
 # which reads package.json. This one only names the crate.
 version = "0.1.0"
-description = "A keyboard-first video player."
+description = "A keyboard-first media player."
 authors = ["Mohanad Tarek"]
 edition = "2021"
 rust-version = "1.77.2"

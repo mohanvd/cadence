@@ -279,11 +279,25 @@ async function attempt(
        knowing that, rather than showing an apology built on the same wrong
        assumption. */
     if (fatal && recoveries < MAX_RECOVERIES) {
-      const next = learn(source, probe, options.forceStream ?? false);
-      if (next) {
-        void attempt(source, container, token, next, recoveries + 1);
-        return;
-      }
+      /* Except when the file has gone. A codec verdict is learned from a
+         failure and kept for good, and a file that is not on the disk is a
+         failure that says nothing about any codec — but it looks identical
+         from in here, because the browser reports what it cannot fetch and
+         what it cannot decode as the same error. Distrusting H.264 because
+         somebody deleted one H.264 file is how every film afterwards ends up
+         re-encoded, permanently, for a reason nobody can see. */
+      void stillOnDisk(source).then((there) => {
+        if (token !== loadToken) return;
+        const next = there ? learn(source, probe, options.forceStream ?? false) : null;
+        if (next) {
+          void attempt(source, container, token, next, recoveries + 1);
+          return;
+        }
+        void whyItFailed(source, message).then((reason) => {
+          if (token === loadToken) set({ error: reason, loading: false });
+        });
+      });
+      return;
     }
 
     void whyItFailed(source, message).then((reason) => {
@@ -355,9 +369,19 @@ async function attempt(
  * this is not one of them.
  */
 async function whyItFailed(source: MediaSourceInput, message: string): Promise<string> {
-  if (source.kind !== 'path') return message;
-  if (await fileIsThere(source.path)) return message;
+  if (await stillOnDisk(source)) return message;
   return 'It is not where it was. The file may have been moved, renamed, or deleted since it was last opened.';
+}
+
+/**
+ * Whether the failure could have been about the file's contents at all.
+ *
+ * True for anything that is not a path, because a link has its own reasons and
+ * the shell cannot look at it.
+ */
+async function stillOnDisk(source: MediaSourceInput): Promise<boolean> {
+  if (source.kind !== 'path') return true;
+  return fileIsThere(source.path);
 }
 
 export const usePlayerStore = create<PlayerStore>((set, get) => ({

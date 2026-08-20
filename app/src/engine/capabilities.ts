@@ -43,7 +43,6 @@ export function toCodecString(codec: string): string | null {
 
 /** What FFmpeg produces when it has to replace a track it cannot copy. */
 const CONVERTED_VIDEO = 'avc1.64001E';
-const CONVERTED_AUDIO = 'mp4a.40.2';
 
 /**
  * The MIME type to declare before appending a single byte of the stream.
@@ -57,10 +56,25 @@ const CONVERTED_AUDIO = 'mp4a.40.2';
  * for here. Codecs whose place is really WebM, the VP family, are converted on
  * the way rather than carried into a box that would need a configuration atom
  * nothing can reliably rebuild from a Matroska source.
+ *
+ * `audio/mp4` rather than `video/mp4` for a file with no picture, and it is not
+ * a cosmetic difference: Chromium answers the two separately, and it takes
+ * FLAC and Opus under the audio spelling while refusing them under the video
+ * one. Declaring an album as video is how a lossless track ends up converted to
+ * AAC for no reason anybody could have found.
  */
 export function mseCodecString(
   tracks: readonly { type: string; codec: string }[],
-  { copyVideo = true, copyAudio = true }: { copyVideo?: boolean; copyAudio?: boolean } = {},
+  {
+    copyVideo = true,
+    copyAudio = true,
+    /* What a converted audio track will arrive as. AAC for anything that was
+       already lossy, FLAC for anything that was not — and the shell decides
+       which, per track, because it is the one running the encoder. A default
+       here would be a second opinion, so this one is only the value used when
+       there is no track to have an opinion about. */
+    audioFallback = 'mp4a.40.2',
+  }: { copyVideo?: boolean; copyAudio?: boolean; audioFallback?: string } = {},
 ): string {
   const video = tracks.find((track) => track.type === 'video');
   const audio = tracks.find((track) => track.type === 'audio');
@@ -71,12 +85,12 @@ export function mseCodecString(
     parts.push((copyVideo && toCodecString(video.codec)) || CONVERTED_VIDEO);
   }
   if (audio) {
-    parts.push((copyAudio && toCodecString(audio.codec)) || CONVERTED_AUDIO);
+    parts.push((copyAudio && toCodecString(audio.codec)) || audioFallback);
   }
 
   // A file with neither is not something to build a buffer for, but the caller
   // checks `isTypeSupported` and will get a clean refusal rather than a crash.
-  return `video/mp4; codecs="${parts.join(',')}"`;
+  return `${video ? 'video' : 'audio'}/mp4; codecs="${parts.join(',')}"`;
 }
 
 /**
@@ -95,6 +109,18 @@ export function containerCodecString(
   containerMime: string,
   tracks: readonly { type: string; codec: string }[],
 ): string | null {
+  /* Except where the container already answers it. These hold one codec and
+     only ever that one, so there is nothing for a `codecs=` to disambiguate —
+     and Chromium, measured in this webview, treats the redundant spelling as a
+     type it has never heard of:
+
+       canPlayType('audio/flac')                 -> "probably"
+       canPlayType('audio/flac; codecs="flac"')  -> ""
+
+     Saying more than is needed is how a FLAC the element would have played
+     from disk gets sent through FFmpeg instead. */
+  if (SINGLE_CODEC_CONTAINERS.has(containerMime)) return containerMime;
+
   const parts: string[] = [];
   for (const kind of ['video', 'audio'] as const) {
     const track = tracks.find((t) => t.type === kind);
@@ -105,6 +131,9 @@ export function containerCodecString(
   }
   return parts.length ? `${containerMime}; codecs="${parts.join(',')}"` : containerMime;
 }
+
+/** Containers that carry exactly one codec, so naming it says nothing new. */
+const SINGLE_CODEC_CONTAINERS = new Set(['audio/mpeg', 'audio/flac', 'audio/wav', 'audio/aac']);
 
 const elementCache = new Map<string, boolean>();
 const sourceCache = new Map<string, boolean>();
@@ -141,7 +170,17 @@ export function canPlayNatively(mime: string): boolean {
   return supported;
 }
 
-/** Container extensions a plain `<video>` element can demux. */
+/**
+ * Container extensions a plain `<video>` element can demux.
+ *
+ * The audio half of this list is what lets an album play with no second
+ * process at all: an MP3 or a FLAC goes straight to the element, decoded by
+ * the same code the browser uses for every other sound it makes, and FFmpeg is
+ * never started. Anything absent here — Windows Media Audio, Monkey's Audio,
+ * AIFF, an ALAC rip — takes the stream route instead and arrives
+ * repackaged. AIFF is absent on purpose: this webview answers "no" to every
+ * spelling of it, so a mapping for it would be a claim that is never true.
+ */
 const NATIVE_CONTAINERS: Record<string, string> = {
   mp4: 'video/mp4',
   m4v: 'video/mp4',
@@ -149,10 +188,14 @@ const NATIVE_CONTAINERS: Record<string, string> = {
   ogv: 'video/ogg',
   mov: 'video/quicktime',
   m4a: 'audio/mp4',
+  m4b: 'audio/mp4',
   mp3: 'audio/mpeg',
   oga: 'audio/ogg',
+  ogg: 'audio/ogg',
+  opus: 'audio/ogg',
   wav: 'audio/wav',
   flac: 'audio/flac',
+  aac: 'audio/aac',
 };
 
 export function nativeMimeForExtension(ext: string): string | null {

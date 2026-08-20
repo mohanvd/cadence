@@ -2,7 +2,7 @@ import { toPlayableUrl } from '@/lib/desktop';
 import { BaseBackend } from '../BaseBackend';
 import { audioChain } from '../audioChain';
 import { createVideoElement } from '../createVideoElement';
-import type { BackendKind, MediaSourceInput, MediaTrack } from '../types';
+import type { BackendKind, MediaSourceInput, MediaTrack, ProbeResult } from '../types';
 
 /**
  * Plays a source with a plain `<video>` element.
@@ -17,6 +17,22 @@ export class NativeBackend extends BaseBackend {
   private objectUrl: string | null = null;
   private detachListeners: (() => void) | null = null;
   private readonly chain = audioChain;
+  /**
+   * What inspection found, for the questions the element cannot answer.
+   *
+   * A plain element will say how wide the picture is and nothing else: not the
+   * codec, not the channel count, not whether there is a second audio track it
+   * has quietly chosen between. FFmpeg has already been asked all of that by
+   * the time a backend exists, and throwing the answer away to re-derive a
+   * worse one from the element is how an album came to be described as a video
+   * track in a codec called "native".
+   */
+  private readonly probed: readonly MediaTrack[];
+
+  constructor(probe?: ProbeResult) {
+    super();
+    this.probed = probe?.tracks ?? [];
+  }
 
   protected onAttach(container: HTMLElement): void {
     const video = createVideoElement();
@@ -97,55 +113,45 @@ export class NativeBackend extends BaseBackend {
   }
 
   /**
-   * Enumerate tracks the browser exposes.
+   * Enumerate the tracks this source has.
    *
-   * `audioTracks` is still unshipped in Chrome, so most native sources report a
-   * single implicit track. That is accurate rather than limiting: a container
-   * the browser demuxes natively is one whose extra tracks it also hides.
+   * The inspection first, because it is the better answer to every part of the
+   * question: real codec names, real channel counts, and — the part that
+   * matters most here — no video track for a file that has none. A plain
+   * element hides all of that. `audioTracks` is still unshipped in Chrome, so
+   * asking the element yields one nameless entry regardless of what is inside.
+   *
+   * What is left is the case with no inspection to draw on: a `File` handed in
+   * through a browser tab, where there is no shell to ask and the element is
+   * the only witness there is. Then it is asked, and the picture is claimed
+   * only if there is one — a video track invented for an audio file is what
+   * puts a black rectangle where the now-playing card belongs.
    */
   private readNativeTracks(video: HTMLVideoElement): MediaTrack[] {
-    const tracks: MediaTrack[] = [];
+    if (this.probed.length > 0) return [...this.probed];
 
-    const audioTracks = (video as unknown as { audioTracks?: ArrayLike<{
-      id: string;
-      label: string;
-      language: string;
-      enabled: boolean;
-    }> }).audioTracks;
-
-    if (audioTracks && audioTracks.length > 0) {
-      for (let i = 0; i < audioTracks.length; i += 1) {
-        const t = audioTracks[i]!;
-        tracks.push({
-          id: t.id || String(i),
-          type: 'audio',
-          codec: 'native',
-          language: t.language || undefined,
-          label: t.label || undefined,
-          default: t.enabled,
-          playable: true,
-        });
-      }
-    } else {
-      tracks.push({
+    const tracks: MediaTrack[] = [
+      {
         id: '0',
         type: 'audio',
         codec: 'native',
         label: 'Default',
         default: true,
         playable: true,
+      },
+    ];
+
+    if (video.videoWidth > 0) {
+      tracks.push({
+        id: 'v0',
+        type: 'video',
+        codec: 'native',
+        width: video.videoWidth,
+        height: video.videoHeight,
+        default: true,
+        playable: true,
       });
     }
-
-    tracks.push({
-      id: 'v0',
-      type: 'video',
-      codec: 'native',
-      width: video.videoWidth,
-      height: video.videoHeight,
-      default: true,
-      playable: true,
-    });
 
     return tracks;
   }

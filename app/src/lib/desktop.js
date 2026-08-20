@@ -137,40 +137,67 @@ export function onFileDrop({ onOver, onLeave, onDrop }) {
   };
 }
 
+/** Containers the dialog will show, by the name of the group they sit under. */
+const VIDEO = [
+  'mp4',
+  'mkv',
+  'webm',
+  'mov',
+  'avi',
+  'm4v',
+  'wmv',
+  'flv',
+  'ts',
+  'm2ts',
+  'mts',
+  'mpg',
+  'mpeg',
+  '3gp',
+  'ogv',
+];
+
+const AUDIO = [
+  'mp3',
+  'm4a',
+  'm4b',
+  'flac',
+  'wav',
+  'opus',
+  'ogg',
+  'oga',
+  'aac',
+  'wma',
+  'aiff',
+  'aif',
+  'ape',
+  'wv',
+  'mka',
+];
+
 /**
- * Ask the operating system for a video file, returning its path.
+ * Ask the operating system for a file to play, returning its path.
  *
  * The native dialog replaces `showOpenFilePicker`, which WebView2 does not
  * implement. It is also the better of the two: a path stays valid across
  * restarts, where a browser file handle needs its permission re-granted.
  *
+ * Three filters rather than one. The first is what somebody opening the dialog
+ * almost always wants — everything Cadence plays, so that a film and the album
+ * beside it are both visible without changing anything. The two below it are
+ * for the times you know which of the two you are looking for and would rather
+ * not read past the other.
+ *
  * @returns {Promise<string | null>}
  */
-export async function pickVideoFile() {
+export async function pickMediaFile() {
   const { open } = await import('@tauri-apps/plugin-dialog');
   const selected = await open({
     multiple: false,
     directory: false,
     filters: [
-      {
-        name: 'Video',
-        extensions: [
-          'mp4',
-          'mkv',
-          'webm',
-          'mov',
-          'avi',
-          'm4v',
-          'wmv',
-          'flv',
-          'ts',
-          'm2ts',
-          'mpg',
-          'mpeg',
-          '3gp',
-          'ogv',
-        ],
-      },
+      { name: 'Media', extensions: [...VIDEO, ...AUDIO] },
+      { name: 'Video', extensions: VIDEO },
+      { name: 'Audio', extensions: AUDIO },
     ],
   });
   return typeof selected === 'string' ? selected : null;

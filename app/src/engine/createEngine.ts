@@ -33,11 +33,12 @@ export async function createEngine(
       reason: 'could not inspect the file; trying the browser directly',
       copyVideo: true,
       copyAudio: true,
+      audioFallbacks: {},
     };
   }
 
   return {
-    engine: probe.backend === 'stream' ? new StreamBackend(probe) : new NativeBackend(),
+    engine: probe.backend === 'stream' ? new StreamBackend(probe) : new NativeBackend(probe),
     probe,
   };
 }

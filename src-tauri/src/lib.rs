@@ -193,16 +193,25 @@ fn file_is_there(path: String) -> bool {
     std::path::Path::new(&path).is_file()
 }
 
-/// Extensions Cadence will open, for deciding what counts as the next video.
+/// Extensions Cadence will open, for deciding what counts as the next file.
 ///
 /// The same list the installer registers Cadence for. It is deliberately the
 /// file's name rather than its contents: this runs over a whole folder, and
 /// inspecting every file in a season of television to find out which are video
 /// would cost far more than believing the extension and being wrong about a
 /// stray one.
-const VIDEO_EXTENSIONS: &[&str] = &[
+///
+/// One list rather than two, and that is the decision worth explaining. A
+/// folder is a queue here, and a folder of music is a queue in exactly the way
+/// a season of television is: named in the order it should play. Splitting the
+/// list would mean a video that happens to sit beside an album silently ends
+/// the queue, which is a rule nobody asked for and nobody could see.
+const MEDIA_EXTENSIONS: &[&str] = &[
+    // Video.
     "mp4", "mkv", "webm", "mov", "avi", "m4v", "wmv", "flv", "ts", "m2ts", "mts", "mpg", "mpeg",
-    "3gp", "ogv",
+    "3gp", "ogv", // Audio.
+    "mp3", "m4a", "m4b", "flac", "wav", "opus", "ogg", "oga", "aac", "wma", "aiff", "aif", "ape",
+    "wv", "mka",
 ];
 
 /// Compare two names the way a person reads them.
@@ -254,12 +263,12 @@ fn natural_order(a: &str, b: &str) -> std::cmp::Ordering {
     }
 }
 
-/// Every video in the same folder as `path`, in the order they should play.
+/// Everything playable in the same folder as `path`, in the order it should play.
 ///
 /// This is what makes one file into a queue. Nothing is remembered between
-/// launches and no list is built by hand: the folder a film was opened from is
-/// the playlist, which is how a season of television is already organised on
-/// everyone's disk.
+/// launches and no list is built by hand: the folder a file was opened from is
+/// the playlist, which is how a season of television and an album are both
+/// already organised on everyone's disk.
 ///
 /// An empty list is returned for anything unreadable — a file on a drive that
 /// has since been unplugged, a folder without permission. The player then has
@@ -274,7 +283,7 @@ fn folder_playlist(path: String) -> Vec<String> {
         return Vec::new();
     };
 
-    let mut videos: Vec<std::path::PathBuf> = entries
+    let mut playable: Vec<std::path::PathBuf> = entries
         .flatten()
         .map(|entry| entry.path())
         .filter(|candidate| {
@@ -282,20 +291,20 @@ fn folder_playlist(path: String) -> Vec<String> {
                 && candidate
                     .extension()
                     .and_then(|ext| ext.to_str())
-                    .is_some_and(|ext| VIDEO_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+                    .is_some_and(|ext| MEDIA_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
         })
         .collect();
 
-    videos.sort_by(|a, b| {
+    playable.sort_by(|a, b| {
         natural_order(
             &a.file_name().unwrap_or_default().to_string_lossy(),
             &b.file_name().unwrap_or_default().to_string_lossy(),
         )
     });
 
-    videos
+    playable
         .into_iter()
-        .map(|video| video.to_string_lossy().into_owned())
+        .map(|file| file.to_string_lossy().into_owned())
         .collect()
 }
 
@@ -499,12 +508,12 @@ mod playlist_tests {
         assert_eq!(natural_order("part", "part 2"), Ordering::Less);
     }
 
-    /// The whole command over a real folder: the videos, in order, and nothing
-    /// that is not a video. The subtitle and the cover art sitting beside a
-    /// download are the reason for the filter, and they are next to every
-    /// episode anybody has.
+    /// The whole command over a real folder: what plays, in order, and nothing
+    /// that does not. The subtitle and the cover art sitting beside a download
+    /// are the reason for the filter, and they are next to every episode
+    /// anybody has.
     #[test]
-    fn a_folder_lists_its_videos_in_reading_order() {
+    fn a_folder_lists_what_it_can_play_in_reading_order() {
         let folder = std::env::temp_dir().join(format!(
             "cadence-playlist-{}",
             std::time::SystemTime::now()
@@ -540,6 +549,49 @@ mod playlist_tests {
 
         std::fs::remove_dir_all(&folder).ok();
         assert_eq!(names, ["Episode 1.avi", "Episode 2.mp4", "Episode 10.mkv"]);
+    }
+
+    /// A folder of music is a queue in the same way a season is, and the
+    /// filter that keeps `cover.jpg` out must not also keep the album out.
+    #[test]
+    fn a_folder_of_music_is_a_queue_too() {
+        let folder = std::env::temp_dir().join(format!(
+            "cadence-album-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&folder).unwrap();
+
+        for name in [
+            "10 Closing.flac",
+            "02 Second.mp3",
+            "01 Opening.m4a",
+            "folder.jpg",
+            "album.nfo",
+        ] {
+            std::fs::write(folder.join(name), b"").unwrap();
+        }
+
+        let listed =
+            super::folder_playlist(folder.join("01 Opening.m4a").to_string_lossy().into_owned());
+        let names: Vec<String> = listed
+            .iter()
+            .map(|path| {
+                std::path::Path::new(path)
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+
+        std::fs::remove_dir_all(&folder).ok();
+        assert_eq!(
+            names,
+            ["01 Opening.m4a", "02 Second.mp3", "10 Closing.flac"]
+        );
     }
 
     /// A path with no folder above it must not panic, and must offer nothing.

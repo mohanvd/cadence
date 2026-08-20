@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { getRecentFiles, setRecentPoster } from '../utils/storage';
 import { capturePoster } from '../utils/poster';
-import { isDesktop, pickVideoFile, onFileDrop } from '../lib/desktop';
+import { isDesktop, pickMediaFile, onFileDrop } from '../lib/desktop';
 
 /**
  * Containers Cadence opens.
@@ -10,6 +10,13 @@ import { isDesktop, pickVideoFile, onFileDrop } from '../lib/desktop';
  * that was not true before: the shell claimed avi, wmv, flv and half a dozen
  * others while the player accepted four, so double-clicking an .avi opened a
  * window that then failed on it.
+ *
+ * It was also, until now, only video — which is what everyone who tried to
+ * play an album here ran into. Not a codec problem and not a decoder problem:
+ * the file was turned away at the door by this list, with a sentence saying
+ * Cadence does not open .mp3 files, about a format it has always been able to
+ * decode. Everything below the divider was already playable and merely
+ * unwelcome.
  *
  * The four shown on the drop card are still four. A wall of extensions is not
  * information, and the ones named are the ones people arrive holding.
@@ -30,13 +37,39 @@ export const ACCEPTED_TYPES = [
   '.mpeg',
   '.3gp',
   '.ogv',
+  // Sound.
+  '.mp3',
+  '.m4a',
+  '.m4b',
+  '.flac',
+  '.wav',
+  '.opus',
+  '.ogg',
+  '.oga',
+  '.aac',
+  '.wma',
+  '.aiff',
+  '.aif',
+  '.ape',
+  '.wv',
+  '.mka',
 ];
 
 /** The few the drop card names, in the order it names them. */
-export const HEADLINE_TYPES = ['MP4', 'MKV', 'WEBM', 'MOV'];
+export const HEADLINE_TYPES = ['MP4', 'MKV', 'MP3', 'FLAC'];
 
-const ACCEPTED_MIME = ['video/mp4', 'video/webm', 'video/x-matroska', 'video/quicktime'];
-const URL_PATTERN = /^https?:\/\/.+\.(mp4|webm|mkv|mov)(\?.*)?$/i;
+const ACCEPTED_MIME = [
+  'video/mp4',
+  'video/webm',
+  'video/x-matroska',
+  'video/quicktime',
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/flac',
+  'audio/wav',
+  'audio/ogg',
+];
+const URL_PATTERN = /^https?:\/\/.+\.(mp4|webm|mkv|mov|mp3|m4a|flac|opus|ogg|wav)(\?.*)?$/i;
 
 /**
  * Every way a video can enter the app: dropped, picked, pasted as a URL, or
@@ -194,7 +227,7 @@ export function useVideoIntake({
     // back a path. In a browser tab there is only the bare input below, which
     // forgets the file the moment it is closed.
     if (isDesktop()) {
-      const path = await pickVideoFile();
+      const path = await pickMediaFile();
       if (path) onPathSelect?.(path);
       return;
     }
@@ -214,8 +247,8 @@ export function useVideoIntake({
     const trimmed = urlInput.trim();
     onClearUrlError?.();
     if (!trimmed) return;
-    if (!URL_PATTERN.test(trimmed) && !trimmed.match(/\.(mp4|webm|mkv|mov)/i)) {
-      fail('Enter a direct video URL (.mp4, .webm, .mkv, .mov)');
+    if (!URL_PATTERN.test(trimmed) && !trimmed.match(/\.(mp4|webm|mkv|mov|mp3|m4a|flac|opus|ogg|wav)/i)) {
+      fail('Enter a direct link to a file (.mp4, .mkv, .mp3, .flac and the like)');
       return;
     }
     onUrlSelect(trimmed);

@@ -26,7 +26,7 @@ export default function DropCard({
         <span className="xn-drop__icon">
           <Icon name="dropTarget" size={34} />
         </span>
-        <span className="xn-drop__title">Drop a video here</span>
+        <span className="xn-drop__title">Drop something to play</span>
         <span className="xn-drop__hint">
           or <span className="xn-drop__hint-link">browse your files</span>
         </span>
@@ -55,9 +55,9 @@ export default function DropCard({
           type="url"
           value={urlInput}
           onChange={(e) => onUrlChange(e.target.value)}
-          placeholder="https://example.com/video.mp4"
+          placeholder="https://example.com/track.mp3"
           className="xn-url__input"
-          aria-label="Direct video URL"
+          aria-label="Direct link to a file"
         />
         <button
           type="submit"

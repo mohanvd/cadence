@@ -43,8 +43,8 @@
     "publisher": "Auva",
     "copyright": "Copyright © 2026 Mohanad Tarek",
     "category": "Video",
-    "shortDescription": "A keyboard-first video player.",
-    "longDescription": "Cadence is a keyboard-first video player that plays what the browser can't.",
+    "shortDescription": "A keyboard-first media player.",
+    "longDescription": "Cadence is a keyboard-first media player that plays what the browser can't.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -73,6 +73,28 @@
         ],
         "name": "Video",
         "description": "Video file",
+        "role": "Viewer"
+      },
+      {
+        "ext": [
+          "mp3",
+          "m4a",
+          "m4b",
+          "flac",
+          "wav",
+          "opus",
+          "ogg",
+          "oga",
+          "aac",
+          "wma",
+          "aiff",
+          "aif",
+          "ape",
+          "wv",
+          "mka"
+        ],
+        "name": "Audio",
+        "description": "Audio file",
         "role": "Viewer"
       }
     ],

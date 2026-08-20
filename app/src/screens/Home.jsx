@@ -80,10 +80,10 @@ export default function Home({
         <input
           ref={intake.fileInputRef}
           type="file"
-          accept=".mp4,.webm,.mkv,.mov,video/*"
+          accept=".mp4,.webm,.mkv,.mov,.mp3,.m4a,.flac,.wav,.opus,.ogg,video/*,audio/*"
           className="hidden"
           onChange={intake.handleFileInput}
-          aria-label="Select video file"
+          aria-label="Select a file to play"
         />
       )}
 

@@ -6,6 +6,7 @@ import {
   mediaSourceAccepts,
   mseCodecString,
   nativeMimeForExtension,
+  toCodecString,
 } from './capabilities';
 import { decodes } from './decoding';
 import type { BackendKind, MediaSourceInput, MediaTrack, ProbeResult } from './types';
@@ -27,7 +28,7 @@ import type { BackendKind, MediaSourceInput, MediaTrack, ProbeResult } from './t
  */
 
 /** What ffprobe reports for one stream. Only the fields Cadence reads. */
-interface ProbeStream {
+export interface ProbeStream {
   index?: number;
   codec_type?: string;
   codec_name?: string;
@@ -50,6 +51,7 @@ interface ProbePayload {
     subtitles?: number[];
     pictures?: number[];
     scripts?: number[];
+    audioFallbacks?: Record<string, string>;
   };
 }
 
@@ -78,6 +80,7 @@ function route(
   tracks: readonly MediaTrack[],
   shellCopyVideo: boolean,
   shellCopyAudio: boolean,
+  audioFallback: string,
 ): Route {
   const video = tracks.find((track) => track.type === 'video');
   const audio = tracks.find((track) => track.type === 'audio');
@@ -98,7 +101,7 @@ function route(
   const accepts = (copyVideo: boolean, copyAudio: boolean): boolean =>
     (!copyVideo || decodes(video?.codec)) &&
     (!copyAudio || decodes(audio?.codec)) &&
-    mediaSourceAccepts(mseCodecString(tracks, { copyVideo, copyAudio }));
+    mediaSourceAccepts(mseCodecString(tracks, { copyVideo, copyAudio, audioFallback }));
 
   // Cheapest first, and converting video is by far the more expensive of the
   // two, so audio is given up before it.
@@ -117,6 +120,19 @@ function route(
   return { backend: 'stream', copyVideo: false, copyAudio: false };
 }
 
+/**
+ * Whether this "video" stream is really a record sleeve.
+ *
+ * ffprobe files cover art under `codec_type: video`, because in the container
+ * that is what it is: one mjpeg or png frame, marked `attached_pic`. Reading it
+ * as the file's picture is how an album becomes a film — a track list that
+ * reports a video codec, a route that decides the codec needs converting, and a
+ * black rectangle where the sleeve should have been.
+ */
+export function isCoverArt(stream: ProbeStream): boolean {
+  return stream.codec_type === 'video' && stream.disposition?.attached_pic === 1;
+}
+
 function trackFrom(
   stream: ProbeStream,
   playable: boolean,
@@ -124,6 +140,7 @@ function trackFrom(
 ): MediaTrack | null {
   const type = stream.codec_type;
   if (type !== 'video' && type !== 'audio' && type !== 'subtitle') return null;
+  if (isCoverArt(stream)) return null;
 
   const tags = stream.tags ?? {};
   const sampleRate = stream.sample_rate ? Number(stream.sample_rate) : undefined;
@@ -183,6 +200,7 @@ export async function probeSource(
       reason: 'handed straight to the browser',
       copyVideo: true,
       copyAudio: true,
+      audioFallbacks: {},
     };
   }
 
@@ -200,6 +218,7 @@ export async function probeSource(
       reason: 'could not inspect the file; trying the browser directly',
       copyVideo: true,
       copyAudio: true,
+      audioFallbacks: {},
     };
   }
 
@@ -207,6 +226,7 @@ export async function probeSource(
   const duration = Number(payload.format?.duration);
   const copyVideo = payload.cadence?.copyVideo ?? true;
   const copyAudio = payload.cadence?.copyAudio ?? true;
+  const audioFallbacks = payload.cadence?.audioFallbacks ?? {};
 
   /* Subtitle streams are listed, and they are the one kind that can be listed
      unplayable. Nothing subtitled reaches the browser through the fragments —
@@ -233,7 +253,11 @@ export async function probeSource(
     })
     .filter((track): track is MediaTrack => track !== null);
 
-  const chosen = route(source, tracks, copyVideo, copyAudio);
+  /* The track the muxer will take unless told otherwise: the first audio
+     stream. Choosing another one is a decision made later, by the backend,
+     which reads the same map by the index it chose. */
+  const first = tracks.find((track) => track.type === 'audio');
+  const chosen = route(source, tracks, copyVideo, copyAudio, fallbackFor(audioFallbacks, first?.id));
   // Asked for only after the browser has refused this source once, so letting
   // the route send it back there would be repeating a failure.
   const backend = forceStream ? 'stream' : chosen.backend;
@@ -246,7 +270,23 @@ export async function probeSource(
     reason: describe(backend, chosen.copyVideo, chosen.copyAudio),
     copyVideo: chosen.copyVideo,
     copyAudio: chosen.copyAudio,
+    audioFallbacks,
   };
+}
+
+/**
+ * The RFC 6381 spelling of what a converted track will arrive as.
+ *
+ * The shell names its own encoder's output — `aac`, `flac` — and this turns
+ * that into the word Media Source understands. AAC when the shell has said
+ * nothing, which is what every version before the map existed produced.
+ */
+export function fallbackFor(
+  fallbacks: Record<string, string>,
+  index: string | undefined,
+): string {
+  const named = index === undefined ? undefined : fallbacks[index];
+  return (named && toCodecString(named)) || 'mp4a.40.2';
 }
 
 function describe(backend: string, copyVideo: boolean, copyAudio: boolean): string {

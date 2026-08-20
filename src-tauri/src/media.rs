@@ -53,9 +53,38 @@ pub const COPYABLE_VIDEO: &[&str] = &["h264", "hevc", "av1"];
 /// length. Far enough in to clear titles, fades and distributor logos.
 const POSTER_FRACTION: f64 = 0.12;
 
-/// Audio a browser will play from an MP4 fragment. Everything else, chiefly
-/// AC-3 and DTS, is re-encoded, which costs almost nothing beside video.
-pub const COPYABLE_AUDIO: &[&str] = &["aac", "mp3"];
+/// Audio a browser will play from an MP4 fragment.
+///
+/// FLAC and Opus are on the list because of music. They used to be re-encoded
+/// to AAC, which for a film is a cost nobody can hear beside the video and for
+/// an album is the whole point of the file being thrown away: a lossless track
+/// arriving at the speakers as 192k AAC is not the track that was on the disk.
+/// Both go into an MP4 fragment unchanged, and this webview decodes both.
+///
+/// What is left over is chiefly AC-3 and DTS, which no browser decodes.
+pub const COPYABLE_AUDIO: &[&str] = &["aac", "mp3", "flac", "opus"];
+
+/// Audio that carries every sample that was recorded.
+///
+/// What this decides is what a track is converted *to* when it cannot be
+/// copied: FLAC rather than AAC. The same samples in a container the webview
+/// reads, at a larger size and at no cost to what was recorded. Everything not
+/// named here was already lossy before Cadence saw it, and converting it again
+/// to AAC loses nothing the first encoder had not already discarded.
+///
+/// FLAC is on the list even though it is also copyable, because the list is a
+/// statement about the codec rather than about what happens to it. Answering
+/// "lossy" for FLAC would be false in a way that is invisible until the day
+/// something else asks.
+///
+/// `pcm_` is a prefix rather than a name because there are dozens of them —
+/// one per width, sign and byte order — and they are all uncompressed.
+const LOSSLESS_AUDIO: &[&str] = &["flac", "alac", "wavpack", "tta", "mlp", "truehd", "ape"];
+
+/// Whether re-encoding this codec would be the second time it lost something.
+fn is_lossless(codec: &str) -> bool {
+    codec.starts_with("pcm_") || LOSSLESS_AUDIO.contains(&codec)
+}
 
 /// Subtitle codecs that are plain words, and can be lifted out as WebVTT.
 ///
@@ -173,6 +202,22 @@ impl Media {
         })
     }
 
+    /// A `Media` with no binaries behind it, for the tests that only ask it
+    /// to assemble arguments. `prepare` cannot be used there: it insists on
+    /// finding FFmpeg on disk, and building the arguments does not need it.
+    #[cfg(test)]
+    fn for_tests() -> Self {
+        Self {
+            ffmpeg: PathBuf::from("ffmpeg"),
+            ffprobe: PathBuf::from("ffprobe"),
+            token: String::new(),
+            port: 0,
+            encoder: "libopenh264".to_owned(),
+            probed: std::sync::Mutex::new(HashMap::new()),
+            pictures: std::sync::Mutex::new(None),
+        }
+    }
+
     pub fn endpoint(&self) -> Endpoint {
         Endpoint {
             base: format!("http://127.0.0.1:{}", self.port),
@@ -234,12 +279,20 @@ impl Media {
         args.push(req.path.clone());
 
         args.push("-map".into());
-        args.push("0:v:0".into());
+        /* Capital `V` is video that is really video. The lower-case selector
+        also matches an attached picture — the cover art on an MP3, which
+        ffprobe reports as a single mjpeg frame — and muxing that into the
+        fragments produces a stream the page is then told has a video track,
+        which is a black rectangle where a record sleeve belongs.
+
+        `?` makes the whole thing optional, because an album track has no
+        video at all and should play rather than fail at the muxer. */
+        args.push("0:V:0?".into());
         args.push("-map".into());
         match req.audio {
             Some(index) => args.push(format!("0:{index}")),
-            // `?` makes it optional: a film with no audio track should play, not
-            // fail at the muxer.
+            // Optional for the same reason on the other side: a film with no
+            // audio track should play.
             None => args.push("0:a:0?".into()),
         }
 
@@ -253,6 +306,10 @@ impl Media {
         args.push("-c:a".into());
         if req.copy_audio {
             args.push("copy".into());
+        } else if req.lossless {
+            // Nothing to choose here. FLAC is the same samples, and a bitrate
+            // would only be a bitrate to ignore.
+            args.push("flac".into());
         } else {
             args.extend(["aac".into(), "-b:a".into(), "192k".into()]);
         }
@@ -289,6 +346,9 @@ pub struct StreamRequest {
     pub audio: Option<u32>,
     pub copy_video: bool,
     pub copy_audio: bool,
+    /// The source audio is lossless, so converting it must not be to AAC.
+    /// Read only when `copy_audio` is false.
+    pub lossless: bool,
 }
 
 /// Ask FFmpeg which encoders this build and this machine actually offer.
@@ -618,10 +678,21 @@ impl Media {
             .and_then(|value| value.as_array())
             .unwrap_or(&empty);
 
+        /* An attached picture is not a video track, however much ffprobe's
+        `codec_type` insists it is. Cover art on an MP3 is one mjpeg frame with
+        `attached_pic` set, and reading it as the file's video is how an album
+        ends up reported as a film in a codec no browser copies. */
         let codec_of = |kind: &str| -> Option<&str> {
             streams
                 .iter()
-                .find(|stream| stream.get("codec_type").and_then(|v| v.as_str()) == Some(kind))
+                .find(|stream| {
+                    stream.get("codec_type").and_then(|v| v.as_str()) == Some(kind)
+                        && stream
+                            .get("disposition")
+                            .and_then(|d| d.get("attached_pic"))
+                            .and_then(|v| v.as_u64())
+                            != Some(1)
+                })
                 .and_then(|stream| stream.get("codec_name").and_then(|v| v.as_str()))
         };
 
@@ -684,10 +755,47 @@ impl Media {
             .unwrap_or_default()
     }
 
+    /// Which codec each audio track would arrive as, were it converted.
+    ///
+    /// By stream index, and the whole map rather than one answer, because the
+    /// viewer can change audio track without anything being re-inspected. A
+    /// film can carry a lossy commentary beside a lossless mix, and the two
+    /// convert to different things.
+    ///
+    /// The page has to declare what is coming before a byte of it does, so it
+    /// cannot be left to infer this. It used to be able to — the answer was
+    /// always AAC — and then lossless sources started converting to FLAC
+    /// instead, at which point an inference would have been a declaration of
+    /// AAC over a stream carrying FLAC, which Media Source refuses outright.
+    fn audio_fallbacks(probe: &serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        let mut fallbacks = serde_json::Map::new();
+        let Some(streams) = probe.get("streams").and_then(|value| value.as_array()) else {
+            return fallbacks;
+        };
+        for stream in streams {
+            if stream.get("codec_type").and_then(|v| v.as_str()) != Some("audio") {
+                continue;
+            }
+            let Some(index) = stream.get("index").and_then(|v| v.as_u64()) else {
+                continue;
+            };
+            let lossless = stream
+                .get("codec_name")
+                .and_then(|v| v.as_str())
+                .is_some_and(is_lossless);
+            fallbacks.insert(
+                index.to_string(),
+                serde_json::Value::from(if lossless { "flac" } else { "aac" }),
+            );
+        }
+        fallbacks
+    }
+
     /// A file's streams, with what Cadence intends to do about them attached.
     pub async fn describe(&self, path: &str) -> Result<serde_json::Value, String> {
         let mut probe = self.probe(path).await?;
         let (copy_video, copy_audio) = Self::decisions(&probe);
+        let audio_fallbacks = Self::audio_fallbacks(&probe);
         let subtitles = Self::subtitles_in(&probe, TEXT_SUBTITLES);
         let pictures = Self::subtitles_in(&probe, PICTURE_SUBTITLES);
         let scripts = Self::subtitles_in(&probe, SCRIPT_SUBTITLES);
@@ -698,6 +806,7 @@ impl Media {
                 serde_json::json!({
                     "copyVideo": copy_video,
                     "copyAudio": copy_audio,
+                    "audioFallbacks": audio_fallbacks,
                     "subtitles": subtitles,
                     /* Three lists rather than one list of what works, because
                     the page fetches each by its own route and draws each its
@@ -978,12 +1087,33 @@ impl Media {
         }
         let (copy_video, copy_audio) = Self::decisions(&probe);
 
+        /* Which track is about to be converted, so that converting it can be
+        told what it is. `audio` names a stream index when the viewer has
+        chosen one; without it the muxer takes the first, which is what this
+        has to agree with to be describing the same track. */
+        let lossless = probe
+            .get("streams")
+            .and_then(|value| value.as_array())
+            .and_then(|streams| {
+                let stream = match audio {
+                    Some(index) => streams.iter().find(|stream| {
+                        stream.get("index").and_then(|v| v.as_u64()) == Some(u64::from(index))
+                    }),
+                    None => streams.iter().find(|stream| {
+                        stream.get("codec_type").and_then(|v| v.as_str()) == Some("audio")
+                    }),
+                }?;
+                stream.get("codec_name").and_then(|v| v.as_str())
+            })
+            .is_some_and(is_lossless);
+
         Ok(StreamRequest {
             path,
             start,
             audio,
             copy_video: copy_video && allow_copy_video,
             copy_audio: copy_audio && allow_copy_audio,
+            lossless,
         })
     }
 
@@ -1109,6 +1239,98 @@ mod tests {
                 { "index": 7, "codec_type": "attachment", "codec_name": "mjpeg" },
             ]
         })
+    }
+
+    /// An album track: no video, cover art ffprobe files under `video`, and
+    /// tags where a film would have none.
+    fn album_track() -> serde_json::Value {
+        serde_json::json!({
+            "streams": [
+                { "index": 0, "codec_type": "audio", "codec_name": "mp3" },
+                {
+                    "index": 1,
+                    "codec_type": "video",
+                    "codec_name": "mjpeg",
+                    "disposition": { "attached_pic": 1 }
+                },
+            ]
+        })
+    }
+
+    fn plan_for(copy_audio: bool, lossless: bool) -> StreamRequest {
+        StreamRequest {
+            path: "album.flac".into(),
+            start: 0.0,
+            audio: None,
+            copy_video: false,
+            copy_audio,
+            lossless,
+        }
+    }
+
+    /// The bug: a record sleeve read as the file's video track. It cannot be
+    /// copied — no browser takes mjpeg in an MP4 fragment — so the file was
+    /// reported as needing its "video" converted, and the page then declared a
+    /// video codec to Media Source for a stream that carries none.
+    #[test]
+    fn cover_art_is_not_a_video_track() {
+        assert_eq!(Media::decisions(&album_track()), (true, true));
+    }
+
+    /// The same selector, in the arguments FFmpeg actually receives. Capital
+    /// `V` is what excludes the sleeve; `?` is what lets a file with no
+    /// picture through the muxer at all.
+    #[test]
+    fn an_album_track_asks_for_no_picture() {
+        let args = Media::for_tests().stream_args(&plan_for(true, false));
+        assert!(args.contains(&"0:V:0?".to_owned()));
+        assert!(!args.iter().any(|arg| arg == "0:v:0"));
+    }
+
+    /// Lossless in, lossless out. Re-encoding an ALAC rip to 192k AAC throws
+    /// away the reason somebody kept it as ALAC.
+    #[test]
+    fn lossless_audio_is_not_converted_to_aac() {
+        let args = Media::for_tests().stream_args(&plan_for(false, true));
+        assert!(args.contains(&"flac".to_owned()));
+        assert!(!args.iter().any(|arg| arg == "aac"));
+    }
+
+    /// And the other way: AC-3 was lossy before Cadence saw it, so AAC costs
+    /// nothing that was still there to lose, and costs far less to store.
+    #[test]
+    fn lossy_audio_still_converts_to_aac() {
+        let args = Media::for_tests().stream_args(&plan_for(false, false));
+        assert!(args.contains(&"aac".to_owned()));
+        assert!(!args.iter().any(|arg| arg == "flac"));
+    }
+
+    /// The map the page declares its buffer from. A film can carry both kinds
+    /// at once, and picking the wrong one is a buffer that refuses to open.
+    #[test]
+    fn each_audio_track_says_what_it_would_convert_to() {
+        let mixed = serde_json::json!({
+            "streams": [
+                { "index": 0, "codec_type": "video", "codec_name": "h264" },
+                { "index": 1, "codec_type": "audio", "codec_name": "truehd" },
+                { "index": 2, "codec_type": "audio", "codec_name": "ac3" },
+                { "index": 3, "codec_type": "subtitle", "codec_name": "subrip" },
+            ]
+        });
+        let fallbacks = Media::audio_fallbacks(&mixed);
+        assert_eq!(fallbacks.get("1").and_then(|v| v.as_str()), Some("flac"));
+        assert_eq!(fallbacks.get("2").and_then(|v| v.as_str()), Some("aac"));
+        // Only audio is answered for. Nothing else is ever converted to sound.
+        assert_eq!(fallbacks.len(), 2);
+    }
+
+    #[test]
+    fn a_lossless_codec_is_recognised_by_name_or_by_prefix() {
+        assert!(is_lossless("alac"));
+        assert!(is_lossless("flac"));
+        assert!(is_lossless("pcm_s24le"));
+        assert!(!is_lossless("aac"));
+        assert!(!is_lossless("mp3"));
     }
 
     #[test]

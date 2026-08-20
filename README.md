@@ -1,6 +1,6 @@
 # Cadence
 
-A minimal, keyboard-first video player for Windows.
+A minimal, keyboard-first media player for Windows.
 
 Part of the [Auva](https://auva.dev) ecosystem.
 
@@ -16,17 +16,21 @@ applied the next time you restart it.
 
 - Plays MP4, MKV, AVI, MOV, WMV, FLV, TS, M2TS, MPEG and more, with the codecs
   inside them: H.264, HEVC, AV1, AC-3, DTS
-- Drag and drop a video anywhere in the window, or open one from the file dialog
-- Double-click any video file to open it in Cadence
-- Speed control from 0.25× to 4×, remembered across videos
+- Plays music too: MP3, M4A, FLAC, WAV, Opus, Ogg, AAC, WMA and more, with the
+  picture switched off and the transport where it always is. Lossless stays
+  lossless — FLAC and Opus are handed to the decoder untouched, and the formats
+  that cannot be are converted to FLAC rather than to AAC
+- Drag and drop a file anywhere in the window, or open one from the file dialog
+- Double-click any video or audio file to open it in Cadence
+- Speed control from 0.25× to 4×, remembered across files
 - Frame-accurate stepping and A–B looping
 - Timestamp bookmarks with notes
 - Subtitles from inside the file — every track it carries, by name and
   language: plain text, styled ASS drawn by libass, or Blu-ray pictures — or
   from a local `.srt`, `.vtt`, `.ass` or `.ssa`, with adjustable timing
 - Plays the rest of the folder: the next file starts when one ends, in the
-  order the names read
-- Resumes each video where you stopped
+  order the names read — a season of television and an album alike
+- Resumes each file where you stopped
 - Save the current frame as a PNG
 
 Files are read from disk and never uploaded.

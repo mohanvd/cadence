@@ -3,6 +3,7 @@ import { BaseBackend } from '../BaseBackend';
 import { audioChain } from '../audioChain';
 import { createVideoElement } from '../createVideoElement';
 import { mseCodecString } from '../capabilities';
+import { fallbackFor } from '../probe';
 import type { BackendKind, MediaSourceInput, MediaTrack, ProbeResult } from '../types';
 
 /**
@@ -56,6 +57,8 @@ export class StreamBackend extends BaseBackend {
   private readonly probedTracks: readonly MediaTrack[];
   private readonly copyVideo: boolean;
   private readonly copyAudio: boolean;
+  /** What a converted audio track arrives as, by stream index. */
+  private readonly audioFallbacks: Record<string, string>;
 
   constructor(probe: ProbeResult) {
     super();
@@ -63,6 +66,7 @@ export class StreamBackend extends BaseBackend {
     this.duration = probe.durationHint ?? 0;
     this.copyVideo = probe.copyVideo;
     this.copyAudio = probe.copyAudio;
+    this.audioFallbacks = probe.audioFallbacks;
   }
 
   protected onAttach(container: HTMLElement): void {
@@ -231,9 +235,19 @@ export class StreamBackend extends BaseBackend {
     const mediaSource = this.mediaSource;
     if (!mediaSource || mediaSource.readyState !== 'open') return null;
 
+    /* Read here rather than once in the constructor: this runs again on every
+       seek and on every change of audio track, and the track is what decides
+       the answer. A lossless mix converts to FLAC and the commentary beside it
+       to AAC, and declaring one over the other is a buffer that never opens. */
+    const chosenAudio =
+      this.audioStreamIndex !== null && this.audioStreamIndex !== undefined
+        ? String(this.audioStreamIndex)
+        : this.probedTracks.find((track) => track.type === 'audio')?.id;
+
     const mime = mseCodecString(this.probedTracks, {
       copyVideo: this.copyVideo,
       copyAudio: this.copyAudio,
+      audioFallback: fallbackFor(this.audioFallbacks, chosenAudio),
     });
     if (!MediaSource.isTypeSupported(mime)) {
       this.fail(`The browser will not accept ${mime}.`);

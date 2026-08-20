@@ -87,6 +87,16 @@ export interface ProbeResult {
    */
   copyVideo: boolean;
   copyAudio: boolean;
+  /**
+   * What a converted audio track would arrive as, by stream index.
+   *
+   * An ffmpeg codec name — `aac` or `flac` — rather than an RFC 6381 string,
+   * because it is the shell's word for what its encoder is about to produce.
+   * Keyed by index because the viewer can change audio track without anything
+   * being inspected again, and a lossless mix and a lossy commentary in the
+   * same film do not convert to the same thing.
+   */
+  audioFallbacks: Record<string, string>;
 }
 
 export interface EngineState {

@@ -5,6 +5,50 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Cadence plays music. MP3, M4A, FLAC, WAV, Opus, Ogg, AAC, WMA, Monkey's
+  Audio, WavPack and Matroska audio open by drop, by the file dialog, and by
+  double-clicking one in Explorer, and the installer registers Cadence for all
+  of them.
+
+  Nothing had to be taught to decode them. Every one of these formats already
+  played — the pipeline has read them since the day it was written — and they
+  were turned away by a list of extensions that only had video on it. The
+  sentence people were shown was that Cadence does not open .mp3 files, about a
+  file it would have played had it been let past the door.
+
+  A folder of music is a queue in exactly the way a season of television is:
+  opening the second track means the third one follows, in the order the names
+  read. That is one list rather than two on purpose, so an album sitting beside
+  a video does not silently end the queue.
+
+### Fixed
+
+- Cover art is no longer mistaken for a film. An MP3 with a sleeve embedded in
+  it reports, to anything that asks, a video track: one mjpeg frame, flagged as
+  an attached picture. Cadence read the flag nowhere, so an album arrived
+  described as a video in a codec no browser will take, was routed as though
+  its picture needed converting, and played as a black rectangle where the
+  now-playing card belongs.
+
+- A lossless track is no longer converted to AAC. FLAC and Opus now go into the
+  stream untouched, because this webview decodes both; ALAC, WavPack, Monkey's
+  Audio and raw PCM cannot be copied and are converted to FLAC instead of to
+  192k AAC. For a film that conversion cost nothing anybody could hear beside
+  the video. For an album it was the whole reason the file was kept.
+
+- A file that has been deleted no longer teaches Cadence the wrong lesson. The
+  browser reports a file it cannot fetch and a file it cannot decode as the
+  same failure, and Cadence learns from the second kind: a codec that fails
+  once is distrusted from then on, so that the next film in it goes straight to
+  FFmpeg rather than paying the same failed attempt again. Deleting one H.264
+  file was therefore enough to have every H.264 file afterwards quietly
+  re-encoded, for good, for a reason nothing on screen could explain. The disk
+  is now consulted before the lesson is drawn.
+
 ## [0.5.1] - 2026-08-20
 
 ### Fixed
