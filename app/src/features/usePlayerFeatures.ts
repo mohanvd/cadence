@@ -134,7 +134,11 @@ export function usePlayerFeatures({ fileKey, onToast }: PlayerFeatureOptions) {
         return;
       }
       const name = describeTrack(track);
-      const { ok, error } = await subtitles.loadEmbedded(source.path, Number(track.id), name);
+      // Words and pictures come out of the file by different routes: one is
+      // converted to WebVTT and parsed, the other is decoded into images this
+      // player positions itself. Which one this is was settled by the probe.
+      const load = track.pictures ? subtitles.loadPictures : subtitles.loadEmbedded;
+      const { ok, error } = await load(source.path, Number(track.id), name);
       if (!ok && error) onToast(error);
     },
     [subtitles, onToast],

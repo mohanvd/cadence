@@ -412,9 +412,12 @@ export function PlayerSurface({
             backend swapping its own element out cannot take the text with it. */}
         <SubtitleOverlay
           track={features.subtitles.textTrack}
+          pictures={features.subtitles.pictures}
           style={features.subtitles.style}
           visible={features.subtitles.enabled && !musicMode.enabled}
           lifted={chromeVisible}
+          video={videoEl}
+          offset={features.subtitles.offset}
         />
 
         {loading && !error && (

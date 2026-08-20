@@ -22,6 +22,8 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 
+use crate::pgs;
+
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use http_body_util::{BodyExt, Full, StreamBody as HttpStreamBody};
@@ -62,12 +64,23 @@ pub const COPYABLE_AUDIO: &[&str] = &["aac", "mp3"];
 /// because they are words: converting them is a re-encoding of the same
 /// sentences into different punctuation.
 ///
-/// What is missing from this list is the bitmap formats — PGS on a Blu-ray rip,
-/// VobSub on a DVD one. Those are pictures of words. Turning them back into
-/// words is OCR, which is a different program and a different order of
-/// difficulty, so they are reported and marked unusable rather than offered and
-/// found empty.
+/// What is missing from this list is the bitmap formats, which are not words
+/// but pictures of words. They are handled by `PICTURE_SUBTITLES` below rather
+/// than being converted, because there is nothing to convert them into.
 pub const TEXT_SUBTITLES: &[&str] = &["subrip", "srt", "ass", "ssa", "mov_text", "webvtt", "text"];
+
+/// Subtitles that are pictures, and can be shown as pictures.
+///
+/// It is easy to believe these need OCR, and this player believed it. They do
+/// not. OCR is what turns a picture of a sentence back into the sentence, which
+/// is needed to search it or restyle it and is not needed to look at it. A
+/// Blu-ray disc shows these without reading them, and so can a player.
+///
+/// Missing here is VobSub, the DVD format, which is a different encoding inside
+/// a different container and is left for its own day. It stays listed and
+/// unusable, which is at least now true for a reason that is about the work and
+/// not about a mistake.
+pub const PICTURE_SUBTITLES: &[&str] = &["hdmv_pgs_subtitle", "pgssub"];
 
 /// H.264 encoders in the order they are worth trying: the three vendor blocks
 /// on the graphics card, then Media Foundation, which covers whatever card is
@@ -96,6 +109,13 @@ pub struct Media {
     /// jump. Held for the life of the process: a file that changes underneath a
     /// player mid-viewing is not a case worth paying for on every seek.
     probed: std::sync::Mutex<HashMap<String, serde_json::Value>>,
+    /// The picture subtitle track currently in use, decoded.
+    ///
+    /// One, not a table of them. A film's worth of subtitle images is a few
+    /// megabytes, and nobody watches two tracks at once; keeping every track
+    /// ever chosen would spend that repeatedly to save a second on a switch
+    /// back that mostly does not happen.
+    pictures: std::sync::Mutex<Option<(String, Arc<pgs::Track>)>>,
 }
 
 #[derive(Serialize, Clone)]
@@ -131,6 +151,7 @@ impl Media {
             port: 0,
             encoder,
             probed: std::sync::Mutex::new(HashMap::new()),
+            pictures: std::sync::Mutex::new(None),
         })
     }
 
@@ -350,8 +371,8 @@ async fn handle(
     media: Arc<Media>,
 ) -> Result<Response<StreamBody>, Infallible> {
     let route = request.uri().path().to_owned();
-    if route != "/stream" && route != "/frame" {
-        return Ok(text(StatusCode::NOT_FOUND, "Cadence serves two routes."));
+    if route != "/stream" && route != "/frame" && route != "/subtitle-image" {
+        return Ok(text(StatusCode::NOT_FOUND, "Cadence serves three routes."));
     }
 
     let params = query(request.uri());
@@ -397,6 +418,49 @@ async fn handle(
                 .expect("a frame response is always well formed"),
             Err(err) => text(StatusCode::UNPROCESSABLE_ENTITY, &err),
         });
+    }
+
+    /* One picture out of a subtitle track. The page asks for these by number
+    as they come due, rather than being handed the whole track at once: a film
+    carries a thousand or so, and a message big enough to hold them all would
+    be paid for in full by everyone who watches the first five minutes. */
+    if route == "/subtitle-image" {
+        let wanted = params
+            .get("index")
+            .and_then(|value| value.parse::<u32>().ok())
+            .zip(
+                params
+                    .get("cue")
+                    .and_then(|value| value.parse::<usize>().ok()),
+            );
+
+        let Some((index, number)) = wanted else {
+            return Ok(text(StatusCode::BAD_REQUEST, "No such subtitle."));
+        };
+
+        let track = match media.pictures(&path, index).await {
+            Ok(track) => track,
+            Err(err) => return Ok(text(StatusCode::UNPROCESSABLE_ENTITY, &err)),
+        };
+
+        let Some(cue) = track.cues.get(number) else {
+            return Ok(text(StatusCode::NOT_FOUND, "No such subtitle."));
+        };
+
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("content-type", "image/png")
+            .header("access-control-allow-origin", "*")
+            // A cue is the same picture every time it is asked for, and it is
+            // asked for again on every seek back over it. Letting the webview
+            // keep it is what stops a rewatched scene decoding twice.
+            .header("cache-control", "max-age=86400")
+            .body(
+                Full::new(Bytes::from(cue.png.clone()))
+                    .map_err(|never| match never {})
+                    .boxed(),
+            )
+            .expect("a subtitle response is always well formed"));
     }
 
     let audio = params
@@ -499,10 +563,10 @@ impl Media {
         )
     }
 
-    /// Which subtitle streams can be lifted out of the container as text.
+    /// Which subtitle streams are written in one of these codecs.
     ///
     /// By stream index, because that is what selecting one has to pass back.
-    fn text_subtitles(probe: &serde_json::Value) -> Vec<u64> {
+    fn subtitles_in(probe: &serde_json::Value, codecs: &[&str]) -> Vec<u64> {
         probe
             .get("streams")
             .and_then(|value| value.as_array())
@@ -514,7 +578,7 @@ impl Media {
                             && stream
                                 .get("codec_name")
                                 .and_then(|v| v.as_str())
-                                .is_some_and(|name| TEXT_SUBTITLES.contains(&name))
+                                .is_some_and(|name| codecs.contains(&name))
                     })
                     .filter_map(|stream| stream.get("index").and_then(|v| v.as_u64()))
                     .collect()
@@ -526,7 +590,8 @@ impl Media {
     pub async fn describe(&self, path: &str) -> Result<serde_json::Value, String> {
         let mut probe = self.probe(path).await?;
         let (copy_video, copy_audio) = Self::decisions(&probe);
-        let subtitles = Self::text_subtitles(&probe);
+        let subtitles = Self::subtitles_in(&probe, TEXT_SUBTITLES);
+        let pictures = Self::subtitles_in(&probe, PICTURE_SUBTITLES);
 
         if let Some(fields) = probe.as_object_mut() {
             fields.insert(
@@ -535,6 +600,11 @@ impl Media {
                     "copyVideo": copy_video,
                     "copyAudio": copy_audio,
                     "subtitles": subtitles,
+                    // Kept apart from the text ones rather than merged into a
+                    // single list of what works, because the page fetches them
+                    // by two different routes and paints them two different
+                    // ways. One list would have to be taken apart again.
+                    "pictures": pictures,
                 }),
             );
         }
@@ -606,6 +676,74 @@ impl Media {
         }
 
         Ok(text)
+    }
+
+    /// One picture subtitle track, decoded into images.
+    ///
+    /// The stream is copied out rather than decoded on the way: PGS is already
+    /// a sequence of small compressed pictures, so there is nothing for FFmpeg
+    /// to do here but find the packets. A whole film's subtitles are a few
+    /// hundred kilobytes and come out in about the time an inspection takes.
+    ///
+    /// Turning them into images is this program's own work, in `pgs`. What
+    /// comes back is held rather than returned, because what the page wants is
+    /// not a few megabytes of PNG in a single message but a list of times and
+    /// places, and then the pictures one at a time as they come up.
+    pub async fn pictures(&self, path: &str, index: u32) -> Result<Arc<pgs::Track>, String> {
+        let key = format!("{index} {path}");
+
+        if let Ok(held) = self.pictures.lock() {
+            if let Some((theirs, track)) = held.as_ref() {
+                if theirs == &key {
+                    return Ok(Arc::clone(track));
+                }
+            }
+        }
+
+        let output = ffmpeg_command(&self.ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                path,
+                "-map",
+                &format!("0:{index}"),
+                "-c:s",
+                "copy",
+                "-f",
+                "sup",
+                "pipe:1",
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await
+            .map_err(|err| err.to_string())?;
+
+        if !output.status.success() {
+            let why = String::from_utf8_lossy(&output.stderr);
+            let why = why.lines().last().unwrap_or("").trim();
+            return Err(if why.is_empty() {
+                format!("could not read subtitle track {index}")
+            } else {
+                why.to_owned()
+            });
+        }
+
+        let track = Arc::new(pgs::read(&output.stdout));
+        // The same case as an empty text track: some rips carry a stream for a
+        // language they never subtitled, and the viewer should be told that
+        // rather than left waiting for pictures that are not coming.
+        if track.cues.is_empty() {
+            return Err(format!("subtitle track {index} is empty"));
+        }
+
+        if let Ok(mut held) = self.pictures.lock() {
+            *held = Some((key, Arc::clone(&track)));
+        }
+
+        Ok(track)
     }
 
     /// Decide what has to happen to a file before the page can play it.
@@ -760,13 +898,32 @@ mod tests {
                 { "index": 2, "codec_type": "subtitle", "codec_name": "subrip" },
                 { "index": 3, "codec_type": "subtitle", "codec_name": "hdmv_pgs_subtitle" },
                 { "index": 4, "codec_type": "subtitle", "codec_name": "ass" },
+                { "index": 5, "codec_type": "subtitle", "codec_name": "dvd_subtitle" },
             ]
         })
     }
 
     #[test]
-    fn text_subtitles_are_offered_and_bitmaps_are_not() {
-        assert_eq!(Media::text_subtitles(&probe()), vec![2, 4]);
+    fn the_text_tracks_are_found() {
+        assert_eq!(Media::subtitles_in(&probe(), TEXT_SUBTITLES), vec![2, 4]);
+    }
+
+    /// The Blu-ray track is its own kind, and must not appear among the text
+    /// ones: the two are fetched by different routes and painted differently.
+    #[test]
+    fn the_picture_tracks_are_found_and_kept_apart() {
+        assert_eq!(Media::subtitles_in(&probe(), PICTURE_SUBTITLES), vec![3]);
+    }
+
+    /// The DVD track is in neither list, which is what leaves it listed and
+    /// unchoosable. Being a picture is not on its own enough to be shown: it
+    /// has to be a picture in a format something here can read.
+    #[test]
+    fn a_format_with_no_reader_is_offered_by_neither_name() {
+        let text = Media::subtitles_in(&probe(), TEXT_SUBTITLES);
+        let pictures = Media::subtitles_in(&probe(), PICTURE_SUBTITLES);
+        assert!(!text.contains(&5));
+        assert!(!pictures.contains(&5));
     }
 
     #[test]
@@ -774,14 +931,17 @@ mod tests {
         let bare = serde_json::json!({
             "streams": [{ "index": 0, "codec_type": "video", "codec_name": "h264" }]
         });
-        assert!(Media::text_subtitles(&bare).is_empty());
+        assert!(Media::subtitles_in(&bare, TEXT_SUBTITLES).is_empty());
+        assert!(Media::subtitles_in(&bare, PICTURE_SUBTITLES).is_empty());
     }
 
     /// An unreadable probe must answer "none" rather than panic: it is reached
     /// on every file, including the damaged ones.
     #[test]
     fn nothing_readable_offers_none() {
-        assert!(Media::text_subtitles(&serde_json::json!({})).is_empty());
+        let nothing = serde_json::json!({});
+        assert!(Media::subtitles_in(&nothing, TEXT_SUBTITLES).is_empty());
+        assert!(Media::subtitles_in(&nothing, PICTURE_SUBTITLES).is_empty());
     }
 
     /// The bug this guards: `URLSearchParams` writes a space as `+`, and a

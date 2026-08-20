@@ -40,6 +40,10 @@ percent-encoding = "2"
 uuid = { version = "1", features = ["v4"] }
 tokio = { version = "1", features = ["io-util", "net", "process", "rt", "time"] }
 
+# Blu-ray subtitles are pictures, and the page wants them as images it can put
+# on the screen. Already in Tauri's tree, so this costs no extra build either.
+png = "0.17"
+
 # Desktop-only. The updater has no meaning on mobile, where the store owns
 # installation, and single-instance is a windowing concept that does not exist
 # there either.

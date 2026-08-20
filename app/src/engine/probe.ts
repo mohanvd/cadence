@@ -44,7 +44,12 @@ interface ProbePayload {
   streams?: ProbeStream[];
   format?: { format_name?: string; duration?: string };
   /** Added by the shell: what it intends to do with the streams. */
-  cadence?: { copyVideo?: boolean; copyAudio?: boolean; subtitles?: number[] };
+  cadence?: {
+    copyVideo?: boolean;
+    copyAudio?: boolean;
+    subtitles?: number[];
+    pictures?: number[];
+  };
 }
 
 interface Route {
@@ -111,7 +116,7 @@ function route(
   return { backend: 'stream', copyVideo: false, copyAudio: false };
 }
 
-function trackFrom(stream: ProbeStream, playable: boolean): MediaTrack | null {
+function trackFrom(stream: ProbeStream, playable: boolean, pictures = false): MediaTrack | null {
   const type = stream.codec_type;
   if (type !== 'video' && type !== 'audio' && type !== 'subtitle') return null;
 
@@ -128,6 +133,7 @@ function trackFrom(stream: ProbeStream, playable: boolean): MediaTrack | null {
     forced: stream.disposition?.forced === 1,
     hearingImpaired: stream.disposition?.hearing_impaired === 1,
     playable,
+    pictures: pictures || undefined,
     channels: stream.channels,
     sampleRate: Number.isFinite(sampleRate) ? sampleRate : undefined,
     width: stream.width,
@@ -200,17 +206,25 @@ export async function probeSource(
      unplayable. Nothing subtitled reaches the browser through the fragments —
      the muxer carries picture and sound and drops the rest — so a track shown
      here is a promise that FFmpeg will be asked for it separately when it is
-     chosen. The shell has already said which of them it can keep that promise
-     for; the rest are bitmaps, and they appear greyed rather than not at all,
-     because a Blu-ray rip whose only subtitles are pictures should say so
-     rather than look like a film with no subtitles in it.
+     chosen. The shell says which of them it can keep that promise for, in two
+     lists: the ones it can hand over as words, and the ones that are pictures
+     and are shown as pictures. Both play. They are kept apart because they
+     arrive by different routes and are painted differently, and because there
+     is nothing to restyle about a picture.
 
-     Everything else is playable, which is the whole point. */
+     What is in neither list is a bitmap format nobody has written the reader
+     for yet — DVD subtitles, today. Those appear greyed rather than not at
+     all, because a rip whose only subtitles cannot be shown should say so
+     rather than look like a film nobody subtitled. */
   const extractable = new Set(payload.cadence?.subtitles ?? []);
+  const drawn = new Set(payload.cadence?.pictures ?? []);
   const tracks = payload.streams
-    .map((stream) =>
-      trackFrom(stream, stream.codec_type !== 'subtitle' || extractable.has(stream.index ?? -1)),
-    )
+    .map((stream) => {
+      if (stream.codec_type !== 'subtitle') return trackFrom(stream, true);
+      const index = stream.index ?? -1;
+      const picture = drawn.has(index);
+      return trackFrom(stream, picture || extractable.has(index), picture);
+    })
     .filter((track): track is MediaTrack => track !== null);
 
   const chosen = route(source, tracks, copyVideo, copyAudio);

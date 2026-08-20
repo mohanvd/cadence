@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { loadSubtitleFile } from '../utils/subtitles';
-import { subtitleTrack } from '../lib/desktop';
+import { subtitleTrack, pictureSubtitleTrack } from '../lib/desktop';
 
 const STORAGE_KEY = 'cadence-subtitle-style';
 
@@ -116,6 +116,17 @@ export function useSubtitles(videoRef, videoEl = null) {
    * arrived yet.
    */
   const [pendingId, setPendingId] = useState(null);
+
+  /**
+   * A picture subtitle track, when the chosen one is pictures.
+   *
+   * Never set at the same time as `trackUrl`: a text track lives in a `<track>`
+   * element the browser parses, and this is a list the overlay walks itself.
+   * One of the two is on screen and the other is null.
+   *
+   * @type {[import('../lib/desktop').PictureTrack | null, Function]}
+   */
+  const [pictures, setPictures] = useState(null);
   /**
    * The parsed track itself, for the component that draws its active cues.
    */
@@ -260,6 +271,9 @@ export function useSubtitles(videoRef, videoEl = null) {
   const adopt = useCallback(
     (vtt, name, id) => {
       revokeUrl();
+      // The two kinds are mutually exclusive: choosing one track replaces
+      // whatever was on screen, whether or not it was made of the same stuff.
+      setPictures(null);
       const url = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
       urlRef.current = url;
       setLabel(name);
@@ -277,6 +291,7 @@ export function useSubtitles(videoRef, videoEl = null) {
       if (ext !== 'srt' && ext !== 'vtt') return false;
       requestRef.current += 1;
       revokeUrl();
+      setPictures(null);
       const url = await loadSubtitleFile(file);
       urlRef.current = url;
       setLabel(file.name);
@@ -322,6 +337,50 @@ export function useSubtitles(videoRef, videoEl = null) {
     [adopt]
   );
 
+  /**
+   * Show a subtitle track that is pictures rather than words.
+   *
+   * A Blu-ray carries its subtitles already drawn, in whatever font and colour
+   * the disc was authored with. Nothing here is converted, because there is
+   * nothing to convert them into — the pictures are put on the screen as they
+   * are, which is what the disc player does and is why the format has no font
+   * to be missing.
+   *
+   * What comes back is a table of times and places. The pictures themselves are
+   * fetched as they come due, so opening the menu on a film with a thousand
+   * lines in it costs one small request rather than every one of them.
+   *
+   * @param {string} path The file being played.
+   * @param {number} index Demuxer stream index of the subtitle track.
+   * @param {string} name Shown in the menu.
+   * @returns {Promise<{ ok: boolean, error?: string }>}
+   */
+  const loadPictures = useCallback(
+    async (path, index, name) => {
+      requestRef.current += 1;
+      const request = requestRef.current;
+      setPendingId(String(index));
+      try {
+        const track = await pictureSubtitleTrack(path, index);
+        if (request !== requestRef.current) return { ok: false };
+        revokeUrl();
+        setTrackUrl(null);
+        setPictures(track);
+        setLabel(name);
+        setSourceId(String(index));
+        setEnabled(true);
+        setOffset(0);
+        return { ok: true };
+      } catch (err) {
+        if (request !== requestRef.current) return { ok: false };
+        return { ok: false, error: String(err) };
+      } finally {
+        if (request === requestRef.current) setPendingId(null);
+      }
+    },
+    [revokeUrl]
+  );
+
   const changeOffset = useCallback((delta) => {
     setOffset((prev) => {
       const next = prev + delta;
@@ -358,9 +417,9 @@ export function useSubtitles(videoRef, videoEl = null) {
   }, []);
 
   const toggle = useCallback(() => {
-    if (!trackUrl) return;
+    if (!trackUrl && !pictures) return;
     setEnabled((v) => !v);
-  }, [trackUrl]);
+  }, [trackUrl, pictures]);
 
   const clear = useCallback(() => {
     // Bumped so an extraction still running is disowned rather than adopted
@@ -368,6 +427,7 @@ export function useSubtitles(videoRef, videoEl = null) {
     requestRef.current += 1;
     revokeUrl();
     setTrackUrl(null);
+    setPictures(null);
     setLabel('Subtitles');
     setSourceId(null);
     setPendingId(null);
@@ -383,11 +443,13 @@ export function useSubtitles(videoRef, videoEl = null) {
     pendingId,
     loading: pendingId !== null,
     enabled,
-    hasSubtitles: !!trackUrl,
+    pictures,
+    hasSubtitles: !!trackUrl || !!pictures,
     offset,
     style,
     loadFile,
     loadEmbedded,
+    loadPictures,
     toggle,
     clear,
     changeOffset,

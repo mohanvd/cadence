@@ -21,8 +21,9 @@ applied the next time you restart it.
 - Speed control from 0.25× to 4×, remembered across videos
 - Frame-accurate stepping and A–B looping
 - Timestamp bookmarks with notes
-- Subtitles from inside the file — every text track it carries, by name and
-  language — or from a local `.srt` or `.vtt`, with adjustable timing
+- Subtitles from inside the file — every track it carries, by name and
+  language, words or Blu-ray pictures alike — or from a local `.srt` or
+  `.vtt`, with adjustable timing
 - Plays the rest of the folder: the next file starts when one ends, in the
   order the names read
 - Resumes each video where you stopped

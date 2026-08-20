@@ -277,6 +277,64 @@ export async function subtitleTrack(path, index) {
 }
 
 /**
+ * @typedef {object} PictureCue
+ * @property {number} start Seconds into the film.
+ * @property {number} end
+ * @property {number} x Left edge, on the authoring canvas.
+ * @property {number} y Top edge, on the authoring canvas.
+ * @property {number} width
+ * @property {number} height
+ * @property {string} url The picture itself.
+ */
+
+/**
+ * @typedef {object} PictureTrack
+ * @property {number} width The canvas the coordinates are measured against.
+ * @property {number} height
+ * @property {PictureCue[]} cues
+ */
+
+/**
+ * A subtitle track that is pictures rather than words — what a Blu-ray carries.
+ *
+ * These come back as a table of times and places, with a URL for each picture
+ * rather than the picture itself. A film holds around a thousand of them, and
+ * the ones that matter are the handful on screen; fetching each as it comes due
+ * costs one small request and lets the webview keep what it has already read,
+ * which is what makes seeking back over a scene free.
+ *
+ * The coordinates are on the canvas the disc was authored against, not on the
+ * window. Only the page knows how large the video is actually being drawn, so
+ * only the page can scale them.
+ *
+ * @param {string} path
+ * @param {number} index
+ * @returns {Promise<PictureTrack>}
+ */
+export async function pictureSubtitleTrack(path, index) {
+  if (!isDesktop()) throw new Error('Subtitles inside a file need the desktop app');
+  const { invoke } = await import('@tauri-apps/api/core');
+  const track = await invoke('media_pictures', { path, index });
+
+  const endpoint = await mediaEndpoint();
+  if (!endpoint) throw new Error('playback support is not available');
+
+  return {
+    width: track.width,
+    height: track.height,
+    cues: track.cues.map((cue, number) => ({
+      ...cue,
+      url: `${endpoint.base}/subtitle-image?${new URLSearchParams({
+        token: endpoint.token,
+        path,
+        index: String(index),
+        cue: String(number),
+      })}`,
+    })),
+  };
+}
+
+/**
  * The URL that streams a file as fragmented MP4, starting at `start` seconds.
  *
  * A seek is a new URL rather than a range request on an old one. The stream is

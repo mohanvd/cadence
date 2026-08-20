@@ -90,7 +90,11 @@ export function SubtitleMenu({ features }: { features: PlayerFeatures }) {
             <PanelHeader
               title="Subtitles"
               action={
-                subtitles.hasSubtitles
+                /* Nothing in there applies to a picture. A Blu-ray's
+                   subtitles were drawn once, with their font and colour and
+                   place already decided, so an Options button would open a
+                   panel of controls that change nothing. */
+                subtitles.hasSubtitles && !subtitles.pictures
                   ? { label: 'Options', onSelect: () => setPanel('options') }
                   : undefined
               }
@@ -109,10 +113,10 @@ export function SubtitleMenu({ features }: { features: PlayerFeatures }) {
               <MenuItem
                 key={track.id}
                 active={showing && subtitles.sourceId === track.id}
-                // A bitmap track is listed and cannot be chosen. Hiding it
-                // would say the film has no subtitles; this says it has some
-                // Cadence cannot read, which is the truth and is also what
-                // tells someone to go looking for a file.
+                // A track Cadence has no reader for is listed all the same.
+                // Hiding it would say the film has no subtitles; this says it
+                // has some that cannot be shown, which is the truth and is
+                // what tells someone to go looking for a file.
                 disabled={!track.playable || subtitles.loading}
                 onSelect={() => pick(track)}
                 trailing={<Badges track={track} pendingId={subtitles.pendingId} />}
@@ -403,8 +407,12 @@ function Badges({ track, pendingId }: { track: MediaTrack; pendingId: string | n
   const marks: string[] = [];
   if (track.hearingImpaired) marks.push('CC');
   if (track.forced) marks.push('Forced');
-  // Why this one cannot be chosen, in the place the eye is already looking.
-  if (!track.playable) marks.push('Image');
+  // A Blu-ray's subtitles are pictures. Saying so is not a warning — they play
+  // — but it is worth knowing before opening a settings panel that will have
+  // nothing in it, and before wondering why the search does not find them.
+  if (track.pictures) marks.push('Image');
+  // And this one genuinely cannot be chosen.
+  else if (!track.playable) marks.push('Unreadable');
 
   if (marks.length === 0) return null;
 

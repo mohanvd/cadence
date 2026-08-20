@@ -362,6 +362,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "percent-encoding",
+ "png 0.17.16",
  "serde",
  "serde_json",
  "tauri",

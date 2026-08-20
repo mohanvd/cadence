@@ -49,6 +49,12 @@ export interface MediaTrack {
   hearingImpaired?: boolean;
   /** Whether this specific track can be played by the active backend. */
   playable: boolean;
+  /**
+   * A subtitle track that is pictures rather than words — what a Blu-ray
+   * carries. It plays, but by a different route and with nothing to restyle,
+   * which is why it is marked rather than merely playable.
+   */
+  pictures?: boolean;
   channels?: number;
   sampleRate?: number;
   width?: number;

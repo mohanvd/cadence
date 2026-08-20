@@ -5,6 +5,45 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- The subtitles on a Blu-ray play. A disc's subtitles are not text but small
+  pictures, drawn once by whoever authored it, and until now Cadence listed
+  them greyed with a note that reading them would mean OCR. That note was
+  wrong, and it was wrong in a way worth naming: OCR is what turns a picture of
+  a sentence back into the sentence, which is needed to search it or restyle it
+  and is not needed to look at it. A Blu-ray player shows these without reading
+  them. So does this, now.
+
+  The track is copied out of the container rather than decoded on the way —
+  the pictures are already compressed, so there is nothing for FFmpeg to do but
+  find the packets — and Cadence decodes them itself: the run-length encoding,
+  the palette, the position of each line on the frame the disc was authored
+  against. A film's worth is a few seconds of work and a few megabytes held.
+
+  They are placed where the disc says, scaled to however large the video is
+  being drawn, so a line lands on the same part of the picture in a window and
+  on a television. The one liberty taken is the one the text tracks already
+  take: a line low in the frame steps up when the control bar appears. A sign
+  or a caption higher up does not, because the bar was never going to cover it.
+
+  Nothing about them can be restyled, and the settings panel says so by not
+  being there. There is no font to change and no colour to choose — the disc
+  made those decisions, which is the whole reason the format exists.
+
+  DVD subtitles are pictures too, in a different encoding, and are still
+  listed unusable. That is now a statement about work not yet done rather than
+  about a difficulty that was never there.
+
+### Changed
+
+- The badge on a subtitle track that is pictures reads `Image` and the track
+  can be chosen. One that Cadence genuinely cannot read reads `Unreadable`.
+  These used to be the same word for the same reason, and are not the same
+  thing.
+
 ## [0.4.0] - 2026-08-19
 
 ### Added

@@ -59,6 +59,25 @@ export interface SubtitleStyle {
 export type SubtitleOption<T> = { value: T; label: string };
 
 
+/** One drawn subtitle, and where on the authoring canvas it belongs. */
+export interface PictureCue {
+  start: number;
+  end: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** The picture itself, served by the shell and fetched as it comes due. */
+  url: string;
+}
+
+/** A subtitle track made of pictures, with the canvas it was drawn against. */
+export interface PictureTrack {
+  width: number;
+  height: number;
+  cues: PictureCue[];
+}
+
 export interface SubtitlesApi {
   trackUrl: string | null;
   /**
@@ -83,12 +102,24 @@ export interface SubtitlesApi {
    */
   pendingId: string | null;
   enabled: boolean;
+  /**
+   * The showing track, when it is pictures rather than words — what a Blu-ray
+   * carries. Never set at the same time as `textTrack`: one is a track the
+   * browser parses, the other a list the overlay walks itself.
+   */
+  pictures: PictureTrack | null;
   hasSubtitles: boolean;
   offset: number;
   style: SubtitleStyle;
   loadFile: (file: File) => Promise<boolean>;
   /** Extract a subtitle stream from the file being played, and show it. */
   loadEmbedded: (
+    path: string,
+    index: number,
+    label: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  /** The same, for a stream whose subtitles are pictures. */
+  loadPictures: (
     path: string,
     index: number,
     label: string,

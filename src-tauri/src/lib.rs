@@ -6,6 +6,7 @@ use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 
 mod media;
+mod pgs;
 
 /// The FFmpeg pipeline, and whether it is still being built.
 ///
@@ -92,6 +93,51 @@ async fn media_subtitle(
         Some(media) => media.subtitle(&path, index).await,
         None => Err("playback support is not available".into()),
     }
+}
+
+/// The shape of a picture subtitle track: when each line appears, where on the
+/// frame it sits, and how large it is.
+///
+/// Not the pictures. Those come from the socket one at a time, for the reason
+/// the socket exists at all — a film carries a thousand or so, and handing them
+/// all over on the strength of somebody opening the menu would cost several
+/// megabytes to show one line.
+///
+/// The sizes are on the disc's own canvas, which is the frame the subtitles
+/// were authored against and usually the video's own. Scaling them to whatever
+/// the window happens to be is the page's job, and it is the only party that
+/// knows.
+#[tauri::command]
+async fn media_pictures(
+    state: tauri::State<'_, MediaState>,
+    path: String,
+    index: u32,
+) -> Result<serde_json::Value, String> {
+    let Some(media) = pipeline(&state).await else {
+        return Err("playback support is not available".into());
+    };
+
+    let track = media.pictures(&path, index).await?;
+    let cues: Vec<serde_json::Value> = track
+        .cues
+        .iter()
+        .map(|cue| {
+            serde_json::json!({
+                "start": cue.start,
+                "end": cue.end,
+                "x": cue.x,
+                "y": cue.y,
+                "width": cue.width,
+                "height": cue.height,
+            })
+        })
+        .collect();
+
+    Ok(serde_json::json!({
+        "width": track.width,
+        "height": track.height,
+        "cues": cues,
+    }))
 }
 
 /// Extensions Cadence will open, for deciding what counts as the next video.
@@ -262,6 +308,7 @@ pub fn run() {
             media_endpoint,
             media_probe,
             media_subtitle,
+            media_pictures,
             folder_playlist
         ])
         .setup(|app| {
