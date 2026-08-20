@@ -12,7 +12,6 @@ import {
   useExclusiveMenu,
 } from '@/components/ui/popover';
 import { Tooltip } from '@/components/ui/tooltip';
-import { formatTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { PlayerFeatures } from '@/features/usePlayerFeatures';
 import type { MusicModeApi } from '@/features/playback/useMusicMode';
@@ -65,7 +64,7 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
     if (!open) setPanel('root');
   }, [open]);
 
-  const { filters, equalizer, sleepTimer, zoomPan, abRepeat } = features;
+  const { filters, equalizer, sleepTimer, zoomPan } = features;
 
   /*
    * The trigger carries no badge, dot, or underline for "something in here is
@@ -179,12 +178,6 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
               <MenuItem onSelect={features.takeScreenshot}>Save frame as PNG</MenuItem>
             )}
 
-            <MenuSeparator />
-            <MenuLabel>A–B repeat</MenuLabel>
-            <ABRepeatRow features={features} />
-            {abRepeat.isActive && (
-              <MenuItem onSelect={abRepeat.clear}>Clear A–B loop</MenuItem>
-            )}
           </>
         )}
 
@@ -406,8 +399,8 @@ function AppearancePanel() {
             aria-label={accent.label}
             aria-pressed={accentId === accent.id}
             className={cn(
-              'size-7 rounded-full transition-transform',
-              'hover:scale-110',
+              'size-7 rounded-full transition-shadow',
+              'hover:shadow-[0_0_0_2px_var(--color-line-strong)]',
               // The ring is drawn outside the swatch so the colour itself is
               // never overlaid by the thing indicating it is selected.
               accentId === accent.id
@@ -462,29 +455,3 @@ function AppearancePanel() {
 }
 
 /** A/B markers, set against the live playhead. */
-function ABRepeatRow({ features }: { features: PlayerFeatures }) {
-  const { abRepeat, videoRef } = features;
-  const now = () => videoRef.current?.currentTime ?? 0;
-
-  return (
-    <div className="flex items-center gap-1.5 px-2.5 pb-1">
-      <Button
-        variant={abRepeat.pointA !== null ? 'accent' : 'secondary'}
-        size="sm"
-        className="flex-1 tabular-nums"
-        onClick={() => abRepeat.setA(now())}
-      >
-        A {abRepeat.pointA !== null ? formatTime(abRepeat.pointA) : ''}
-      </Button>
-      <Button
-        variant={abRepeat.pointB !== null ? 'accent' : 'secondary'}
-        size="sm"
-        className="flex-1 tabular-nums"
-        disabled={abRepeat.pointA === null}
-        onClick={() => abRepeat.setB(now())}
-      >
-        B {abRepeat.pointB !== null ? formatTime(abRepeat.pointB) : ''}
-      </Button>
-    </div>
-  );
-}

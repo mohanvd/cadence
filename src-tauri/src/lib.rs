@@ -432,6 +432,108 @@ fn playlist_delete(
     store.delete(&id)
 }
 
+/// Change what a track says it is.
+///
+/// The tags are given by the page as the fields it edited; anything absent is
+/// left alone, and anything present-but-empty is cleared. A `cover` is a path
+/// to a picture on disk, and replaces whatever sleeve the file had.
+///
+/// Several files at once because that is what editing an *album* is: the same
+/// album name, artist and year written into every track on it. Done one after
+/// another rather than in parallel — they are writes to the same folder, and a
+/// dozen FFmpeg processes rewriting a dozen files at once is a way to find out
+/// which of them the antivirus was watching.
+///
+/// The library is updated in place afterwards, so the screen changes without
+/// waiting for a rescan of everything else.
+#[tauri::command]
+async fn music_write(
+    state: tauri::State<'_, MediaState>,
+    library: tauri::State<'_, music::Library>,
+    paths: Vec<String>,
+    tags: std::collections::BTreeMap<String, String>,
+    cover: Option<String>,
+) -> Result<Vec<music::Song>, String> {
+    let Some(media) = pipeline(&state).await else {
+        return Err("playback support is not available".into());
+    };
+
+    let mut written = Vec::with_capacity(paths.len());
+    let mut failed: Option<String> = None;
+
+    for path in &paths {
+        if let Err(err) = media.write_tags(path, &tags, cover.as_deref()).await {
+            /* The first failure is remembered and the rest are still
+            attempted. An album where one track is open in another program
+            should end up with eleven tracks changed and one named, rather than
+            stopping halfway and leaving nobody able to say where. */
+            failed.get_or_insert(format!("{}: {err}", crate::music::name_of(path)));
+            continue;
+        }
+        if let Some(song) = read_song(&media, std::path::PathBuf::from(path), None).await {
+            written.push(song);
+        }
+    }
+
+    library.update(&written)?;
+
+    match failed {
+        Some(err) if written.is_empty() => Err(err),
+        Some(err) => Err(format!("{err} — the rest were changed")),
+        None => Ok(written),
+    }
+}
+
+/// Ask the operating system for a picture, for use as a sleeve.
+#[tauri::command]
+async fn pick_picture(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let (send, receive) = std::sync::mpsc::channel();
+    app.dialog()
+        .file()
+        .add_filter("Picture", &["jpg", "jpeg", "png", "webp", "bmp"])
+        .pick_file(move |chosen| {
+            let _ = send.send(chosen);
+        });
+    let chosen = receive.recv().map_err(|err| err.to_string())?;
+    Ok(chosen
+        .and_then(|picked| picked.into_path().ok())
+        .map(|path| path.to_string_lossy().into_owned()))
+}
+
+/// Show a file in the file manager, selected.
+///
+/// `explorer /select,` rather than opening the folder: the point of asking for
+/// this is almost always a particular file among several hundred, and a folder
+/// scrolled to the top is a folder you then have to search by hand.
+///
+/// The path is passed as one argument and never through a shell, so a name
+/// with a space, a quote or an ampersand in it reaches Explorer intact — and
+/// nothing in it can be read as a command.
+#[tauri::command]
+fn reveal(path: String) -> Result<(), String> {
+    let file = std::path::Path::new(&path);
+    if !file.exists() {
+        return Err("it is not where it was".into());
+    }
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("explorer.exe")
+            .raw_arg(format!("/select,\"{}\"", file.display()))
+            .creation_flags(0x0800_0000)
+            .spawn()
+            .map_err(|err| err.to_string())?;
+        // Explorer returns a non-zero exit code even when it worked, so there
+        // is nothing here worth waiting for or reporting.
+        Ok(())
+    }
+
+    #[cfg(not(windows))]
+    Err("only Windows knows how to do this".into())
+}
+
 /// Whether a file is still where the page last saw it.
 ///
 /// Asked after a failure rather than before an attempt. The browser reports a
@@ -684,6 +786,9 @@ pub fn run() {
             playlist_set,
             playlist_rename,
             playlist_delete,
+            reveal,
+            music_write,
+            pick_picture,
             #[cfg(windows)]
             now_playing
         ])

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import * as ContextMenuPrimitive from '@radix-ui/react-context-menu';
-import { Icon } from '@/components/ui/icons';
+import { Icon, type IconName } from '@/components/ui/icons';
 import { cn } from '@/lib/utils';
 import { usePortalContainer } from './portal-container';
 
@@ -66,9 +66,23 @@ export const ContextMenuItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Item> & {
     /** Right-aligned hint, normally the keyboard shortcut. */
     shortcut?: string;
+    /**
+     * A glyph for the left gutter.
+     *
+     * A prop rather than a child, because every row reserves that gutter for
+     * the check indicator and a glyph passed as a child lands inside the label
+     * instead — where, the label being a block, it sits above the words rather
+     * than beside them.
+     */
+    icon?: IconName;
   }
->(({ className, children, shortcut, ...props }, ref) => (
+>(({ className, children, shortcut, icon, ...props }, ref) => (
   <ContextMenuPrimitive.Item ref={ref} className={cn(row, className)} {...props}>
+    {icon && (
+      <span className="absolute left-2 flex size-4 items-center justify-center text-fg-subtle">
+        <Icon name={icon} size={14} />
+      </span>
+    )}
     <span className="flex-1 truncate">{children}</span>
     {shortcut && (
       <span className="ml-auto pl-4 text-[11px] tracking-wide text-fg-subtle">

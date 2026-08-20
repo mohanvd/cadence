@@ -36,7 +36,10 @@ import {
   usePlayerError,
   useVideoEl,
 } from '@/store/playerStore';
+import { useQueueStore } from '@/store/queueStore';
 import { ControlBar } from './ControlBar';
+import { MusicTransport } from '@/components/music/MusicTransport';
+import { SettingsMenu } from './SettingsMenu';
 import { SubtitleOverlay } from './SubtitleOverlay';
 
 /** What a subtitle file may be called. The menu's file picker offers the same. */
@@ -49,6 +52,18 @@ export interface PlayerSurfaceProps {
   source: MediaSourceInput;
   title: string;
   onBack: () => void;
+  /**
+   * Put away rather than closed: the file keeps playing, hidden, and only the
+   * bar along the bottom is on screen.
+   *
+   * Rendered from in here rather than by the window, because the settings menu
+   * needs this component's own feature state — the equalizer, the sleep timer,
+   * the loop — and a bar drawn outside it would either go without them or
+   * would need all of it hoisted out for one menu.
+   */
+  minimised?: boolean;
+  /** Bring the player back to the front from the docked bar. */
+  onExpand?: (() => void) | undefined;
   /**
    * Put the player away without stopping it.
    *
@@ -77,6 +92,8 @@ export function PlayerSurface({
   title,
   onBack,
   onMinimise,
+  minimised = false,
+  onExpand,
   onNext,
   onPrevious,
   position,
@@ -139,6 +156,9 @@ export function PlayerSurface({
   const isMusic = musicMode.forced;
   const song = useNowPlaying(source, isMusic);
   const path = source.kind === 'path' ? source.path : null;
+  /* What this track was played as part of — an album, an artist, a search, a
+     playlist. Blank when a file was simply opened, which is its own answer. */
+  const queueLabel = useQueueStore((state) => state.label);
   // Media keys, the OS Now Playing panel, and the taskbar transport.
   useMediaSession(
     song?.title ?? title,
@@ -274,9 +294,14 @@ export function PlayerSurface({
   const togglePlayWithFeedback = React.useCallback(() => {
     const wasPaused = usePlayerStore.getState().paused;
     togglePlay();
-    triggerFeedback('play', wasPaused ? 'play' : 'pause');
+    /* No flash over a record sleeve. The mark exists because a click on a film
+       changes a picture that may not visibly change, so without it there is no
+       sign the click landed. Music has a transport on screen the whole time
+       whose button has just swapped, which is the same confirmation without a
+       glyph the size of a fist over the artwork. */
+    if (!isMusic) triggerFeedback('play', wasPaused ? 'play' : 'pause');
     revealChrome();
-  }, [togglePlay, triggerFeedback, revealChrome]);
+  }, [togglePlay, triggerFeedback, revealChrome, isMusic]);
 
   /**
    * Drag to pan while zoomed.
@@ -372,9 +397,6 @@ export function PlayerSurface({
     toggleLoop: features.toggleLoop,
     addBookmark: features.addBookmarkAtPlayhead,
     takeScreenshot: features.takeScreenshot,
-    setABPointA: () => features.abRepeat.setA(features.videoRef.current?.currentTime ?? 0),
-    setABPointB: () => features.abRepeat.setB(features.videoRef.current?.currentTime ?? 0),
-    clearAB: features.abRepeat.clear,
     zoomIn: features.zoomPan.zoomIn,
     zoomOut: features.zoomPan.zoomOut,
     resetZoom: features.zoomPan.resetZoom,
@@ -388,16 +410,57 @@ export function PlayerSurface({
     return () => window.removeEventListener('keydown', onKey);
   }, [revealChrome]);
 
+  /* The same menu wherever the bar is, and mounted in only one of them at a
+     time. Two popovers sharing one exclusive-menu id fight: opening either
+     puts the id in the store, the copy inside the hidden overlay sees itself
+     open, dismisses because nothing there can take focus, and clears the id
+     again — so the visible one flickers open and shut in the same frame. */
+  const musicSettings = (
+    <SettingsMenu
+      features={features}
+      ambient={{ enabled: ambient, toggle: toggleAmbient }}
+      musicMode={musicMode}
+      fit={fit}
+      music
+    />
+  );
+
+  /* Put away: the engine keeps its element and its position, and what is on
+     screen is the bar. The overlay below stays mounted and hidden rather than
+     being torn down, because tearing it down would take the decoder with it. */
   return (
     <TooltipProvider delayDuration={400}>
-      <PortalContainerProvider container={shellEl}>
+      {/* Menus from the docked bar portal to the document, not into the hidden
+          overlay — a menu mounted inside `display: none` is a menu that opens
+          and cannot be seen. */}
+      <PortalContainerProvider container={minimised ? null : shellEl}>
+      {minimised && isMusic && (
+        <div className="music-bar--docked">
+          <MusicTransport
+            path={path}
+            title={title}
+            song={song}
+            expanded={false}
+            onToggleExpand={onExpand ?? (() => {})}
+            onNext={onNext}
+            onPrevious={onPrevious}
+            extra={musicSettings}
+          />
+        </div>
+      )}
+
       <div
         ref={attachShell}
+        hidden={minimised}
         // Focusable so the player itself can hold focus, but not a tab stop,
         // Tab should still reach the real controls inside it.
         tabIndex={-1}
         className={cn(
-          'relative h-full w-full overflow-hidden bg-black outline-none',
+          /* No `h-full`: the class below is `position: fixed` with an inset
+             that already sizes it, and a height of 100% *of the viewport*
+             applied on top of a 46px offset pushed the bottom of the player —
+             and the transport sitting on it — off the bottom of the window. */
+          'player-overlay overflow-hidden bg-black outline-none',
           !chromeVisible && 'cursor-none',
         )}
         onPointerMove={revealChrome}
@@ -485,16 +548,15 @@ export function PlayerSurface({
           )}
           onClick={(event) => event.stopPropagation()}
         >
-          <Button
-            variant="chrome"
-            size="icon"
-            onClick={isMusic && onMinimise ? onMinimise : onBack}
-            aria-label={isMusic && onMinimise ? 'Back to your music' : 'Back'}
-          >
-            <Icon name="back" />
-          </Button>
+          {/* No back arrow here at all. Being in the player is a position in
+              the window's own history, film or track, so the arrow in the
+              window bar leaves it — and two back arrows a few pixels apart,
+              doing the same thing, is one too many. */}
+          {/* For music the name is already the largest thing on the screen and
+              the bar along the bottom says it a second time. A third copy up
+              here is furniture, so what is left is where you came from. */}
           <h1 className="min-w-0 flex-1 truncate text-[15px] font-medium tracking-[-0.01em] text-white">
-            {song ? [song.title, song.artist].filter(Boolean).join(' — ') : title}
+            {isMusic ? <span className="text-white/55">{queueLabel}</span> : title}
           </h1>
           {/* Where this file sits among the others beside it. Absent for a
               film on its own, where "1 of 1" is a fact nobody needed. */}
@@ -512,18 +574,37 @@ export function PlayerSurface({
           )}
         </div>
 
-        <ControlBar
-          visible={chromeVisible && !error}
-          isFullscreen={isFullscreen}
-          onToggleFullscreen={toggleFullscreen}
-          features={features}
-          ambient={{ enabled: ambient, toggle: toggleAmbient }}
-          musicMode={musicMode}
-          fit={fit}
-          onNext={onNext}
-          onPrevious={onPrevious}
-          music={isMusic}
-        />
+        {/* Music gets the same bar it has when the player is put away, so
+            collapsing the player moves nothing. A film keeps the control bar,
+            which carries a timeline with thumbnails, subtitles, bookmarks and
+            a frame grab — none of which an album has any use for. */}
+        {isMusic && !minimised ? (
+          <div className="music-bar--player">
+            <MusicTransport
+              path={path}
+              title={title}
+              song={song}
+              expanded
+              onToggleExpand={onMinimise ?? onBack}
+              onNext={onNext}
+              onPrevious={onPrevious}
+              extra={musicSettings}
+            />
+          </div>
+        ) : isMusic ? null : (
+          <ControlBar
+            visible={chromeVisible && !error}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+            features={features}
+            ambient={{ enabled: ambient, toggle: toggleAmbient }}
+            musicMode={musicMode}
+            fit={fit}
+            onNext={onNext}
+            onPrevious={onPrevious}
+            music={isMusic}
+          />
+        )}
 
         {resume && chromeVisible && (
           <div

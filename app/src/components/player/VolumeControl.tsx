@@ -153,7 +153,7 @@ export function VolumeControl() {
           <SliderPrimitive.Track className="relative h-[3px] w-full grow overflow-hidden rounded-full bg-white/25">
             <SliderPrimitive.Range className="absolute h-full bg-white" />
           </SliderPrimitive.Track>
-          <SliderPrimitive.Thumb className="block size-3 rounded-full bg-white shadow-[var(--shadow-control)] transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-accent" />
+          <SliderPrimitive.Thumb className="block size-3 rounded-full bg-white shadow-[var(--shadow-control)] focus-visible:outline-2 focus-visible:outline-accent" />
         </SliderPrimitive.Root>
       </div>
 

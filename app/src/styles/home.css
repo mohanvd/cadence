@@ -43,7 +43,9 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-top: calc(56px + env(safe-area-inset-top));
+  /* Measured from the bar rather than written down: the bar's height is a
+     token and this used to be a number that happened to match it. */
+  padding-top: calc(var(--titlebar-h) + 18px + env(safe-area-inset-top));
 }
 
 .xn-home__inner {

@@ -7,6 +7,8 @@
    not yet ported to the new system, and it shrinks as they migrate. */
 
 /* ── Design tokens ── */
+
+/* ── Design tokens ── */
 :root {
   --bg: #080808;
   --surface: #111111;
@@ -223,7 +225,10 @@ video::cue {
    a token because the player overlay and the launcher both have to start below
    it, and three places agreeing by coincidence is how a 1px seam appears. */
 :root {
-  --titlebar-h: 38px;
+  /* Tall enough to hold a search field without it touching the edges. The
+     bar carries the window controls, the sections and the search now that
+     there is no second strip under it. */
+  --titlebar-h: 46px;
 }
 
 .titlebar {
@@ -236,7 +241,7 @@ video::cue {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-left: 14px;
+  padding-left: 8px;
   background: var(--bg);
   border-bottom: 1px solid var(--divider-line);
   /* Nothing in the bar is text to be selected, and a stray drag that starts a
@@ -245,22 +250,44 @@ video::cue {
   -webkit-user-select: none;
 }
 
-.titlebar__brand {
-  font-family: 'Agbalumo', 'Schibsted Grotesk', Inter, system-ui, sans-serif;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--text-2);
-  pointer-events: none;
-}
-
 /* Sits beside the wordmark rather than centred in the bar. `margin-right:auto`
    rather than the parent's `space-between`, which with three children would
    put this in the middle of the window and move it every time the window was
    resized. */
+.titlebar__history {
+  display: flex;
+  gap: 2px;
+}
+
+.titlebar__arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-2);
+  cursor: default;
+  transition: background 120ms ease, color 120ms ease, opacity 120ms ease;
+}
+
+.titlebar__arrow:hover:not(:disabled) {
+  background: var(--icon-hover-bg);
+  color: var(--text);
+}
+
+/* Dimmed rather than hidden. An arrow that disappears when there is nowhere to
+   go takes the other one with it every time the row re-centres. */
+.titlebar__arrow:disabled {
+  opacity: 0.3;
+}
+
 .titlebar__nav {
   display: flex;
   gap: 2px;
-  margin-left: 18px;
+  margin-left: 12px;
   margin-right: auto;
 }
 
@@ -289,6 +316,27 @@ video::cue {
 .titlebar__tab[data-active] {
   background: var(--icon-hover-bg);
   color: var(--text);
+}
+
+/* Centred in the window rather than pushed against the window controls.
+   
+   Absolutely positioned on purpose: the bar's other contents are different
+   widths on the two screens, so a search laid out in the flow would sit in a
+   different place on each of them and shift as the sections changed. The
+   middle of the window is the one position that is the same everywhere. */
+.titlebar__search {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  -webkit-app-region: no-drag;
+}
+
+/* Below the window controls, so a wide window never puts the field under
+   them, and above the drag region so a click lands in the field. */
+@media (max-width: 720px) {
+  .titlebar__search {
+    display: none;
+  }
 }
 
 .titlebar__controls {
@@ -565,6 +613,10 @@ video::cue {
      fullscreens its own element and this offset stops applying. */
   top: var(--titlebar-h, 0px);
   z-index: 100;
+  /* Pure black, and the only place it belongs: a film letterboxed on grey has
+     a grey frame around the picture, and this is the one surface whose job is
+     to disappear. Music never sees it — the stage paints over it with the
+     window's own colour. */
   background: #000;
 }
 
@@ -579,7 +631,7 @@ video::cue {
 
 /* Room for the bar along the bottom, on the screens that scroll. */
 .app-shell--playing .xn-home__scroll {
-  padding-bottom: 64px;
+  padding-bottom: 78px;
 }
 
 /* ── Mobile video cards ── */
@@ -605,44 +657,66 @@ video::cue {
 /* Below the title bar, filling the rest of the window. Not `position: fixed`
    like the player overlay: the player has to cover this, and a screen that
    claimed the same layer would fight it for the top. */
+/* The same colour as the file screen, and it has to be said here rather than
+   left to a utility class: `--color-base` is the Tailwind ramp's floor, which
+   is a shade darker than `--bg` and reads as black in a window this size. Two
+   screens in one window are one window. */
 .music-screen {
   position: absolute;
   inset: var(--titlebar-h) 0 0 0;
   overflow: hidden;
+  background: var(--bg);
 }
 
-/* The bar along the bottom while something plays behind another screen. */
-.mini-player {
+/* The bar along the bottom while music is playing, in the player and out of it.
+   
+   Three columns by grid rather than by flex, and the middle one is fixed so
+   the transport is centred in the *window* rather than in whatever space the
+   song title leaves it. A play button that moves when the next track has a
+   longer name is a play button you have to look for every time. */
+.music-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(22rem, 34rem) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  height: 78px;
+  padding: 0 14px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Narrow windows have no room for three columns, and the one that has to give
+   is the middle: the transport keeps its place and the sides shrink to
+   nothing rather than the whole row wrapping. */
+@media (max-width: 900px) {
+  .music-bar {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+}
+
+/* Out of the player: fixed to the window, over whatever screen is showing. */
+.music-bar--docked {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 150;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 64px;
-  padding: 0 14px;
   background: color-mix(in oklab, var(--bg) 88%, transparent);
   border-top: 1px solid var(--divider-line);
   backdrop-filter: blur(24px);
-  user-select: none;
-  -webkit-user-select: none;
 }
 
-/* A hairline across the top edge rather than a scrubbable bar: a two-pixel
-   target is not something anybody can hit on purpose. */
-.mini-player__progress {
+/* Inside the player: the same bar, over the sleeve. */
+.music-bar--player {
   position: absolute;
-  top: 0;
   left: 0;
-  height: 2px;
-  background: var(--color-accent);
-  transition: width 240ms linear;
-  pointer-events: none;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: linear-gradient(to top, oklch(0 0 0 / 0.55), transparent);
 }
 
 /* The library scrolls above the bar rather than under it. */
 .music-screen--playing {
-  bottom: 64px;
+  bottom: 78px;
 }

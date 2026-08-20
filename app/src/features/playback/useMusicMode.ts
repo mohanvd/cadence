@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { usePlayerStore } from '@/store/playerStore';
+import { isSoundOnly } from '@/lib/media';
 
 /**
  * Music mode: playback with the picture switched off.
@@ -16,21 +17,6 @@ import { usePlayerStore } from '@/store/playerStore';
  */
 
 const STORAGE_KEY = 'cadence-music-mode';
-
-/**
- * Whether the file's name promised a picture.
- *
- * By extension rather than by inspection, because the question is not what is
- * inside the file — that is already known by the time this is asked — but what
- * the person who opened it expected. `.flac` promised nothing and delivered
- * nothing; `.mkv` promised a picture and has none, and that is the surprise
- * worth a word.
- */
-const SOUND_ONLY = /\.(mp3|m4a|m4b|flac|wav|opus|ogg|oga|aac|wma|aiff?|ape|wv|mka)$/i;
-
-function looksLikeVideo(name: string): boolean {
-  return !SOUND_ONLY.test(name);
-}
 
 export interface MusicModeApi {
   enabled: boolean;
@@ -78,7 +64,10 @@ export function useMusicMode(onToast?: (message: string) => void): MusicModeApi 
     const name = source?.name ?? null;
     if (!forced || !name || announcedFor.current === name) return;
     announcedFor.current = name;
-    if (looksLikeVideo(name)) onToast?.('No video track. Playing as audio');
+    /* Only for a file whose name promised a picture. `.flac` promised nothing
+       and delivered nothing; `.mkv` promised one and has none, and that is the
+       surprise worth a word. */
+    if (!isSoundOnly(name)) onToast?.('No video track. Playing as audio');
   }, [forced, source, onToast]);
 
   const toggle = React.useCallback(() => {

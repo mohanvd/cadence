@@ -1,19 +1,10 @@
 import { artworkUrl, frameUrl } from '../lib/desktop';
+import { isSoundOnly } from '../lib/media';
 
 /** Five of these live in localStorage, so the quality has to buy its size. */
 const POSTER_QUALITY = 0.55;
 /** Wider than the card so it stays sharp on a scaled display. */
 const POSTER_WIDTH = 420;
-
-/**
- * Files whose picture is a sleeve rather than a frame.
- *
- * The same list the intake accepts, and it has to be a list rather than a
- * question asked of the file: this runs over every entry in the recent list at
- * once, and inspecting each one to find out what kind it is would cost a
- * process per tile to answer something the name already says.
- */
-const SOUND_ONLY = /\.(mp3|m4a|m4b|flac|wav|opus|ogg|oga|aac|wma|aiff?|ape|wv|mka)$/i;
 
 /**
  * Grab a picture for a file's tile in the recent list.
@@ -41,7 +32,7 @@ const SOUND_ONLY = /\.(mp3|m4a|m4b|flac|wav|opus|ogg|oga|aac|wma|aiff?|ape|wv|mk
  */
 export async function capturePoster(path) {
   try {
-    const url = SOUND_ONLY.test(path)
+    const url = isSoundOnly(path)
       ? await artworkUrl(path, { width: POSTER_WIDTH })
       : await frameUrl(path, { width: POSTER_WIDTH });
     if (!url) return null;

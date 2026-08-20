@@ -5,7 +5,7 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-08-20
 
 ### Added
 
@@ -58,6 +58,29 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the library puts the player away rather than stopping it, and a bar along the
   bottom keeps the sleeve, the transport and the way back. Nothing is torn down
   to get there: the same element keeps playing, hidden.
+
+- **One window bar.** The wordmark, back and forward, the two screens and the
+  search all sit in the strip that carries the window. There is no second bar
+  under it — a title bar with another bar beneath it doing the same job is what
+  made this look like a web page in a frame.
+
+  Back and forward are the whole of the navigation. Opening a record, changing
+  section, expanding the player and going back are all positions, so one arrow
+  in one place undoes any of them — and no panel needs a close button of its
+  own in the corner of the thing it is showing you.
+
+- **Right-click menus.** Play, play next, add to the queue, add to a playlist,
+  edit, show in Explorer. WebView2's own menu — Back, Refresh, Save as, Print,
+  Inspect — is gone from the whole window; it was the browser underneath
+  introducing itself, and three of its five items would have done something
+  actively wrong here.
+
+- **Editing what a file says it is.** Rename a track, fix an artist, set a
+  year, replace a sleeve — for one track or for a whole record at once. It is
+  written into the file rather than kept in a database here, so every other
+  player on the machine sees the correction too, and it survives copying the
+  file somewhere else. Nothing is re-encoded: the streams are copied and only
+  the header changes, so a lossless track stays bit-for-bit what it was.
 
 - **A player that knows it is playing music.** The sleeve fills the frame, the
   title and artist come from the tags rather than the filename, the transport

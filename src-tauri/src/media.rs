@@ -38,6 +38,12 @@ use tokio::io::AsyncReadExt;
 use tokio::net::TcpListener;
 use tokio::process::Command;
 
+/// Names the temporary file a tag edit writes through, uniquely.
+///
+/// A counter rather than a timestamp: an album-wide change edits a dozen files
+/// inside the same second, and a name made from the clock would collide.
+static EDITS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
 /// Hides the console window Windows would otherwise flash for each child.
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -1161,12 +1167,124 @@ impl Media {
             .filter(|value| value.is_finite() && *value > 0.0)
     }
 
-    /// One frame, as a JPEG, for a thumbnail.
+    /// Write tags — and optionally a new sleeve — into a file.
     ///
-    /// `-ss` before `-i` again, and for the same reason it matters when
-    /// playing: FFmpeg jumps to the nearest keyframe rather than decoding up to
-    /// the timestamp, so a frame from the middle of a four gigabyte film costs
-    /// what a frame from the start of it does.
+    /// FFmpeg cannot edit a file in place, so this is a remux: the streams are
+    /// copied into a new file beside the old one with different metadata, and
+    /// the new one takes the old one's name. Nothing is re-encoded, so a
+    /// lossless track stays bit-for-bit what it was; what changes is the
+    /// header.
+    ///
+    /// The temporary file is written into the same folder rather than into the
+    /// system temp directory, for two reasons. A rename within a folder is
+    /// atomic and a move across volumes is a copy — which for a two-hour
+    /// recording is a minute of disk and a window in which both copies exist.
+    /// And a music folder is somewhere the user can write by definition,
+    /// whereas the temp directory on a locked-down machine may not be.
+    ///
+    /// An empty value removes the tag rather than writing an empty one, which
+    /// is what "clear this field" has to mean.
+    pub async fn write_tags(
+        &self,
+        path: &str,
+        tags: &std::collections::BTreeMap<String, String>,
+        art: Option<&str>,
+    ) -> Result<(), String> {
+        let file = std::path::Path::new(path);
+        if !file.is_file() {
+            return Err("it is not where it was".into());
+        }
+        let extension = file
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .ok_or("a file with no extension has no format to write back")?;
+
+        /* Beside the original and named so that a crash halfway leaves
+        something obviously disposable rather than something that looks like a
+        track. The counter is there because two edits in the same second, which
+        an album-wide change is, must not choose the same name. */
+        let temp = file.with_file_name(format!(
+            ".cadence-writing-{}.{extension}",
+            EDITS.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+
+        let mut args: Vec<String> = vec![
+            "-hide_banner".into(),
+            "-loglevel".into(),
+            "error".into(),
+            "-y".into(),
+            "-i".into(),
+            path.to_owned(),
+        ];
+
+        if let Some(picture) = art {
+            args.extend(["-i".into(), picture.to_owned()]);
+            /* Sound from the first input, picture from the second, and the
+            picture marked as a sleeve rather than as a video track — without
+            that flag every player treats the file as a one-frame film. */
+            args.extend([
+                "-map".into(),
+                "0:a".into(),
+                "-map".into(),
+                "1:v".into(),
+                "-c:a".into(),
+                "copy".into(),
+                "-c:v".into(),
+                "mjpeg".into(),
+                "-disposition:v".into(),
+                "attached_pic".into(),
+            ]);
+        } else {
+            // Everything as it stands, sleeve included.
+            args.extend(["-map".into(), "0".into(), "-c".into(), "copy".into()]);
+        }
+
+        for (key, value) in tags {
+            args.push("-metadata".into());
+            // `key=` with nothing after it is how FFmpeg is told to drop a tag.
+            args.push(format!("{key}={value}"));
+        }
+
+        args.push(temp.to_string_lossy().into_owned());
+
+        let output = ffmpeg_command(&self.ffmpeg)
+            .args(&args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()
+            .await
+            .map_err(|err| err.to_string())?;
+
+        if !output.status.success() || !temp.is_file() {
+            let _ = std::fs::remove_file(&temp);
+            let said = String::from_utf8_lossy(&output.stderr);
+            let last = said.lines().last().unwrap_or("").trim();
+            return Err(if last.is_empty() {
+                "the file could not be rewritten".to_owned()
+            } else {
+                last.to_owned()
+            });
+        }
+
+        /* The replacement. A file being played is open on Windows and cannot
+        be renamed over, which is the one failure worth naming precisely —
+        "permission denied" sends people to look at their disk. */
+        if let Err(err) = std::fs::rename(&temp, file) {
+            let _ = std::fs::remove_file(&temp);
+            return Err(if err.kind() == std::io::ErrorKind::PermissionDenied {
+                "the file is in use — stop playing it and try again".to_owned()
+            } else {
+                err.to_string()
+            });
+        }
+
+        // The cached inspection describes the file as it was a moment ago.
+        if let Ok(mut cache) = self.probed.lock() {
+            cache.remove(path);
+        }
+        Ok(())
+    }
+
     /// The sleeve for a track, as a JPEG.
     ///
     /// Two places to look, and the order matters. Inside the file first,
@@ -1229,6 +1347,12 @@ impl Media {
         Ok(output.stdout)
     }
 
+    /// One frame, as a JPEG, for a thumbnail.
+    ///
+    /// `-ss` before `-i` again, and for the same reason it matters when
+    /// playing: FFmpeg jumps to the nearest keyframe rather than decoding up to
+    /// the timestamp, so a frame from the middle of a four gigabyte film costs
+    /// what a frame from the start of it does.
     pub async fn frame(&self, path: &str, at: Option<f64>, width: u32) -> Result<Vec<u8>, String> {
         // No timestamp asks for a frame that represents the file, which is not
         // the first one: films open on black, on a logo, or on a fade.

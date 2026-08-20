@@ -10,7 +10,12 @@ import { usePlayerStore } from './store/playerStore';
 import { useQueueStore } from './store/queueStore';
 import Home from './screens/Home';
 import Music from './screens/Music';
-import { MiniPlayer } from './components/music/MiniPlayer';
+import { TooltipProvider } from './components/ui/tooltip';
+import { closeMenus } from './components/ui/popover';
+import { MusicSearch } from './components/music/MusicSearch';
+import { isSoundOnly } from './lib/media';
+import { useView, useViewStore } from './store/viewStore';
+import { useNoBrowserMenu } from './components/music/TrackMenu';
 import TitleBar from './components/TitleBar';
 import { PlayerSurface } from './components/player/PlayerSurface';
 import Toast from './components/Toast';
@@ -24,15 +29,24 @@ import UpdatePill from './components/UpdatePill';
  */
 export default function App() {
   const [playerOpen, setPlayerOpen] = useState(false);
-  /* Which of the two ways in is on screen behind the player. Not a route: the
-     player is an overlay over whichever it is, so going back from a track
-     lands on the library it was picked from rather than on the file screen. */
-  const [screen, setScreen] = useState('home');
+  /* Which of the two ways in is on screen behind the player. A position in
+     the window's history rather than local state, so the arrows in the bar
+     move between them like they move between everything else. */
+  const view = useView();
+  const screen = view.screen;
+  const setScreen = useViewStore((s) => s.go);
   /* Hidden rather than closed. The player keeps its element, its decoder and
      its position; only the overlay stops being painted. That is what lets
      somebody go back to the library and keep listening, which is the whole
      difference between a music player and a video player that plays music. */
-  const [minimised, setMinimised] = useState(false);
+  const minimised = !view.player;
+  const setMinimised = useCallback(
+    (away) => useViewStore.getState().go({ player: !away }),
+    [],
+  );
+  /* The search box lives in the window's own bar, so what was typed into it
+     lives here rather than inside the library. One bar, one place. */
+  const [query, setQuery] = useState('');
   const [videoSource, setVideoSource] = useState(null);
   const [urlLoadError, setUrlLoadError] = useState('');
   const { toast, showToast } = useToast();
@@ -47,6 +61,11 @@ export default function App() {
   useEffect(() => {
     clearBookmarkStorage();
   }, []);
+
+  /* No Back, Refresh, Save as, Print or Inspect. That menu is WebView2
+     introducing itself, and three of its five items would do something
+     actively wrong here. */
+  useNoBrowserMenu();
 
   /* A `File` with no path behind it, which only the browser dev server
      produces. The recent entry it leaves is a record that the file was
@@ -140,9 +159,9 @@ export default function App() {
       playPath(first);
       // Stay where you are. Picking a track out of a library is not a request
       // to be taken away from the library.
-      setMinimised(true);
+      setScreen({ player: false });
     },
-    [startQueue, playPath],
+    [startQueue, playPath, setScreen],
   );
 
   /* Shuffle from the library starts on a random track rather than on the first
@@ -208,6 +227,19 @@ export default function App() {
     return queueTotal > 1 ? { index: queueIndex, total: queueTotal } : null;
   }, [chosen, folder.position, queueIndex, queueTotal]);
 
+  /* Leaving the player, for a film, means closing it.
+   *
+   * Music is put away and keeps playing, with a bar along the bottom to come
+   * back to. A film has neither — nobody browses a library while watching one
+   * — so the same gesture that puts a track away stops a film. Watched here
+   * rather than in the back arrow because there are three ways out now: the
+   * arrow, the section tabs, and the history. */
+  useEffect(() => {
+    if (!playerOpen || !minimised) return;
+    if (videoSource && isSoundOnly(videoSource.name)) return;
+    setPlayerOpen(false);
+  }, [playerOpen, minimised, videoSource]);
+
   /* Opening a file from outside the library hands the queue back to the folder
      it came from. Leaving a library queue standing would mean double-clicking
      an episode in Explorer and then being taken to whatever album happened to
@@ -218,7 +250,7 @@ export default function App() {
       playPath(path);
       // A file opened on purpose is a file somebody wants to watch, so the
       // player comes to the front even if it was put away a moment ago.
-      setMinimised(false);
+      setScreen({ player: true });
     },
     [clearQueue, playPath],
   );
@@ -229,29 +261,53 @@ export default function App() {
   const closePlayer = useCallback(() => {
     setPlayerOpen(false);
     setMinimised(false);
-  }, []);
+  }, [setMinimised]);
 
   /* Changing screen while something is playing puts the player away rather
      than stopping it. Anything else would mean the library is unreachable
      while a record is on, which is the one moment somebody most wants it. */
-  const goToScreen = useCallback((next) => {
-    setScreen(next);
-    setMinimised(true);
-  }, []);
+  const goToScreen = useCallback(
+    (next) => {
+      setScreen({ screen: next });
+      closeMenus();
+      /* Music is put away and keeps playing; a film is closed. Nobody browses
+         a music library while watching one in the same window, and leaving it
+         running invisibly with no transport would be a film playing to nobody
+         with no way back to it. */
+      if (videoSource && isSoundOnly(videoSource.name)) setMinimised(true);
+      else setPlayerOpen(false);
+    },
+    [videoSource, setScreen, setMinimised],
+  );
 
-  const expandPlayer = useCallback(() => setMinimised(false), []);
+  const expandPlayer = useCallback(() => setMinimised(false), [setMinimised]);
 
-  /* The back arrow, for a track. Goes to the library rather than to the file
-     screen, because the library is where the track came from and where the
-     next one is. */
+  /* Collapsing the player puts it away and leaves you where you were.
+   *
+   * It used to also change screen to the library, which is wrong for the
+   * ordinary case: somebody who put a record on and then went to the file
+   * screen, expanded the player to look at the sleeve, and collapsed it again
+   * was taken somewhere they had not asked to go. Where you were is where you
+   * were; the music keeps playing either way. */
   const minimiseToMusic = useCallback(() => {
-    setScreen('music');
-    setMinimised(true);
-  }, []);
+    setScreen({ player: false });
+    closeMenus();
+  }, [setScreen]);
 
   return (
+    /* One provider for the whole window rather than one inside the player.
+       The transport now appears in two places — over the sleeve and docked to
+       the window — and only one of them was inside the player's provider, so
+       the other threw the moment it rendered a tooltip. */
+    <TooltipProvider delayDuration={400}>
     <div className={`app-shell${playerOpen && minimised ? ' app-shell--playing' : ''}`}>
-      <TitleBar screen={screen} onScreen={goToScreen} />
+      <TitleBar
+        screen={screen}
+        onScreen={goToScreen}
+        search={
+          screen === 'music' ? <MusicSearch value={query} onChange={setQuery} /> : null
+        }
+      />
 
       {/* Two screens and no router. The player is an overlay over whichever is
           showing rather than a route of its own: it has to be able to appear
@@ -261,7 +317,12 @@ export default function App() {
           Both stay mounted for the same reason, and the hidden one is hidden
           with `display: none` rather than unmounted: switching to the library
           and back should not re-read eight thousand tracks. */}
-      <div hidden={screen !== 'home'} className="contents">
+      {/* Hidden with a real block wrapper rather than `display: contents`.
+          Contents removes the box, and a box that is not there cannot be
+          hidden: the whole screen stayed clickable and in the tab order
+          underneath the library, which is invisible right up until somebody
+          presses Tab or a script clicks the wrong button. */}
+      <div hidden={screen !== 'home'}>
         <Home
           onPlayFile={playFile}
           onPlayUrl={playUrl}
@@ -277,6 +338,7 @@ export default function App() {
       {screen === 'music' && (
         <div className={`music-screen${playerOpen && minimised ? ' music-screen--playing' : ''}`}>
           <Music
+            query={query}
             onPlay={playList}
             onShuffle={shuffleList}
             playing={videoSource?.kind === 'path' ? videoSource.path : null}
@@ -285,29 +347,16 @@ export default function App() {
       )}
 
       {playerOpen && videoSource && (
-        <div className="player-overlay" hidden={minimised}>
-          <PlayerSurface
-            source={videoSource}
-            title={videoSource.name}
-            onBack={closePlayer}
-            onMinimise={minimiseToMusic}
-            onNext={nextHandler}
-            onPrevious={previousHandler}
-            position={position}
-          />
-        </div>
-      )}
-
-      {/* Only while the player is put away. Expanded, the real transport is on
-          screen and a second copy of it along the bottom would be two things
-          claiming to be in charge. */}
-      {playerOpen && minimised && videoSource && (
-        <MiniPlayer
-          path={videoSource.kind === 'path' ? videoSource.path : null}
+        <PlayerSurface
+          source={videoSource}
           title={videoSource.name}
+          minimised={minimised}
           onExpand={expandPlayer}
+          onBack={closePlayer}
+          onMinimise={minimiseToMusic}
           onNext={nextHandler}
           onPrevious={previousHandler}
+          position={position}
         />
       )}
 
@@ -322,5 +371,6 @@ export default function App() {
         onInstall={installAndRestart}
       />
     </div>
+    </TooltipProvider>
   );
 }

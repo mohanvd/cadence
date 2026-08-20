@@ -810,3 +810,62 @@ export async function playlistDelete(id) {
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke('playlist_delete', { id });
 }
+
+/**
+ * Show a file in Explorer, selected.
+ *
+ * Selected rather than merely opening the folder: what somebody wants when
+ * they ask for this is one file among several hundred, and a folder scrolled
+ * to the top is a folder they then search by hand.
+ *
+ * @param {string} path
+ * @returns {Promise<boolean>} False when the file is no longer there.
+ */
+export async function revealFile(path) {
+  if (!isDesktop()) return false;
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    await invoke('reveal', { path });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/* ── Editing what a file says it is ── */
+
+/**
+ * Write tags, and optionally a new sleeve, into files.
+ *
+ * Several at once because that is what editing an album is: the same album
+ * name, artist and year written into every track on it. A tag left out of
+ * `tags` is left alone; one present but empty is cleared.
+ *
+ * Resolves with the updated records. Rejects with a sentence worth showing if
+ * any file could not be written — the commonest reason being that it is the
+ * one currently playing, which Windows will not let anything rename over.
+ *
+ * @param {string[]} paths
+ * @param {Record<string, string>} tags
+ * @param {string | null} [cover] A picture on disk to use as the sleeve.
+ * @returns {Promise<Song[]>}
+ */
+export async function musicWrite(paths, tags, cover = null) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('music_write', { paths, tags, cover });
+}
+
+/**
+ * Ask the operating system for a picture, returning its path.
+ *
+ * @returns {Promise<string | null>}
+ */
+export async function pickPicture() {
+  if (!isDesktop()) return null;
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    return await invoke('pick_picture');
+  } catch {
+    return null;
+  }
+}

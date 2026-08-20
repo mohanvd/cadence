@@ -78,6 +78,18 @@ export function MenuGroup({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Close whatever menu is open, from outside the group.
+ *
+ * Unmounting is not the only way a menu stops being reachable. The music
+ * player is *hidden* rather than closed when you go back to the library, which
+ * takes its buttons off the screen while leaving them mounted — and a menu
+ * left open behind that reappears, still open, when the player comes back.
+ */
+export function closeMenus(): void {
+  setActiveMenu(null);
+}
+
 /** Controlled-open props for a `Popover` that participates in the group. */
 export function useExclusiveMenu(id: string): {
   open: boolean;
@@ -224,7 +236,7 @@ export function MenuSlider({
         <SliderPrimitive.Track className="relative h-[3px] w-full grow overflow-hidden rounded-full bg-surface-3">
           <SliderPrimitive.Range className="absolute h-full bg-accent" />
         </SliderPrimitive.Track>
-        <SliderPrimitive.Thumb className="block size-3.5 rounded-full bg-accent shadow-[var(--shadow-control)] transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-accent" />
+        <SliderPrimitive.Thumb className="block size-3.5 rounded-full bg-accent shadow-[var(--shadow-control)] focus-visible:outline-2 focus-visible:outline-accent" />
       </SliderPrimitive.Root>
     </div>
   );

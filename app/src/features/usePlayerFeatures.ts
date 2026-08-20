@@ -7,7 +7,6 @@ import type { MediaTrack } from '@/engine/types';
 // They are sound, well-tested behaviour; rewriting them wholesale would risk
 // regressions for no user-visible gain, so they are reused as-is and fed a ref
 // that tracks whichever element the active backend created.
-import { useABRepeat } from '@/hooks/useABRepeat';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useEqualizer, EQ_PRESETS } from '@/hooks/useEqualizer';
 import { useSleepTimer } from '@/hooks/useSleepTimer';
@@ -46,7 +45,6 @@ export function usePlayerFeatures({ fileKey, onToast }: PlayerFeatureOptions) {
   // never re-trigger them.
   const videoEl = useVideoEl();
 
-  const abRepeat = useABRepeat();
   const bookmarks = useBookmarks(fileKey);
   // The element is passed as well as the ref: the subtitle track is a real DOM
   // child of it, so it has to be re-attached whenever a backend swap or a file
@@ -69,26 +67,9 @@ export function usePlayerFeatures({ fileKey, onToast }: PlayerFeatureOptions) {
     if (videoEl) videoEl.loop = loop;
   }, [loop, videoEl]);
 
-  /**
-   * A-B repeat: jump back to A whenever playback passes B.
-   *
-   * Driven off `timeupdate` rather than the store so the check runs at the
-   * element's own cadence and does not depend on React having re-rendered.
-   */
-  const { pointA, pointB } = abRepeat;
-  React.useEffect(() => {
-    if (!videoEl || pointA === null || pointB === null) return;
-    const onTimeUpdate = () => {
-      if (videoEl.currentTime >= pointB) videoEl.currentTime = pointA;
-    };
-    videoEl.addEventListener('timeupdate', onTimeUpdate);
-    return () => videoEl.removeEventListener('timeupdate', onTimeUpdate);
-  }, [pointA, pointB, videoEl]);
-
   /** Clear file-scoped state when the source changes. */
   React.useEffect(() => {
     subtitles.clear();
-    abRepeat.clear();
     // Intentionally keyed only on the file: re-running on hook identity would
     // wipe subtitles the moment any unrelated state changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,7 +132,6 @@ export function usePlayerFeatures({ fileKey, onToast }: PlayerFeatureOptions) {
 
   return {
     videoRef,
-    abRepeat,
     bookmarks,
     subtitles,
     // The preset lists are module constants in the original hooks; attaching

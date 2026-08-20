@@ -245,6 +245,14 @@ fn has_art(probe: &serde_json::Value) -> bool {
         })
 }
 
+/// A file's own name, for saying which one went wrong.
+pub fn name_of(path: &str) -> String {
+    Path::new(path)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.to_owned())
+}
+
 /// Whether this file is one the library should read.
 pub fn is_audio(path: &Path) -> bool {
     path.extension()
@@ -402,6 +410,26 @@ impl Library {
     pub fn replace(&self, songs: Vec<Song>) -> Result<(), String> {
         let mut held = self.index.lock().map_err(|_| "the library is poisoned")?;
         held.songs = songs;
+        self.write(&held);
+        Ok(())
+    }
+
+    /// Replace a handful of records in place, leaving the rest alone.
+    ///
+    /// Used after tags are written, so the screen changes without a scan of
+    /// everything else. A record whose path is not already known is added: a
+    /// file can be edited from outside the watched folders.
+    pub fn update(&self, songs: &[Song]) -> Result<(), String> {
+        if songs.is_empty() {
+            return Ok(());
+        }
+        let mut held = self.index.lock().map_err(|_| "the library is poisoned")?;
+        for song in songs {
+            match held.songs.iter_mut().find(|known| known.path == song.path) {
+                Some(known) => *known = song.clone(),
+                None => held.songs.push(song.clone()),
+            }
+        }
         self.write(&held);
         Ok(())
     }

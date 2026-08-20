@@ -33,9 +33,6 @@ export interface BindingContext {
   toggleLoop?: () => void;
   addBookmark?: () => void;
   takeScreenshot?: () => void;
-  setABPointA?: () => void;
-  setABPointB?: () => void;
-  clearAB?: () => void;
   zoomIn?: () => void;
   zoomOut?: () => void;
   resetZoom?: () => void;
@@ -201,27 +198,6 @@ export const BINDINGS: Binding[] = [
     hint: 'S',
     group: 'view',
     run: (ctx) => ctx.takeScreenshot?.(),
-  },
-  {
-    keys: ['a'],
-    label: 'Set loop point A',
-    hint: 'A',
-    group: 'playback',
-    run: (ctx) => ctx.setABPointA?.(),
-  },
-  {
-    keys: ['d'],
-    label: 'Set loop point B',
-    hint: 'D',
-    group: 'playback',
-    run: (ctx) => ctx.setABPointB?.(),
-  },
-  {
-    keys: ['x'],
-    label: 'Clear A–B loop',
-    hint: 'X',
-    group: 'playback',
-    run: (ctx) => ctx.clearAB?.(),
   },
   {
     keys: ['z'],

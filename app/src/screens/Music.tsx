@@ -7,8 +7,11 @@ import { AlbumGrid, AlbumSheet } from '@/components/music/AlbumGrid';
 import { Artwork } from '@/components/music/Artwork';
 import { SongRows } from '@/components/music/SongRows';
 import { AddToPlaylist, Playlists } from '@/components/music/Playlists';
+import { EditDetails } from '@/components/music/EditDetails';
+import { Popover, PopoverContent, PopoverTrigger, MenuItem } from '@/components/ui/popover';
 import { usePlaylistStore } from '@/store/playlistStore';
 import { search, useLibraryStore, type Album, type Song } from '@/store/libraryStore';
+import { useView, useViewStore, type MusicTab } from '@/store/viewStore';
 
 /**
  * The music on this machine.
@@ -29,9 +32,7 @@ import { search, useLibraryStore, type Album, type Song } from '@/store/libraryS
  * them.
  */
 
-type Tab = 'albums' | 'artists' | 'songs' | 'playlists';
-
-const TABS: { id: Tab; label: string; icon: 'album' | 'artist' | 'music' | 'queue' }[] = [
+const TABS: { id: MusicTab; label: string; icon: 'album' | 'artist' | 'music' | 'queue' }[] = [
   { id: 'albums', label: 'Albums', icon: 'album' },
   { id: 'artists', label: 'Artists', icon: 'artist' },
   { id: 'songs', label: 'Songs', icon: 'music' },
@@ -39,6 +40,8 @@ const TABS: { id: Tab; label: string; icon: 'album' | 'artist' | 'music' | 'queu
 ];
 
 export interface MusicProps {
+  /** What was typed in the window's search field. */
+  query: string;
   /** Play a list of tracks starting at one of them, and queue the rest. */
   onPlay: (songs: Song[], index: number, label: string) => void;
   /** The same, in a random order. */
@@ -47,7 +50,7 @@ export interface MusicProps {
   playing: string | null;
 }
 
-export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
+export default function Music({ query, onPlay, onShuffle, playing }: MusicProps) {
   const { songs, folders, loaded, scanning, progress, albums, artists } = useLibraryStore();
   const load = useLibraryStore((s) => s.load);
   const scan = useLibraryStore((s) => s.scan);
@@ -55,13 +58,32 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
   const addFolder = useLibraryStore((s) => s.addFolder);
   const removeFolder = useLibraryStore((s) => s.removeFolder);
 
-  const [tab, setTab] = React.useState<Tab>('albums');
-  const [query, setQuery] = React.useState('');
-  const [openAlbum, setOpenAlbum] = React.useState<string | null>(null);
+  /* Which section, and what is open in it, are positions in the window's
+     history rather than state of this screen — that is what lets the two
+     arrows in the window bar undo them. */
+  const view = useView();
+  const go = useViewStore((s) => s.go);
+  const tab = view.tab;
+  const openAlbum = view.album;
+  const setTab = React.useCallback(
+    (next: MusicTab) => go({ tab: next, album: null, playlist: null }),
+    [go],
+  );
+  const setOpenAlbum = React.useCallback((id: string | null) => go({ album: id }), [go]);
   const [managing, setManaging] = React.useState(false);
+  /* Set by the Create menu and cleared by the playlists view once it has put
+     its own dialog on screen. A message rather than shared state: the menu
+     knows what was asked for and the view knows how to ask for a name. */
+  const [making, setMaking] = React.useState(false);
+  const [creating, setCreating] = React.useState(false);
   /* The track waiting to be filed. One at a time and one dialog for the whole
      screen: there are as many rows as there is music, and one of these. */
   const [filing, setFiling] = React.useState<Song | null>(null);
+  /* What is being changed on disk, if anything. One at a time, and the scope
+     decides which fields the dialog offers. */
+  const [editing, setEditing] = React.useState<{ songs: Song[]; scope: 'track' | 'album' } | null>(
+    null,
+  );
   const loadPlaylists = usePlaylistStore((s) => s.load);
 
   React.useEffect(() => {
@@ -107,6 +129,9 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
     [visibleAlbums, openAlbum],
   );
 
+  /** Whether something has been opened over the library. */
+  const opened = album !== null || (tab === 'playlists' && view.playlist !== null);
+
   const pick = React.useCallback(async () => {
     const folder = await pickFolder();
     if (folder) await addFolder(folder);
@@ -118,21 +143,42 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
   );
 
   return (
-    <div className="relative flex h-full flex-col bg-base">
-      <header className="flex items-center gap-3 border-b border-line px-6 py-3">
-        <h1 className="text-[15px] font-semibold tracking-[-0.01em] text-fg">Music</h1>
+    <div className="relative flex h-full flex-col bg-[var(--bg)]">
+      {/* One line, and only while it is true. A progress bar that lives on the
+          screen permanently at 100% is furniture. */}
+      {scanning && (
+        <div className="mx-6 mt-4 flex items-center gap-3 rounded-[10px] bg-surface-1 px-4 py-2 text-[12px] text-fg-muted">
+          <Icon name="loading" size={13} className="animate-spin" />
+          {progress && progress.total > 0
+            ? `Reading ${progress.done.toLocaleString()} of ${progress.total.toLocaleString()}`
+            : 'Looking through your folders'}
+        </div>
+      )}
 
-        <nav className="ml-3 flex gap-1">
+      {/* Gone while a record or a playlist is open.
+          
+          A page you have opened is the whole screen: the sections you were
+          browsing a moment ago are not where you are any more, and leaving
+          them stranded over an album's own colour is a strip of the previous
+          screen sitting on top of this one. The back arrow in the window bar
+          is how you get out, which is the same way you get out of everywhere
+          else. */}
+      {!opened && (
+      <div className="flex items-center gap-2 px-6 pt-5">
+        {/* The sections, as pills in the content rather than in a bar of their
+            own. A second full-width strip under the title bar is what made
+            this window look like two applications stacked. */}
+        <nav className="flex gap-1">
           {TABS.map(({ id, label, icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => setTab(id)}
               className={cn(
-                'flex items-center gap-1.5 rounded-[var(--radius-control)] px-3 py-1.5 text-[13px] transition-colors',
+                'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] transition-colors',
                 tab === id
-                  ? 'bg-surface-2 text-fg'
-                  : 'text-fg-subtle hover:bg-surface-1 hover:text-fg-muted',
+                  ? 'bg-fg text-[color:var(--color-base)]'
+                  : 'bg-surface-1 text-fg-muted hover:bg-surface-2 hover:text-fg',
               )}
             >
               <Icon name={icon} size={14} />
@@ -141,43 +187,59 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2">
-          <label className="relative">
-            <Icon
-              name="search"
-              size={14}
-              className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-fg-subtle"
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search"
-              aria-label="Search your music"
-              className="w-52 rounded-[var(--radius-control)] border border-line bg-surface-1 py-1.5 pr-3 pl-8 text-[13px] text-fg placeholder:text-fg-subtle focus:border-line-strong focus:outline-none"
-            />
-          </label>
-
-          <Button
-            variant="chrome"
-            size="icon"
-            onClick={() => setManaging((open) => !open)}
-            aria-label="Music folders"
-          >
-            <Icon name="folder" />
-          </Button>
+        {/* One button for everything that can be made, rather than a button
+            per thing appearing on the tab that happens to show it. What can be
+            made does not depend on where you are standing. */}
+        <div className="ml-auto">
+          {/* Controlled, so choosing something closes it. An uncontrolled
+              popover stays open behind whatever the choice opened, which
+              leaves two menus on screen and one of them stale. */}
+          <Popover open={creating} onOpenChange={setCreating}>
+            <PopoverTrigger asChild>
+              <Button variant="secondary" size="sm">
+                <Icon name="louder" size={15} />
+                Create
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64">
+              <MenuItem
+                onSelect={() => {
+                  setCreating(false);
+                  setTab('playlists');
+                  setMaking(true);
+                }}
+              >
+                Playlist
+                <span className="block text-[11px] text-fg-subtle">
+                  A name and an order you choose
+                </span>
+              </MenuItem>
+              <MenuItem
+                onSelect={() => {
+                  setCreating(false);
+                  void pick();
+                }}
+              >
+                Watched folder
+                <span className="block text-[11px] text-fg-subtle">
+                  Somewhere Cadence reads music from
+                </span>
+              </MenuItem>
+              <MenuItem
+                onSelect={() => {
+                  setCreating(false);
+                  setManaging(true);
+                }}
+              >
+                Manage folders
+                <span className="block text-[11px] text-fg-subtle">
+                  {folders.length} being watched
+                </span>
+              </MenuItem>
+            </PopoverContent>
+          </Popover>
         </div>
-      </header>
-
-      {/* One line, and only while it is true. A progress bar that lives on the
-          screen permanently at 100% is furniture. */}
-      {scanning && (
-        <div className="flex items-center gap-3 border-b border-line bg-surface-1 px-6 py-2 text-[12px] text-fg-muted">
-          <Icon name="loading" size={13} className="animate-spin" />
-          {progress && progress.total > 0
-            ? `Reading ${progress.done.toLocaleString()} of ${progress.total.toLocaleString()}`
-            : 'Looking through your folders'}
-        </div>
+      </div>
       )}
 
       {managing && (
@@ -191,15 +253,30 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
         />
       )}
 
-      <div className="custom-scroll relative flex-1 overflow-y-auto px-6 py-6">
-        {!loaded ? null : songs.length === 0 && tab !== 'playlists' ? (
+      <div
+        className={cn(
+          'custom-scroll relative flex-1 overflow-y-auto',
+          opened ? 'px-0 pt-0 pb-0' : 'px-6 pt-5 pb-8',
+        )}
+      >
+        {/* An open record replaces the library rather than covering it. A
+            panel over a grid taller than the window leaves the bottom of the
+            grid showing under it, which is what was hanging off the corner. */}
+        {opened && tab !== 'playlists' ? null : !loaded ? null : songs.length === 0 &&
+          tab !== 'playlists' ? (
           <Empty hasFolders={folders.length > 0} onPick={pick} onRescan={() => void scan()} />
         ) : searching && found.length === 0 ? (
           <p className="pt-16 text-center text-[14px] text-fg-subtle">
             Nothing here matches “{query.trim()}”.
           </p>
         ) : tab === 'albums' ? (
-          <AlbumGrid albums={visibleAlbums} onOpen={(chosen) => setOpenAlbum(chosen.id)} />
+          <AlbumGrid
+            albums={visibleAlbums}
+            onOpen={(chosen) => setOpenAlbum(chosen.id)}
+            onPlay={(chosen) => playAlbum(chosen, 0)}
+            onShuffle={(chosen) => onShuffle(chosen.songs, chosen.title)}
+            onEdit={(chosen) => setEditing({ songs: chosen.songs, scope: 'album' })}
+          />
         ) : tab === 'artists' ? (
           <div className="flex flex-col gap-9">
             {visibleArtists.map((artist) => (
@@ -211,7 +288,13 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
                     {artist.songs} {artist.songs === 1 ? 'track' : 'tracks'}
                   </span>
                 </header>
-                <AlbumGrid albums={artist.albums} onOpen={(chosen) => setOpenAlbum(chosen.id)} />
+                <AlbumGrid
+                  albums={artist.albums}
+                  onOpen={(chosen) => setOpenAlbum(chosen.id)}
+                  onPlay={(chosen) => playAlbum(chosen, 0)}
+                  onShuffle={(chosen) => onShuffle(chosen.songs, chosen.title)}
+                  onEdit={(chosen) => setEditing({ songs: chosen.songs, scope: 'album' })}
+                />
               </section>
             ))}
           </div>
@@ -221,19 +304,34 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
             playing={playing}
             onPlay={(index) => onPlay(found, index, searching ? `“${query.trim()}”` : 'Your music')}
             onAdd={setFiling}
+            onEdit={(song) => setEditing({ songs: [song], scope: 'track' })}
+            variant="flat"
           />
         ) : (
           <Playlists
+            making={making}
+            onMade={() => setMaking(false)}
             songs={songs}
             playing={playing}
             onPlay={onPlay}
             onShuffle={onShuffle}
             onAdd={setFiling}
+            onEdit={(song) => setEditing({ songs: [song], scope: 'track' })}
           />
         )}
 
         {filing && <AddToPlaylist song={filing} onClose={() => setFiling(null)} />}
+        {editing && (
+          <EditDetails
+            songs={editing.songs}
+            scope={editing.scope}
+            onClose={() => setEditing(null)}
+          />
+        )}
 
+        {/* Placed outside the padded content so its colour wash reaches the
+            edges of the window: an album page inset by 24px on every side is a
+            card, and this is a page. */}
         {album && (
           <AlbumSheet
             album={album}
@@ -242,6 +340,8 @@ export default function Music({ onPlay, onShuffle, playing }: MusicProps) {
             onPlay={(index) => playAlbum(album, index)}
             onShuffle={() => onShuffle(album.songs, album.title)}
             onAdd={setFiling}
+            onEdit={() => setEditing({ songs: album.songs, scope: 'album' })}
+            onEditTrack={(song) => setEditing({ songs: [song], scope: 'track' })}
           />
         )}
       </div>
@@ -294,7 +394,19 @@ function Empty({
   );
 }
 
-/** The folders being watched, and the two things you can do to that list. */
+/**
+ * The folders being watched.
+ *
+ * A dialog rather than a strip that unfolds inside the library, because it is
+ * a settings screen and not part of browsing: it has nothing to do with what
+ * is on screen behind it, and a panel that pushes the whole page down every
+ * time somebody checks where their music is coming from is a page that moves
+ * for no reason.
+ *
+ * The paths are shown as the folder's own name with its parent under it,
+ * rather than as one long string that runs off the side. Nobody reads a path
+ * left to right looking for the folder; they look for the name.
+ */
 function Folders({
   folders,
   onAdd,
@@ -310,48 +422,93 @@ function Folders({
   scanning: boolean;
   onClose: () => void;
 }) {
+  React.useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [onClose]);
+
   return (
-    <div className="border-b border-line bg-surface-1 px-6 py-4">
-      <div className="flex items-center gap-2">
-        <h2 className="text-[13px] font-medium text-fg">Folders</h2>
-        <div className="ml-auto flex gap-2">
-          <Button variant="secondary" size="sm" onClick={onAdd}>
-            Add a folder
-          </Button>
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/65 p-6 animate-in fade-in-0 duration-150"
+      onMouseDown={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Music folders"
+        onMouseDown={(event) => event.stopPropagation()}
+        className="flex max-h-[32rem] w-[34rem] max-w-full flex-col rounded-[var(--radius-panel)] border border-line bg-surface-1 shadow-[var(--shadow-panel)] animate-in fade-in-0 zoom-in-95 duration-150"
+      >
+        <div className="px-6 pt-6">
+          <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-fg">Music folders</h2>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-fg-subtle">
+            Cadence reads the tags in these once and remembers them. It looks nowhere else.
+          </p>
+        </div>
+
+        <div className="custom-scroll mt-4 min-h-0 flex-1 overflow-y-auto px-4">
+          {folders.length === 0 ? (
+            <p className="px-2 py-8 text-center text-[13px] text-fg-subtle">
+              None yet.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-0.5">
+              {folders.map((folder) => {
+                const cut = Math.max(folder.lastIndexOf('\\'), folder.lastIndexOf('/'));
+                const name = cut === -1 ? folder : folder.slice(cut + 1);
+                const parent = cut === -1 ? '' : folder.slice(0, cut);
+                return (
+                  <li
+                    key={folder}
+                    className="group flex items-center gap-3 rounded-[8px] px-2 py-2 transition-colors hover:bg-surface-2"
+                  >
+                    <Icon name="folder" size={16} className="shrink-0 text-fg-subtle" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] text-fg" dir="auto">
+                        {name}
+                      </span>
+                      {parent && (
+                        <span className="block truncate text-[11px] text-fg-subtle" dir="auto">
+                          {parent}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void onRemove(folder)}
+                      className="shrink-0 rounded-[7px] p-1.5 text-fg-subtle opacity-0 transition-opacity hover:bg-surface-3 hover:text-danger group-hover:opacity-100 group-focus-within:opacity-100"
+                      aria-label={`Stop watching ${name}`}
+                    >
+                      <Icon name="remove" size={15} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 border-t border-line px-6 py-4">
           <Button variant="secondary" size="sm" onClick={onRescan} disabled={scanning}>
-            {scanning ? 'Scanning' : 'Scan again'}
+            {scanning ? 'Scanning…' : 'Scan again'}
           </Button>
-          <Button variant="chrome" size="icon" onClick={onClose} aria-label="Close folders">
-            <Icon name="close" />
-          </Button>
+          <div className="ml-auto flex gap-2">
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              Close
+            </Button>
+            <Button size="sm" onClick={onAdd}>
+              <Icon name="folder" size={15} />
+              Add a folder
+            </Button>
+          </div>
         </div>
       </div>
-
-      {folders.length === 0 ? (
-        <p className="mt-3 text-[12px] text-fg-subtle">
-          None yet. Cadence looks nowhere until it is told where.
-        </p>
-      ) : (
-        <ul className="mt-3 flex flex-col gap-1">
-          {folders.map((folder) => (
-            <li
-              key={folder}
-              className="flex items-center gap-3 rounded-[10px] px-2 py-1.5 hover:bg-surface-2"
-            >
-              <Icon name="folder" size={14} className="shrink-0 text-fg-subtle" />
-              <span className="min-w-0 flex-1 truncate text-[12px] text-fg-muted">{folder}</span>
-              <button
-                type="button"
-                onClick={() => void onRemove(folder)}
-                className="shrink-0 rounded-[6px] p-1 text-fg-subtle hover:bg-surface-3 hover:text-danger"
-                aria-label={`Stop watching ${folder}`}
-              >
-                <Icon name="remove" size={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

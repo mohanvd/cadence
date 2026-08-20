@@ -10,14 +10,6 @@
 
 import type { RefObject } from 'react';
 
-export interface ABRepeatApi {
-  pointA: number | null;
-  pointB: number | null;
-  isActive: boolean;
-  setA: (time: number) => void;
-  setB: (time: number) => void;
-  clear: () => void;
-}
 
 export interface BookmarkRecord {
   id: string;
@@ -238,10 +230,6 @@ export interface SleepTimerApi {
 }
 
 type VideoRef = RefObject<HTMLVideoElement | null>;
-
-declare module '@/hooks/useABRepeat' {
-  export function useABRepeat(): ABRepeatApi;
-}
 
 declare module '@/hooks/useBookmarks' {
   export function useBookmarks(videoKey: string): BookmarksApi;

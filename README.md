@@ -23,7 +23,7 @@ applied the next time you restart it.
 - Drag and drop a file anywhere in the window, or open one from the file dialog
 - Double-click any video or audio file to open it in Cadence
 - Speed control from 0.25× to 4×, remembered across files
-- Frame-accurate stepping and A–B looping
+- Frame-accurate stepping
 - Timestamp bookmarks with notes
 - Subtitles from inside the file — every track it carries, by name and
   language: plain text, styled ASS drawn by libass, or Blu-ray pictures — or
@@ -34,6 +34,9 @@ applied the next time you restart it.
 - Playlists, shuffle and repeat, and a queue that follows whatever you started
 - Playback carries on while you look for the next record, with a bar along the
   bottom to get back to it
+- Fix what a file says it is — title, artist, album, year, sleeve — for one
+  track or a whole record. It is written into the file, so every other player
+  sees the correction too, and nothing is re-encoded
 - Plays the rest of the folder: the next file starts when one ends, in the
   order the names read — a season of television and an album alike
 - Resumes each file where you stopped
@@ -52,6 +55,8 @@ Files are read from disk and never uploaded.
 | Home / End | Jump to start / end |
 | S | Save frame as PNG |
 | ? | Show all shortcuts |
+
+Right-click almost anything for what you can do with it.
 
 ## Layout
 

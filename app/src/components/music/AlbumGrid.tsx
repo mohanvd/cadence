@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icons';
 import { cn } from '@/lib/utils';
 import type { Album } from '@/store/libraryStore';
 import { Artwork } from './Artwork';
 import { SongRows } from './SongRows';
+import { TrackMenu } from './TrackMenu';
 
 /**
  * Albums as sleeves.
@@ -17,14 +17,26 @@ import { SongRows } from './SongRows';
 export interface AlbumGridProps {
   albums: Album[];
   onOpen: (album: Album) => void;
+  /** Play the whole record, from the tile, without opening it. */
+  onPlay?: ((album: Album) => void) | undefined;
+  onShuffle?: ((album: Album) => void) | undefined;
+  /** Change what the record's tracks say they are. */
+  onEdit?: ((album: Album) => void) | undefined;
 }
 
-export function AlbumGrid({ albums, onOpen }: AlbumGridProps) {
+export function AlbumGrid({ albums, onOpen, onPlay, onShuffle, onEdit }: AlbumGridProps) {
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-x-5 gap-y-7">
       {albums.map((album) => (
-        <button
+        <TrackMenu
           key={album.id}
+          songs={album.songs}
+          label={`${album.title} — ${album.artist}`}
+          onPlay={() => (onPlay ? onPlay(album) : onOpen(album))}
+          onShuffle={onShuffle ? () => onShuffle(album) : undefined}
+          onEdit={onEdit ? () => onEdit(album) : undefined}
+        >
+        <button
           type="button"
           onClick={() => onOpen(album)}
           className="group flex flex-col text-left focus-visible:outline-none"
@@ -33,13 +45,14 @@ export function AlbumGrid({ albums, onOpen }: AlbumGridProps) {
             path={album.cover}
             width={400}
             className={cn(
-              'aspect-square w-full border border-line/60 transition-transform duration-200',
-              'group-hover:-translate-y-0.5 group-focus-visible:ring-2 group-focus-visible:ring-accent',
+              'aspect-square w-full border border-line/60 transition-colors duration-150',
+              'group-hover:border-line-strong group-focus-visible:ring-2 group-focus-visible:ring-accent',
             )}
           />
           <span className="mt-2.5 truncate text-[13px] font-medium text-fg">{album.title}</span>
           <span className="truncate text-[12px] text-fg-subtle">{album.artist}</span>
         </button>
+        </TrackMenu>
       ))}
     </div>
   );
@@ -48,10 +61,16 @@ export function AlbumGrid({ albums, onOpen }: AlbumGridProps) {
 /**
  * One album, opened.
  *
- * A panel over the grid rather than a page of its own. Opening a record and
- * closing it again is something people do half a dozen times looking for one
- * track, and each of those should not be a place they have to navigate back
- * from.
+ * A page rather than a list with a caption. What makes it one is the header:
+ * the sleeve at a size worth looking at, the title at the size of the thing
+ * you came here for, and behind both of them the record's own colour — taken
+ * from the sleeve itself, blurred past recognition, so the page belongs to the
+ * album instead of every album looking identically black.
+ *
+ * A panel over the grid rather than a route of its own, because opening a
+ * record and closing it again is something people do half a dozen times
+ * looking for one track, and each of those should not be somewhere to navigate
+ * back from.
  */
 export interface AlbumSheetProps {
   album: Album;
@@ -62,6 +81,10 @@ export interface AlbumSheetProps {
   onShuffle: () => void;
   /** Put one of its tracks in a playlist. */
   onAdd?: ((song: import('@/store/libraryStore').Song) => void) | undefined;
+  /** Change what the whole record says it is. */
+  onEdit?: (() => void) | undefined;
+  /** Change what one of its tracks says it is. */
+  onEditTrack?: ((song: import('@/store/libraryStore').Song) => void) | undefined;
 }
 
 export function AlbumSheet({
@@ -71,8 +94,13 @@ export function AlbumSheet({
   onPlay,
   onShuffle,
   onAdd,
+  onEdit,
+  onEditTrack,
 }: AlbumSheetProps) {
-  // Escape closes it, which is the key everybody presses at a panel.
+  /* Escape closes it, which is the key everybody presses at a panel. There is
+     no button beside it: the window bar's back arrow does the same thing from
+     the same place it does everything else, and a close control in every panel
+     is the clutter that argues for. */
   React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -84,55 +112,97 @@ export function AlbumSheet({
   const minutes = Math.round(album.duration / 60);
 
   return (
-    <div className="absolute inset-0 z-20 flex flex-col bg-base/95 backdrop-blur-xl">
-      <div className="flex items-start gap-6 border-b border-line px-8 pt-7 pb-6">
-        <Artwork
-          path={album.cover}
-          width={480}
-          className="size-40 shrink-0 border border-line/60"
-        />
-
-        <div className="min-w-0 flex-1 pt-1">
-          <h2 className="truncate text-2xl font-semibold tracking-[-0.02em] text-fg">
-            {album.title}
-          </h2>
-          <p className="mt-1 truncate text-[14px] text-fg-muted">{album.artist}</p>
-          <p className="mt-1 text-[12px] text-fg-subtle">
-            {[
-              album.year !== null ? String(album.year) : null,
-              `${album.songs.length} ${album.songs.length === 1 ? 'track' : 'tracks'}`,
-              minutes > 0 ? `${minutes} min` : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-
-          <div className="mt-4 flex gap-2">
-            <Button size="sm" onClick={() => onPlay(0)}>
-              <Icon name="play" size={15} />
-              Play
-            </Button>
-            <Button variant="secondary" size="sm" onClick={onShuffle}>
-              <Icon name="shuffle" size={15} />
-              Shuffle
-            </Button>
+    <div className="absolute inset-0 z-20 flex flex-col overflow-hidden bg-[var(--bg)]">
+      <div className="custom-scroll flex-1 overflow-y-auto">
+        <header className="relative">
+          {/* The record's colour. The sleeve at thumbnail size, blurred to
+              nothing and faded into the page — no palette extraction, no
+              second request, and it cannot pick a colour the sleeve does not
+              have. */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+            <Artwork
+              path={album.cover}
+              width={96}
+              rounded={false}
+              className="size-full scale-150 opacity-45 blur-[64px] saturate-150"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--bg)]/45 to-[var(--bg)]" />
           </div>
+
+          <div className="relative flex items-end gap-7 px-8 pt-14 pb-8">
+            <Artwork
+              path={album.cover}
+              width={560}
+              className="size-56 shrink-0 rounded-[8px] border border-white/10 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.8)]"
+            />
+
+            <div className="min-w-0 flex-1 pb-2">
+              <p className="text-[11px] font-semibold tracking-[0.1em] text-white/70 uppercase">
+                Album
+              </p>
+              {/* Sized to the window rather than to a number: a title is the
+                  thing you came here for, and one that wraps to three lines on
+                  a narrow window is worse than one that shrinks. */}
+              <h2 className="mt-1 text-balance text-[clamp(1.75rem,4.5vw,3.25rem)] leading-[1.05] font-bold tracking-[-0.03em] text-white">
+                {album.title}
+              </h2>
+              <p className="mt-4 flex flex-wrap items-center gap-x-1.5 text-[13px] text-white/80">
+                <span className="font-medium text-white">{album.artist}</span>
+                {album.year !== null && <span className="text-white/45">· {album.year}</span>}
+                <span className="text-white/45">
+                  · {album.songs.length} {album.songs.length === 1 ? 'track' : 'tracks'}
+                </span>
+                {minutes > 0 && <span className="text-white/45">· {minutes} min</span>}
+              </p>
+            </div>
+          </div>
+
+          {/* The actions, on their own line under the header rather than
+              tucked beside the title. Play is the largest thing on the page
+              after the sleeve, because it is what the page is for. */}
+          <div className="relative flex items-center gap-5 px-8 pb-7">
+            <button
+              type="button"
+              onClick={() => onPlay(0)}
+              aria-label={`Play ${album.title}`}
+              className="flex size-14 items-center justify-center rounded-full bg-accent text-accent-fg shadow-[0_8px_24px_-6px_rgba(0,0,0,0.7)] transition-colors hover:bg-accent-hover"
+            >
+              <Icon name="play" size={22} />
+            </button>
+            <button
+              type="button"
+              onClick={onShuffle}
+              aria-label={`Shuffle ${album.title}`}
+              /* Sized against Play rather than against nothing. A 36px button
+                 beside a 56px one reads as an afterthought; matching their
+                 optical weight is what makes them one pair of controls. */
+              className="flex size-11 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-white/10 hover:text-fg"
+            >
+              <Icon name="shuffle" size={22} />
+            </button>
+            {onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                aria-label={`Edit ${album.title}`}
+                className="ml-auto flex size-11 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-white/10 hover:text-fg"
+              >
+                <Icon name="settings" size={20} />
+              </button>
+            )}
+          </div>
+        </header>
+
+        <div className="px-5 pt-2 pb-10">
+          <SongRows
+            songs={album.songs}
+            onPlay={onPlay}
+            playing={playing}
+            variant="album"
+            onAdd={onAdd}
+            onEdit={onEditTrack}
+          />
         </div>
-
-        <Button variant="chrome" size="icon" onClick={onClose} aria-label="Close album">
-          <Icon name="close" />
-        </Button>
-      </div>
-
-      <div className="custom-scroll flex-1 overflow-y-auto px-5 py-4">
-        <SongRows
-          songs={album.songs}
-          onPlay={onPlay}
-          playing={playing}
-          numbered
-          showArtist={false}
-          onAdd={onAdd}
-        />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CHROME_STROKE, Icon } from './ui/icons';
 import { isDesktop } from '../lib/desktop';
+import { useHistory } from '../store/viewStore';
 
 /**
  * The window's own title bar, drawn by the application.
@@ -17,8 +18,9 @@ import { isDesktop } from '../lib/desktop';
  * needs no code: the player fullscreens its own element, so this sits outside
  * the fullscreened subtree and the compositor drops it.
  */
-export default function TitleBar({ screen, onScreen }) {
+export default function TitleBar({ screen, onScreen, search }) {
   const [maximized, setMaximized] = useState(false);
+  const history = useHistory();
 
   useEffect(() => {
     if (!isDesktop()) return undefined;
@@ -57,11 +59,37 @@ export default function TitleBar({ screen, onScreen }) {
 
   return (
     <header className="titlebar" data-tauri-drag-region>
-      {/* The attribute has to be on every child that should also drag, because
-          a click landing on a label is still a click on the label. */}
-      <span className="titlebar__brand" data-tauri-drag-region>
-        Cadence
-      </span>
+      {/* Back and forward, once, for the whole window.
+          
+          The alternative was a back button on every panel that can be opened,
+          which is several affordances doing one job, each in a slightly
+          different place and each stealing a corner of the thing it sits on.
+          These two are always in the same spot and cost nothing anywhere
+          else. */}
+      {/* The drag attribute has to be on every child that should also drag,
+          because a click landing on a child is still a click on it. */}
+      {onScreen && (
+        <div className="titlebar__history" data-tauri-drag-region>
+          <button
+            type="button"
+            className="titlebar__arrow"
+            onClick={history.back}
+            disabled={!history.canBack}
+            aria-label="Back"
+          >
+            <Icon name="back" size={15} stroke={CHROME_STROKE} />
+          </button>
+          <button
+            type="button"
+            className="titlebar__arrow"
+            onClick={history.forward}
+            disabled={!history.canForward}
+            aria-label="Forward"
+          >
+            <Icon name="forwardArrow" size={15} stroke={CHROME_STROKE} />
+          </button>
+        </div>
+      )}
 
       {/* The application's only navigation, and it lives here because here is
           the one strip that is on screen in every state the window has —
@@ -69,7 +97,7 @@ export default function TitleBar({ screen, onScreen }) {
           wants to go back to the library and pick the next record without
           stopping the one they are listening to. */}
       {onScreen && (
-        <nav className="titlebar__nav">
+        <nav className="titlebar__nav" data-tauri-drag-region>
           {[
             { id: 'home', label: 'Files', icon: 'dropTarget' },
             { id: 'music', label: 'Music', icon: 'music' },
@@ -87,6 +115,12 @@ export default function TitleBar({ screen, onScreen }) {
           ))}
         </nav>
       )}
+
+      {/* The search field lives up here rather than in a second strip below,
+          because a second strip below is what made this window look like a web
+          page in a frame: a title bar, and then another bar under it doing the
+          same job. One bar carries the window, the sections and the search. */}
+      {search && <div className="titlebar__search">{search}</div>}
 
       <div className="titlebar__controls">
         <button
