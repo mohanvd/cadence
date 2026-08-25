@@ -112,7 +112,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/mohanvd/cadence/releases/latest/download/latest.json"
+        "https://cadence.auva.dev/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhFNjEwNTU5NjVEM0U2NkYKUldSdjV0TmxXUVZoamh2QjhKOGRKYVUyMHBaTFFaSCtaeThmVkp3Tm44QWJTUHNBTXQzZ0grMTMK"
     }

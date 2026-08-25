@@ -5,7 +5,7 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2026-08-26
 
 ### Changed
 
@@ -27,6 +27,23 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   speakers. Starting a shuffled list begins on a random track — starting at
   track one and shuffling the rest opened every shuffled record with the same
   song.
+
+- **Cadence is no longer open source.** The source repository is private and
+  the licence is proprietary; versions up to and including 0.6.0 stay under the
+  MIT licence they were published with, and that grant is not withdrawn.
+
+- **Downloads and updates are addressed through cadence.auva.dev.** They used
+  to be addressed through the source repository on GitHub, which meant that
+  making that repository private took the download button and every installed
+  copy's update channel down with it, in the same minute and without warning.
+
+  Both now go through this site — `/download` and `/latest.json` — which
+  redirect to wherever the files actually are. `latest.json`'s address is
+  compiled into every binary and can never be changed afterwards, so it had to
+  name something permanent. Moving the files again is now one redirect, not a
+  new release that the copies needing it could never have received.
+
+  The installers themselves live in a public repository that holds no source.
 
 ### Added
 
@@ -77,6 +94,13 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A stray null byte had been sitting in the source since the library was
   written, joining an album's name to its artist. It worked, invisibly, and is
   now the escape it should always have been.
+
+- **The FFmpeg licence ships with FFmpeg.** Nine LGPL binaries were being
+  installed with no copy of the terms they are licensed under; while the source
+  was public the repository was satisfying that by accident, and going private
+  removed it. The text is now extracted from the upstream archive and installed
+  beside the libraries, and the build fails outright if the archive arrives
+  without one.
 
 ## [0.6.0] - 2026-08-20
 
@@ -685,8 +709,16 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   installed program, which is no longer a problem worth solving.
 - A router, for an application with one screen.
 
-[0.2.2]: https://github.com/mohanvd/cadence/releases/tag/v0.2.2
-[0.2.1]: https://github.com/mohanvd/cadence/releases/tag/v0.2.1
-[0.2.0]: https://github.com/mohanvd/cadence/releases/tag/v0.2.0
-[0.1.1]: https://github.com/mohanvd/cadence/releases/tag/v0.1.1
-[0.1.0]: https://github.com/mohanvd/cadence/releases/tag/v0.1.0
+[0.7.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.7.0
+[0.6.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.6.0
+[0.5.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.5.1
+[0.5.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.5.0
+[0.4.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.4.1
+[0.4.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.4.0
+[0.3.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.3.1
+[0.3.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.3.0
+[0.2.2]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.2.2
+[0.2.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.2.1
+[0.2.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.2.0
+[0.1.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.1.1
+[0.1.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.1.0

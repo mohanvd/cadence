@@ -2,9 +2,12 @@
 
 ## Reporting a vulnerability
 
-Report privately through
-[GitHub security advisories](https://github.com/mohanvd/cadence/security/advisories/new),
-not as a public issue.
+Email **mohanadtsx@gmail.com**.
+
+The repository this is built from is private, so there is no issue tracker or
+advisory form to reach — which also means a report has nowhere public to leak
+to before it is fixed. Please include the file that triggers it if there is
+one.
 
 Expect an acknowledgement within a few days.
 

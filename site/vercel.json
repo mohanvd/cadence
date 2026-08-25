@@ -1,5 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    {
+      "source": "/latest.json",
+      "destination": "https://github.com/mohanvd/cadence-releases/releases/latest/download/latest.json",
+      "permanent": false
+    },
+    {
+      "source": "/download",
+      "destination": "https://github.com/mohanvd/cadence-releases/releases/latest/download/Cadence-Setup.exe",
+      "permanent": false
+    }
+  ],
   "headers": [
     {
       "source": "/_astro/(.*)",

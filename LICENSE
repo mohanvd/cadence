@@ -1,21 +1,52 @@
-MIT License
+Cadence — Software Licence
 
-Copyright (c) 2026 Mohanad Tarek
+Copyright (c) 2026 Mohanad Tarek. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Cadence is proprietary software. It is licensed, not sold.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+GRANT
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+You may install and use Cadence on any number of devices you own or control,
+for personal or commercial purposes, free of charge.
+
+RESTRICTIONS
+
+Except where a right is granted to you by law or by the licence of a bundled
+third-party component, you may not:
+
+  a. redistribute, sell, rent, lease, sublicense or lend Cadence, whether
+     modified or not;
+  b. modify, adapt or create derivative works of Cadence;
+  c. decompile, disassemble or otherwise reverse engineer Cadence, or attempt
+     to derive its source code;
+  d. remove or alter any copyright, trade mark or other proprietary notice.
+
+The restriction in (c) does not apply to reverse engineering carried out for
+the purpose of debugging modifications you have made to a library that Cadence
+uses under the GNU Lesser General Public Licence, which that licence entitles
+you to do. See THIRD-PARTY-LICENSES.md.
+
+THIRD-PARTY COMPONENTS
+
+Cadence is distributed with components that are not covered by this licence and
+that keep their own terms, which prevail over this document for those
+components. They are listed in THIRD-PARTY-LICENSES.md.
+
+NO WARRANTY
+
+CADENCE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
+CADENCE OR THE USE OR OTHER DEALINGS IN IT.
+
+Nothing in this licence limits any right you have under applicable consumer law
+that cannot be excluded by agreement.
+
+EARLIER VERSIONS
+
+Cadence up to and including version 0.6.0 was published under the MIT licence.
+That grant was made and is not withdrawn: those versions remain available to
+anyone who received them under the terms they were given under. This licence
+governs version 0.7.0 onwards.

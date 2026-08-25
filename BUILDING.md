@@ -1,4 +1,8 @@
-# Contributing
+# Building Cadence
+
+Notes for working on Cadence itself. The repository is private and there are no
+outside contributors; this is here so that a machine set up from scratch, or a
+decision made a year ago, does not have to be reconstructed from memory.
 
 ## Getting set up
 
@@ -13,7 +17,7 @@ npm run app:dev
 For interface work that does not touch the desktop shell, `npm run dev` serves
 the frontend on its own and reloads far faster.
 
-## Before opening a pull request
+## Before pushing
 
 ```bash
 npm run typecheck
@@ -30,9 +34,10 @@ CI runs all four. It is quicker to find out locally.
 `feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `chore:`. The changelog is
 written from them, so the subject line is read by people, not just by tooling.
 
-## What makes a change likely to be merged
+## What Cadence is
 
-Cadence has a narrow shape and keeps it deliberately.
+A narrow shape, kept deliberately. These are the rules a feature is measured
+against, and they are worth rereading before adding one.
 
 - **Keyboard first.** Anything reachable by mouse should be reachable by key.
 - **No network for playback.** Files are read from disk and stay there. Online
@@ -40,6 +45,7 @@ Cadence has a narrow shape and keeps it deliberately.
 - **Nothing between the user and the frame.** No accounts, no telemetry, no
   update nag that interrupts a film.
 
-A feature that fits those and does one thing well is worth opening. If you are
-unsure, open an issue before writing the code; it is a cheaper conversation
-than a closed pull request.
+The third one is the one to watch. Sync and a phone app both push against it,
+and "no accounts" is a promise the desktop player has made to everyone using it
+today. Whatever an account turns out to be, playing a file off a disk should
+never be the thing that requires one.

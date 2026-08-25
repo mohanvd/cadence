@@ -6,10 +6,17 @@
  * output goes stale the moment upstream fixes a decoder. This fetches a pinned
  * release instead, and the bundler picks the result up as a resource.
  *
- * The LGPL build, not the GPL one. Cadence is MIT, and an LGPL FFmpeg can be
- * shipped alongside it without the licence reaching into this project. What it
- * gives up is the GPL-only encoders, chiefly x264: nothing Cadence needs, since
- * the encoders it does reach for are the ones on the graphics card.
+ * The LGPL build, not the GPL one, and now the whole licensing position rests
+ * on that choice: Cadence itself is proprietary, and a GPL FFmpeg beside a
+ * proprietary program is a licence problem where an LGPL one is not. What the
+ * LGPL build gives up is the GPL-only encoders, chiefly x264: nothing Cadence
+ * needs, since the encoders it does reach for are the ones on the graphics
+ * card. Do not switch this to a GPL build to gain one.
+ *
+ * The `shared` variant matters for the same reason. The LGPL lets a closed
+ * program use the library only if the user can replace that library with their
+ * own build of it, which separate `.dll` files satisfy and a static link does
+ * not.
  *
  * The `shared` variant, not the static one. Static would mean two ~70MB
  * executables that each contain their own copy of every codec; shared is two
@@ -90,6 +97,32 @@ async function main() {
   for (const name of await readdir(bin)) {
     if (!WANTED.test(name) || UNWANTED.test(name)) continue;
     await rename(join(bin, name), join(target, name));
+    kept += 1;
+  }
+
+  /* The licence text, kept out of the archive along with the binaries it
+     covers.
+
+     This is not tidiness. The LGPL asks that a copy of its terms accompany the
+     work it is distributed with, and until the repository went private the
+     public source tree was doing that job by accident. It cannot now, so the
+     text has to travel with the install itself. `resources` already globs this
+     directory, so a file dropped here is a file that lands beside the
+     libraries on every machine Cadence is installed on.
+
+     Absence is fatal rather than skippable: an FFmpeg shipped with no licence
+     beside it is the exact thing this step exists to prevent, and a warning
+     scrolling past in a build log would not stop it. */
+  const notices = (await readdir(extracted)).filter((name) => /^LICENSE/i.test(name));
+  if (notices.length === 0) {
+    throw new Error(
+      'the archive carried no licence file, and the binaries cannot be shipped without one',
+    );
+  }
+  for (const name of notices) {
+    // Prefixed, because on an installed machine this file sits in a directory
+    // next to Cadence's own and needs to say whose terms it states.
+    await rename(join(extracted, name), join(target, `FFmpeg-${name}`));
     kept += 1;
   }
 

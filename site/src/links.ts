@@ -1,8 +1,21 @@
-const REPO_PATH = 'mohanvd/cadence';
+/**
+ * The public release channel — not the source repository, which is private.
+ *
+ * These are two different repositories on purpose. The source moved private
+ * when Cadence stopped being open source, and everything addressed through it
+ * went with it: the download button and the updater endpoint both started
+ * returning 404 to every visitor and every installed copy on the same
+ * afternoon. This repository holds no source, only the built installers, and
+ * exists so that shipping a private product does not mean nobody can download
+ * it.
+ */
+const REPO_PATH = 'mohanvd/cadence-releases';
 const REPO = `https://github.com/${REPO_PATH}`;
 
 export const REPO_URL = REPO;
 export const RELEASES_URL = `${REPO}/releases`;
+export const CONTACT_EMAIL = 'mohanadtsx@gmail.com';
+export const CONTACT_URL = `mailto:${CONTACT_EMAIL}`;
 
 /**
  * The name the release workflow gives the installer, on top of the one the
@@ -12,18 +25,27 @@ export const RELEASES_URL = `${REPO}/releases`;
 const INSTALLER_ASSET = 'Cadence-Setup.exe';
 
 /**
- * The installer, addressed through `releases/latest` rather than by version.
+ * The installer, addressed through this site rather than through whoever is
+ * hosting the file this month.
  *
- * A built page is a static artifact that outlives the release it was built
- * beside. Naming a version here would turn the download button into a 404 the
- * moment the next release ships and before the site is redeployed.
+ * `/download` is a redirect defined in `vercel.json`, and the indirection is
+ * the point. A link that names its host is a link that dies when the host
+ * changes, which is precisely what happened to the previous one: it pointed
+ * into the source repository, the repository went private, and the button
+ * broke. Pointing at our own domain means the next move needs one line of
+ * `vercel.json` changed and nothing else — no page rebuilt, no link reissued.
+ *
+ * Addressed through `releases/latest` at the other end rather than by version,
+ * too: a built page is a static artifact that outlives the release it was
+ * built beside, and naming a version here would 404 the moment the next
+ * release shipped.
  *
  * The bundler names its output `Cadence_<version>_x64-setup.exe`, which has a
- * version in it and so cannot be linked to from here. The release workflow
- * uploads a second copy under this stable name for exactly that reason; if the
+ * version in it and so cannot be linked to. The release workflow uploads a
+ * second copy under the stable name below for exactly that reason; if the
  * button ever 404s, that upload step is the thing to look at.
  */
-export const INSTALLER_URL = `${REPO}/releases/latest/download/${INSTALLER_ASSET}`;
+export const INSTALLER_URL = '/download';
 
 /**
  * What the page claims the download costs when the real number cannot be had.

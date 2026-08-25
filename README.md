@@ -6,8 +6,8 @@ Part of the [Auva](https://auva.dev) ecosystem.
 
 ## Install
 
-Download the latest installer from the [releases page](https://github.com/mohanvd/cadence/releases/latest)
-and run it. No administrator rights are required.
+Download it from [cadence.auva.dev](https://cadence.auva.dev) and run it.
+No administrator rights are required.
 
 Cadence updates itself: new releases are downloaded in the background and
 applied the next time you restart it.
@@ -132,8 +132,8 @@ Five things are worth knowing, because none of them has anywhere to say so:
 ## Releasing
 
 Releases are cut from tags. Pushing a `v*` tag builds the installer, signs it,
-and opens a draft GitHub release with the update manifest attached; publishing
-that draft is what delivers the update to everyone already running Cadence.
+and opens a draft release with the update manifest attached; publishing that
+draft is what delivers the update to everyone already running Cadence.
 
 `package.json` is the only place a version number is written: the installer and
 the version the interface reports are both read from it.
@@ -143,16 +143,54 @@ npm version minor          # commits the bump and tags it
 git push --follow-tags
 ```
 
+### Where the files go
+
+This repository is private and the installers cannot live in it. A release
+asset in a private repository is a 404 to everyone who is not signed in with
+access to it, which is everyone Cadence is for. So the tag is pushed here and
+the release is created in **`mohanvd/cadence-releases`**, a public repository
+that holds no source — only the built files.
+
+Nothing outside points at either repository directly. Both public addresses go
+through the site:
+
+| Address | Redirects to | Who asks for it |
+|---|---|---|
+| `cadence.auva.dev/download` | `Cadence-Setup.exe` on the latest release | the download button |
+| `cadence.auva.dev/latest.json` | the update manifest on the latest release | every installed copy |
+
+Both are ordinary redirects in `site/vercel.json`. This indirection is not
+decoration — it is the fix for how the last move broke. `latest.json`'s address
+is compiled into every binary ever shipped and can never be changed
+retroactively, so it has to name something we will own for as long as Cadence
+exists. Moving the files somewhere else later is one line of `vercel.json`; it
+must never again be a new build.
+
 The workflow uploads the installer twice: once under the bundler's own name,
 `Cadence_<version>_x64-setup.exe`, which is what the update manifest points at,
-and once as `Cadence-Setup.exe`, which is what the website links to. The second
-exists because a page cannot link to a filename that changes every release.
+and once as `Cadence-Setup.exe`, which is what the redirect above resolves to.
+The second exists because a link cannot name a filename that changes every
+release.
 
-One secret has to exist on the repository or the release is useless:
-`TAURI_SIGNING_PRIVATE_KEY`. Without it the build still produces an installer,
-and the updater rejects it.
+### Secrets
+
+Three, on this repository. Without any one of them the release is useless:
+
+| Secret | Without it |
+|---|---|
+| `TAURI_SIGNING_PRIVATE_KEY` | the installer is unsigned and the updater rejects it |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | the signing key cannot be opened |
+| `RELEASES_TOKEN` | the release cannot be created, because the automatic token cannot write to another repository |
+
+`RELEASES_TOKEN` is a fine-grained personal access token with
+`Contents: read and write` on `cadence-releases` and no other permission
+anywhere.
 
 ## Licence
 
-[MIT](LICENSE). Third-party components carry their own terms. See
-[THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md).
+Cadence is proprietary. See [LICENSE](LICENSE).
+
+It is built on components that are not, and two of them — FFmpeg and JASSUB —
+are LGPL and place real conditions on how it is shipped. Those conditions are
+written out in [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md), including
+one that has to be settled before the Android player is written.

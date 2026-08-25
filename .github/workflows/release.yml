@@ -9,11 +9,22 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# Where the installers go. Not this repository: this one is private, and a
+# release asset in a private repository is a 404 to everybody who is not signed
+# in with access to it — which is everybody who wants to download Cadence. The
+# public repository below holds no source, only the built files.
+#
+# Changing this name means changing `site/vercel.json` in the same commit, and
+# nothing else: every address the outside world knows goes through the site.
+env:
+  RELEASE_REPO: mohanvd/cadence-releases
+
 jobs:
   build:
-    permissions:
-      # tauri-action creates the release and uploads the installers to it.
-      contents: write
+    # No `contents: write` here. The release is created in another repository,
+    # which the automatic GITHUB_TOKEN cannot reach however it is scoped, so
+    # the steps below authenticate with RELEASES_TOKEN instead. This job writes
+    # nothing back to this repository at all.
 
     strategy:
       fail-fast: false
@@ -62,13 +73,20 @@ jobs:
       - id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A fine-grained personal access token with `Contents: read and write`
+          # on RELEASE_REPO and nothing else. The built-in GITHUB_TOKEN is
+          # scoped to this repository and cannot create a release in another.
+          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           # Without these the build still produces an installer, but an unsigned
           # one, and the updater refuses anything it cannot verify, so every
           # client would silently stop updating.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          # The release is cut in the public repository, from the tag pushed
+          # here. The tag itself stays private with the source.
+          owner: ${{ github.repository_owner }}
+          repo: cadence-releases
           tagName: ${{ github.ref_name }}
           releaseName: 'Cadence ${{ github.ref_name }}'
           releaseBody: |
@@ -82,8 +100,10 @@ jobs:
           releaseDraft: true
           prerelease: false
           # Generates and uploads `latest.json`, which is the file every
-          # installed copy of Cadence polls to discover this release.
-          includeUpdaterJson: true
+          # installed copy of Cadence polls to discover this release. The
+          # download URLs inside it are addressed to whichever repository the
+          # release was created in, so this follows `owner`/`repo` above.
+          uploadUpdaterJson: true
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
 
@@ -97,10 +117,11 @@ jobs:
       - name: Publish the installer under a stable name
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
           set -euo pipefail
           original=$(ls src-tauri/target/release/bundle/nsis/Cadence_*_x64-setup.exe)
           cp "$original" "Cadence-Setup.exe"
-          gh release upload "${{ github.ref_name }}" "Cadence-Setup.exe" --clobber
-          echo "uploaded Cadence-Setup.exe (copy of $(basename "$original"))"
+          gh release upload "${{ github.ref_name }}" "Cadence-Setup.exe" \
+            --repo "$RELEASE_REPO" --clobber
+          echo "uploaded Cadence-Setup.exe (copy of $(basename "$original")) to $RELEASE_REPO"
