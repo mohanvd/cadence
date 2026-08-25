@@ -186,6 +186,13 @@ Three, on this repository. Without any one of them the release is useless:
 `Contents: read and write` on `cadence-releases` and no other permission
 anywhere.
 
+**It expires.** That is the price of a token scoped this narrowly, and the
+failure it produces is a confusing one: the build succeeds, takes its ten
+minutes, and then fails at the last step with a 403 on a repository that
+obviously exists. If a release ever fails that way and nothing about the
+release changed, the token is the first thing to check — mint a new one the
+same way and replace the secret. Nothing else needs touching.
+
 ## Licence
 
 Cadence is proprietary. See [LICENSE](LICENSE).
