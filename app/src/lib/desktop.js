@@ -869,3 +869,64 @@ export async function pickPicture() {
     return null;
   }
 }
+
+/* ── Playlist files ── */
+
+/**
+ * Read an `.m3u` and make a playlist from what it names.
+ *
+ * Resolves with the playlist and two counts: how many tracks had to be found
+ * by name or by tag because the path in the file led nowhere, and how many
+ * could not be found at all. Both are worth showing — a list that quietly
+ * arrives eleven tracks short is worse than one that says so.
+ *
+ * @param {string} path
+ * @returns {Promise<{ playlist: Playlist, missing: number, rematched: number }>}
+ */
+export async function playlistImport(path) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('playlist_import', { path });
+}
+
+/**
+ * Write a playlist out as an `.m3u`, for anything else to read.
+ *
+ * @param {string} id
+ * @param {string} path
+ * @returns {Promise<number>} How many tracks were written.
+ */
+export async function playlistExport(id, path) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('playlist_export', { id, path });
+}
+
+/**
+ * Ask the operating system for a playlist file to read.
+ *
+ * @returns {Promise<string | null>}
+ */
+export async function pickPlaylist() {
+  if (!isDesktop()) return null;
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    return await invoke('pick_playlist');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ask where to write a playlist file.
+ *
+ * @param {string} name
+ * @returns {Promise<string | null>}
+ */
+export async function pickPlaylistTarget(name) {
+  if (!isDesktop()) return null;
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    return await invoke('pick_playlist_target', { name });
+  } catch {
+    return null;
+  }
+}

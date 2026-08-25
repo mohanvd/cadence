@@ -42,6 +42,8 @@ export interface TrackMenuProps {
   onDelete?: (() => void) | undefined;
   /** Change what the file itself says: title, artist, sleeve. */
   onEdit?: (() => void) | undefined;
+  /** Write the list out as an `.m3u` anything else can read. */
+  onExport?: (() => void) | undefined;
   children: React.ReactNode;
 }
 
@@ -55,6 +57,7 @@ export function TrackMenu({
   onRename,
   onDelete,
   onEdit,
+  onExport,
   children,
 }: TrackMenuProps) {
   const playNext = useQueueStore((s) => s.playNext);
@@ -100,7 +103,7 @@ export function TrackMenu({
           </>
         )}
 
-        {(onAddToPlaylist || onRemove || onRename || onDelete || onEdit) && (
+        {(onAddToPlaylist || onRemove || onRename || onDelete || onEdit || onExport) && (
           <ContextMenuSeparator />
         )}
 
@@ -123,6 +126,11 @@ export function TrackMenu({
         {onRemove && (
           <ContextMenuItem icon="remove" onSelect={onRemove}>
             Remove from this playlist
+          </ContextMenuItem>
+        )}
+        {onExport && (
+          <ContextMenuItem icon="folder" onSelect={onExport}>
+            Save as a file…
           </ContextMenuItem>
         )}
         {onDelete && (

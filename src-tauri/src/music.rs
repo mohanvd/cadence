@@ -624,6 +624,235 @@ fn now() -> u64 {
         .unwrap_or(0)
 }
 
+/* ── M3U ── */
+
+/// One entry in an M3U file: where it says the track is, and what it says it
+/// is called.
+#[derive(Debug, PartialEq)]
+pub struct Entry {
+    /// The line that names the file, exactly as written.
+    pub path: String,
+    /// From the `#EXTINF` line above it, when there was one.
+    pub title: Option<String>,
+    pub artist: Option<String>,
+}
+
+/// Read an M3U playlist into entries.
+///
+/// The format is thirty years old and has no specification, so this reads it
+/// the forgiving way every player does: any line starting with `#` is a
+/// comment except `#EXTINF`, which describes the line after it, and everything
+/// else is a path.
+///
+/// `#EXTINF` is `#EXTINF:<seconds>,<label>` where the label is conventionally
+/// `Artist - Title` but is quite often just a title. Both are kept, because on
+/// a playlist exported from a phone the label is frequently the only thing
+/// that will still be true on a different machine — the paths certainly are
+/// not.
+pub fn parse(text: &str) -> Vec<Entry> {
+    let mut entries = Vec::new();
+    let mut pending: Option<(Option<String>, Option<String>)> = None;
+
+    for line in text.lines() {
+        // A UTF-8 byte-order mark on the first line, which Windows editors add
+        // and which would otherwise become part of the first path.
+        let line = line.trim_start_matches('\u{feff}').trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        if let Some(rest) = line.strip_prefix("#EXTINF:") {
+            // Everything after the first comma is the label; the seconds
+            // before it are ignored, because the file itself knows its length
+            // and the number in a playlist is frequently wrong.
+            let label = rest
+                .split_once(',')
+                .map(|(_, label)| label.trim())
+                .unwrap_or("");
+            pending = Some(split_label(label));
+            continue;
+        }
+
+        if line.starts_with('#') {
+            continue;
+        }
+
+        let (artist, title) = pending.take().unwrap_or((None, None));
+        entries.push(Entry {
+            path: line.to_owned(),
+            title,
+            artist,
+        });
+    }
+
+    entries
+}
+
+/// Split `Artist - Title` into its halves, or take the whole as a title.
+///
+/// The first ` - ` rather than the last: an artist with a hyphen in the name is
+/// rarer than a song with one in the title, and guessing wrong on the last
+/// separator turns *Artist - Song - Live* into an artist called
+/// "Artist - Song".
+fn split_label(label: &str) -> (Option<String>, Option<String>) {
+    let label = label.trim();
+    if label.is_empty() {
+        return (None, None);
+    }
+    match label.split_once(" - ") {
+        Some((artist, title)) if !artist.trim().is_empty() && !title.trim().is_empty() => (
+            Some(artist.trim().to_owned()),
+            Some(title.trim().to_owned()),
+        ),
+        _ => (None, Some(label.to_owned())),
+    }
+}
+
+/// Turn an entry into a path on *this* machine, or nothing.
+///
+/// Four attempts, in falling order of confidence, and the last two are the
+/// reason importing a playlist from a phone works at all. A list exported from
+/// an Android device names files under `/storage/emulated/0/Music/...`, which
+/// exists nowhere on a PC — but the same music usually does, under a different
+/// root, with the same file names and the same tags.
+///
+///   1. The path as written, if something is there.
+///   2. The same path resolved against the playlist's own folder, which is
+///      what a relative entry means.
+///   3. A file in the library with the same name. Names collide across albums
+///      — every rip has an `01.mp3` — so this only counts when exactly one
+///      file matches.
+///   4. A file in the library with the same title and artist, from the
+///      `#EXTINF` label. The last resort, and the one that survives a change
+///      of device entirely.
+fn resolve(entry: &Entry, beside: &Path, library: &[Song]) -> Option<String> {
+    let written = entry.path.replace('\\', "/");
+
+    let direct = Path::new(&entry.path);
+    if direct.is_file() {
+        return Some(direct.to_string_lossy().into_owned());
+    }
+
+    let joined = beside.join(&written);
+    if joined.is_file() {
+        return Some(joined.to_string_lossy().into_owned());
+    }
+
+    let name = written
+        .rsplit('/')
+        .next()
+        .unwrap_or(&written)
+        .to_lowercase();
+    if !name.is_empty() {
+        let mut matches = library
+            .iter()
+            .filter(|song| song.file.to_lowercase() == name);
+        if let (Some(one), None) = (matches.next(), matches.next()) {
+            return Some(one.path.clone());
+        }
+    }
+
+    if let Some(title) = entry.title.as_deref() {
+        let title = title.to_lowercase();
+        let artist = entry.artist.as_deref().map(str::to_lowercase);
+        let found = library.iter().find(|song| {
+            song.title.to_lowercase() == title
+                && match &artist {
+                    Some(who) => {
+                        song.artist.as_deref().map(str::to_lowercase).as_deref()
+                            == Some(who.as_str())
+                    }
+                    None => true,
+                }
+        });
+        if let Some(song) = found {
+            return Some(song.path.clone());
+        }
+    }
+
+    None
+}
+
+/// What an import turned out to be.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Imported {
+    pub playlist: Playlist,
+    /// Entries in the file that no file on this machine could be found for.
+    pub missing: usize,
+    /// How many were found by name or tag rather than by the path written.
+    pub rematched: usize,
+}
+
+/// Read an M3U file and make a playlist out of what it names.
+pub fn import(file: &Path, library: &[Song], store: &PlaylistStore) -> Result<Imported, String> {
+    let bytes = std::fs::read(file).map_err(|err| err.to_string())?;
+    // Lossy rather than strict: an `.m3u` written by an older program may be
+    // in the machine's own code page, and a playlist that will not open
+    // because one track has an accent in its name is worse than one line of
+    // mangled text in a label nobody reads.
+    let text = String::from_utf8_lossy(&bytes);
+    let entries = parse(&text);
+    if entries.is_empty() {
+        return Err("there are no tracks in that file".into());
+    }
+
+    let beside = file.parent().unwrap_or(Path::new(""));
+    let mut paths = Vec::with_capacity(entries.len());
+    let mut missing = 0usize;
+    let mut rematched = 0usize;
+
+    for entry in &entries {
+        match resolve(entry, beside, library) {
+            Some(path) => {
+                if !Path::new(&entry.path).is_file() {
+                    rematched += 1;
+                }
+                paths.push(path);
+            }
+            None => missing += 1,
+        }
+    }
+
+    if paths.is_empty() {
+        return Err("none of those tracks are on this machine".into());
+    }
+
+    let name = file
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .filter(|stem| !stem.trim().is_empty())
+        .unwrap_or_else(|| "Imported playlist".to_owned());
+
+    let playlist = store.create(name, paths)?;
+    Ok(Imported {
+        playlist,
+        missing,
+        rematched,
+    })
+}
+
+/// Write a playlist out as an M3U file.
+///
+/// Absolute paths and `#EXTINF` labels together. The paths are what another
+/// player on this machine will use; the labels are what a player on a
+/// different one has to fall back on, and writing them is the difference
+/// between a list that survives being copied to a phone and one that does not.
+pub fn export(file: &Path, tracks: &[Song]) -> Result<(), String> {
+    let mut out = String::from("#EXTM3U\n");
+    for song in tracks {
+        let seconds = song.duration.round() as i64;
+        let label = match song.artist.as_deref() {
+            Some(artist) => format!("{artist} - {}", song.title),
+            None => song.title.clone(),
+        };
+        out.push_str(&format!("#EXTINF:{seconds},{label}\n"));
+        out.push_str(&song.path);
+        out.push('\n');
+    }
+    std::fs::write(file, out).map_err(|err| err.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -638,6 +867,56 @@ mod tests {
     /// Vorbis comments arrive upper-case and MP4 atoms lower-case, and the same
     /// field is spelled three ways across the two. One reader has to find all
     /// of them or a FLAC library shows an album called nothing by nobody.
+    /// The shape a phone writes: a byte-order mark, a header, a label per
+    /// track, and paths under a root that exists on the device and nowhere
+    /// else.
+    #[test]
+    fn an_exported_playlist_is_read_the_way_it_was_written() {
+        let text = concat!(
+            "\u{feff}#EXTM3U\n",
+            "#EXTINF:213,Auva - First Light\n",
+            "/storage/emulated/0/Music/first.mp3\n",
+            "\n",
+            "# a comment nobody reads\n",
+            "#EXTINF:180,Second Track\n",
+            "Music\\second.mp3\n",
+        );
+        let entries = parse(text);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].artist.as_deref(), Some("Auva"));
+        assert_eq!(entries[0].title.as_deref(), Some("First Light"));
+        assert_eq!(entries[0].path, "/storage/emulated/0/Music/first.mp3");
+        // No " - " in the label, so the whole of it is the title rather than
+        // an artist called nothing.
+        assert_eq!(entries[1].artist, None);
+        assert_eq!(entries[1].title.as_deref(), Some("Second Track"));
+    }
+
+    /// A list with no `#EXTINF` at all is still a list. Half the playlists in
+    /// the world are a column of paths and nothing else.
+    #[test]
+    fn a_playlist_of_bare_paths_still_reads() {
+        let entries = parse("one.mp3\ntwo.flac\n");
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].path, "one.mp3");
+        assert_eq!(entries[1].title, None);
+    }
+
+    /// The first separator, not the last. Splitting on the last turns
+    /// "Artist - Song - Live" into an artist named "Artist - Song".
+    #[test]
+    fn a_label_splits_on_the_first_separator() {
+        assert_eq!(
+            split_label("Artist - Song - Live"),
+            (Some("Artist".to_owned()), Some("Song - Live".to_owned()))
+        );
+        assert_eq!(
+            split_label("Just A Title"),
+            (None, Some("Just A Title".to_owned()))
+        );
+        assert_eq!(split_label(""), (None, None));
+    }
+
     #[test]
     fn tags_are_found_whatever_case_they_were_written_in() {
         let song = Song::read(

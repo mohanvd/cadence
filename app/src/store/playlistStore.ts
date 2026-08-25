@@ -1,7 +1,11 @@
 import { create } from 'zustand';
 import {
+  pickPlaylist,
+  pickPlaylistTarget,
   playlistCreate,
   playlistDelete,
+  playlistExport,
+  playlistImport,
   playlistRename,
   playlistSet,
   playlists as readPlaylists,
@@ -42,6 +46,15 @@ interface PlaylistState {
   add: (id: string, paths: string[]) => Promise<void>;
   /** Take one track out, by its position. */
   removeAt: (id: string, index: number) => Promise<void>;
+  /**
+   * Read a playlist file and add what it names.
+   *
+   * Returns a sentence worth showing: how many arrived, and what had to be
+   * worked out rather than read. Null when the picker was closed.
+   */
+  importFile: () => Promise<string | null>;
+  /** Write one out. Returns a sentence, or null when the picker was closed. */
+  exportFile: (id: string, name: string) => Promise<string | null>;
 }
 
 export const usePlaylistStore = create<PlaylistState>((set, get) => ({
@@ -93,6 +106,29 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
       list.paths.filter((_, at) => at !== index),
     );
     await get().load();
+  },
+
+  importFile: async () => {
+    const file = await pickPlaylist();
+    if (!file) return null;
+    const { playlist, missing, rematched } = await playlistImport(file);
+    await get().load();
+
+    const parts = [`${playlist.paths.length} added to “${playlist.name}”`];
+    /* Said plainly. A playlist made on a phone names files under a root that
+       exists nowhere here, so most of it arrives having been matched by name
+       or by tag — and somebody who is not told that will wonder why one track
+       is the wrong recording. */
+    if (rematched > 0) parts.push(`${rematched} found by name`);
+    if (missing > 0) parts.push(`${missing} not on this machine`);
+    return parts.join(' · ');
+  },
+
+  exportFile: async (id, name) => {
+    const file = await pickPlaylistTarget(name);
+    if (!file) return null;
+    const written = await playlistExport(id, file);
+    return `${written} ${written === 1 ? 'track' : 'tracks'} written`;
   },
 }));
 

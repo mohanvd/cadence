@@ -30,6 +30,27 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Playlists come in and go out as `.m3u` files.** Import one made anywhere
+  else — a phone, another player, a decade ago — and export any of yours for
+  something else to read.
+
+  The interesting half is the finding, not the reading. A list exported from a
+  phone names files under a root that exists nowhere on a PC, so a path that
+  leads nowhere is looked up by file name, and then by the title and artist its
+  own `#EXTINF` line carried. What arrives says how many were found the hard
+  way and how many were not found at all, because a list that quietly turns up
+  eleven tracks short is worse than one that says so.
+
+- **The extra buttons on a mouse do back and forward.** They have meant that on
+  every mouse for twenty years, and the hand reaches for them without asking
+  the eye first.
+
+- **Lists can be ordered.** Songs by title, artist, album, recently added or
+  longest first; albums by artist, title, year or recently added. The default
+  is unchanged — by album, then disc and track — which is right for browsing by
+  record and wrong for a flat list of eight thousand tracks, where nobody is
+  looking for the fourth song of something.
+
 - **Every folder inside a watched folder is a playlist.** People who keep music
   on a disk have already sorted it, and the sorting is the folders. They appear
   under *From your folders*, derived from what is actually there rather than
@@ -48,6 +69,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The offer waits to be answered rather than expiring after eight seconds. A
   track starts with the player put away, so the whole eight seconds used to
   elapse behind a bar with nowhere to show it.
+
+- Playlists and folders are laid out as tiles, the same shape and size as the
+  albums grid, rather than as wide rows with most of the window empty beside
+  them. Three sections of one library should look like one library.
 
 - A stray null byte had been sitting in the source since the library was
   written, joining an album's name to its artist. It worked, invisibly, and is

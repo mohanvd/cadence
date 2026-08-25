@@ -32,7 +32,9 @@ applied the next time you restart it.
   albums as sleeves, artists as a list, and a search where each word may match
   a different field. Every folder inside it becomes a playlist, because you
   already did the sorting
-- Playlists, shuffle and repeat, and a queue that follows whatever you started
+- Playlists, shuffle and repeat, and a queue that follows whatever you started.
+  Import an `.m3u` from a phone or another player and it finds the music by
+  name and tag when the paths inside it point at a device you no longer have
 - Playback carries on while you look for the next record, with a bar along the
   bottom to get back to it
 - Fix what a file says it is — title, artist, album, year, sleeve — for one

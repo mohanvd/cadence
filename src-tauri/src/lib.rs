@@ -432,6 +432,102 @@ fn playlist_delete(
     store.delete(&id)
 }
 
+/* ── Playlist files ── */
+
+/// Read an `.m3u` and make a playlist from what it names.
+///
+/// The interesting part is not the parsing, it is the finding. A playlist made
+/// on a phone names files under a root that exists nowhere on a PC, and the
+/// music it points at is usually still here under a different one — so a path
+/// that leads nowhere is looked up by file name, and then by the title and
+/// artist the file's own `#EXTINF` line carried. What comes back says how many
+/// were found the hard way and how many were not found at all, because a list
+/// that quietly arrives eleven tracks short is worse than one that says so.
+#[tauri::command]
+fn playlist_import(
+    library: tauri::State<'_, music::Library>,
+    store: tauri::State<'_, music::PlaylistStore>,
+    path: String,
+) -> Result<music::Imported, String> {
+    let songs = library.snapshot().songs;
+    music::import(std::path::Path::new(&path), &songs, &store)
+}
+
+/// Write a playlist out as an `.m3u`, for anything else to read.
+#[tauri::command]
+fn playlist_export(
+    library: tauri::State<'_, music::Library>,
+    store: tauri::State<'_, music::PlaylistStore>,
+    id: String,
+    path: String,
+) -> Result<usize, String> {
+    let lists = store.all();
+    let list = lists
+        .iter()
+        .find(|candidate| candidate.id == id)
+        .ok_or_else(|| format!("no playlist {id}"))?;
+
+    /* The library's records, in the playlist's own order. A path with nothing
+    behind it is left out rather than written as a bare line: an entry with no
+    duration and no label is one no other player can do anything useful with,
+    and the file it pointed at is not on this machine anyway. */
+    let songs = library.snapshot().songs;
+    let by_path: std::collections::HashMap<&str, &music::Song> = songs
+        .iter()
+        .map(|song| (song.path.as_str(), song))
+        .collect();
+    let tracks: Vec<music::Song> = list
+        .paths
+        .iter()
+        .filter_map(|path| by_path.get(path.as_str()).map(|song| (*song).clone()))
+        .collect();
+
+    if tracks.is_empty() {
+        return Err("there is nothing in that playlist to write".into());
+    }
+
+    music::export(std::path::Path::new(&path), &tracks)?;
+    Ok(tracks.len())
+}
+
+/// Ask the operating system for a playlist file to read.
+#[tauri::command]
+async fn pick_playlist(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let (send, receive) = std::sync::mpsc::channel();
+    app.dialog()
+        .file()
+        .add_filter("Playlist", &["m3u", "m3u8"])
+        .pick_file(move |chosen| {
+            let _ = send.send(chosen);
+        });
+    let chosen = receive.recv().map_err(|err| err.to_string())?;
+    Ok(chosen
+        .and_then(|picked| picked.into_path().ok())
+        .map(|path| path.to_string_lossy().into_owned()))
+}
+
+/// Ask where to write a playlist file.
+#[tauri::command]
+async fn pick_playlist_target(
+    app: tauri::AppHandle,
+    name: String,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let (send, receive) = std::sync::mpsc::channel();
+    app.dialog()
+        .file()
+        .add_filter("Playlist", &["m3u8"])
+        .set_file_name(format!("{name}.m3u8"))
+        .save_file(move |chosen| {
+            let _ = send.send(chosen);
+        });
+    let chosen = receive.recv().map_err(|err| err.to_string())?;
+    Ok(chosen
+        .and_then(|picked| picked.into_path().ok())
+        .map(|path| path.to_string_lossy().into_owned()))
+}
+
 /// Change what a track says it is.
 ///
 /// The tags are given by the page as the fields it edited; anything absent is
@@ -789,6 +885,10 @@ pub fn run() {
             reveal,
             music_write,
             pick_picture,
+            playlist_import,
+            playlist_export,
+            pick_playlist,
+            pick_playlist_target,
             #[cfg(windows)]
             now_playing
         ])

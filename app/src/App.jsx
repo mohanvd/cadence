@@ -14,7 +14,7 @@ import { TooltipProvider } from './components/ui/tooltip';
 import { closeMenus } from './components/ui/popover';
 import { MusicSearch } from './components/music/MusicSearch';
 import { isSoundOnly } from './lib/media';
-import { useView, useViewStore } from './store/viewStore';
+import { useMouseNavigation, useView, useViewStore } from './store/viewStore';
 import { useNoBrowserMenu } from './components/music/TrackMenu';
 import TitleBar from './components/TitleBar';
 import { PlayerSurface } from './components/player/PlayerSurface';
@@ -66,6 +66,8 @@ export default function App() {
      introducing itself, and three of its five items would do something
      actively wrong here. */
   useNoBrowserMenu();
+  // The two extra buttons on a mouse, which every other application answers.
+  useMouseNavigation();
 
   /* A `File` with no path behind it, which only the browser dev server
      produces. The recent entry it leaves is a record that the file was

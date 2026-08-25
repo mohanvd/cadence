@@ -64,6 +64,7 @@ export function Playlists({
   const rename = usePlaylistStore((s) => s.rename);
   const remove = usePlaylistStore((s) => s.remove);
   const removeAt = usePlaylistStore((s) => s.removeAt);
+  const exportFile = usePlaylistStore((s) => s.exportFile);
 
   /* Which playlist is open is a position in the window's history, so the back
      arrow closes it like it closes everything else. */
@@ -208,10 +209,16 @@ export function Playlists({
             onPlay={(index) => onPlay(tracks, index, open.name)}
           >
             <IconAction
+              label={`Save ${open.name} as a file`}
+              icon="folder"
+              onClick={() => void exportFile(open.id, open.name)}
+              className="ml-auto"
+            />
+            <IconAction
               label={`Delete ${open.name}`}
               icon="remove"
               onClick={() => ask({ kind: 'delete', list: open })}
-              className="ml-auto hover:text-danger"
+              className="hover:text-danger"
             />
           </ListActions>
 
@@ -247,7 +254,7 @@ export function Playlists({
           <h2 className="mb-3 text-[11px] font-semibold tracking-[0.1em] text-fg-subtle uppercase">
             From your folders
           </h2>
-          <ul className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-1">
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-x-5 gap-y-7">
             {folderLists.map((list) => (
               <FolderRow
                 key={list.id}
@@ -282,7 +289,7 @@ export function Playlists({
           </Button>
         </div>
       ) : lists.length === 0 ? null : (
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-1">
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-x-5 gap-y-7">
           {lists.map((list) => (
             <PlaylistRow
               key={list.id}
@@ -292,6 +299,7 @@ export function Playlists({
               onPlay={() => onPlay(tracksOf(list, songs), 0, list.name)}
               onRename={() => ask({ kind: 'rename', list })}
               onDelete={() => ask({ kind: 'delete', list })}
+              onExport={() => void exportFile(list.id, list.name)}
             />
           ))}
         </ul>
@@ -308,7 +316,7 @@ function IconAction({
   className,
 }: {
   label: string;
-  icon: 'shuffle' | 'remove';
+  icon: 'shuffle' | 'remove' | 'folder';
   onClick: () => void;
   disabled?: boolean;
   className?: string;
@@ -337,6 +345,7 @@ function PlaylistRow({
   onPlay,
   onRename,
   onDelete,
+  onExport,
 }: {
   list: Playlist;
   songs: Song[];
@@ -344,6 +353,7 @@ function PlaylistRow({
   onPlay: () => void;
   onRename: () => void;
   onDelete: () => void;
+  onExport: () => void;
 }) {
   const tracks = tracksOf(list, songs);
   const seconds = tracks.reduce((total, song) => total + song.duration, 0);
@@ -359,23 +369,26 @@ function PlaylistRow({
       onPlay={onPlay}
       onRename={onRename}
       onDelete={onDelete}
+      onExport={onExport}
     >
       <li>
         <button
           type="button"
           onClick={onOpen}
-          className={cn(
-            'flex w-full items-center gap-3 rounded-[8px] p-2 text-left transition-colors',
-            'hover:bg-white/[0.07] focus-visible:bg-white/[0.07] focus-visible:outline-none',
-          )}
+          className="group flex w-full flex-col text-left focus-visible:outline-none"
         >
-          <Artwork path={cover} width={128} className="size-12 shrink-0" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] font-medium text-fg">{list.name}</span>
-            <span className="block truncate text-[12px] text-fg-subtle">
-              {list.paths.length} {list.paths.length === 1 ? 'track' : 'tracks'}
-              {seconds > 0 ? ` · ${formatTime(seconds)}` : ''}
-            </span>
+          <Artwork
+            path={cover}
+            width={400}
+            className={cn(
+              'aspect-square w-full border border-line/60 transition-colors duration-150',
+              'group-hover:border-line-strong group-focus-visible:ring-2 group-focus-visible:ring-accent',
+            )}
+          />
+          <span className="mt-2.5 truncate text-[13px] font-medium text-fg">{list.name}</span>
+          <span className="truncate text-[12px] text-fg-subtle">
+            {list.paths.length} {list.paths.length === 1 ? 'track' : 'tracks'}
+            {seconds > 0 ? ` · ${formatTime(seconds)}` : ''}
           </span>
         </button>
       </li>
@@ -538,20 +551,22 @@ export function FolderRow({
         <button
           type="button"
           onClick={onOpen}
-          className={cn(
-            'flex w-full items-center gap-3 rounded-[8px] p-2 text-left transition-colors',
-            'hover:bg-white/[0.07] focus-visible:bg-white/[0.07] focus-visible:outline-none',
-          )}
+          className="group flex w-full flex-col text-left focus-visible:outline-none"
         >
-          <Artwork path={list.cover} width={128} className="size-12 shrink-0" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] font-medium text-fg" dir="auto">
-              {list.name}
-            </span>
-            <span className="block truncate text-[12px] text-fg-subtle">
-              {list.songs.length} {list.songs.length === 1 ? 'track' : 'tracks'}
-              {list.duration > 0 ? ` · ${formatTime(list.duration)}` : ''}
-            </span>
+          <Artwork
+            path={list.cover}
+            width={400}
+            className={cn(
+              'aspect-square w-full border border-line/60 transition-colors duration-150',
+              'group-hover:border-line-strong group-focus-visible:ring-2 group-focus-visible:ring-accent',
+            )}
+          />
+          <span className="mt-2.5 truncate text-[13px] font-medium text-fg" dir="auto">
+            {list.name}
+          </span>
+          <span className="truncate text-[12px] text-fg-subtle">
+            {list.songs.length} {list.songs.length === 1 ? 'track' : 'tracks'}
+            {list.duration > 0 ? ` · ${formatTime(list.duration)}` : ''}
           </span>
         </button>
       </li>

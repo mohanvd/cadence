@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -137,3 +138,47 @@ export const useHistory = () =>
       forward: s.forward,
     })),
   );
+
+/**
+ * The two extra buttons on a mouse.
+ *
+ * Every mouse with more than three buttons has had these two doing back and
+ * forward for twenty years, and the hand reaches for them without asking the
+ * eye first — which is exactly why an application that ignores them feels
+ * broken rather than merely plain. WebView2 does not act on them by itself,
+ * because nothing here is a page it could navigate.
+ *
+ * `mouseup` rather than `mousedown`: pressing and dragging away is how anybody
+ * takes back a press, and a navigation that has already happened by then
+ * cannot be taken back. `mousedown` is cancelled all the same, because leaving
+ * it alone lets the button start a text selection or an autoscroll.
+ */
+export function useMouseNavigation(): void {
+  const back = useViewStore((s) => s.back);
+  const forward = useViewStore((s) => s.forward);
+
+  React.useEffect(() => {
+    const swallow = (event: MouseEvent) => {
+      if (event.button === 3 || event.button === 4) event.preventDefault();
+    };
+    const act = (event: MouseEvent) => {
+      if (event.button === 3) {
+        event.preventDefault();
+        back();
+      } else if (event.button === 4) {
+        event.preventDefault();
+        forward();
+      }
+    };
+    window.addEventListener('mousedown', swallow);
+    window.addEventListener('mouseup', act);
+    // Chromium also raises this for the extra buttons, and a page that only
+    // listens for one of the three can be beaten to it by the other two.
+    window.addEventListener('auxclick', swallow);
+    return () => {
+      window.removeEventListener('mousedown', swallow);
+      window.removeEventListener('mouseup', act);
+      window.removeEventListener('auxclick', swallow);
+    };
+  }, [back, forward]);
+}

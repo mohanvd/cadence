@@ -9,6 +9,17 @@ import { SongRows } from '@/components/music/SongRows';
 import { AddToPlaylist, Playlists } from '@/components/music/Playlists';
 import { EditDetails } from '@/components/music/EditDetails';
 import { Popover, PopoverContent, PopoverTrigger, MenuItem } from '@/components/ui/popover';
+import {
+  ALBUM_LABELS,
+  ALBUM_ORDERS,
+  SONG_LABELS,
+  SONG_ORDERS,
+  SortMenu,
+  sortAlbums,
+  sortSongs,
+  type AlbumOrder,
+  type SongOrder,
+} from '@/components/music/SortMenu';
 import { usePlaylistStore } from '@/store/playlistStore';
 import { search, useLibraryStore, type Album, type Song } from '@/store/libraryStore';
 import { useView, useViewStore, type MusicTab } from '@/store/viewStore';
@@ -76,6 +87,11 @@ export default function Music({ query, onPlay, onShuffle, playing }: MusicProps)
      knows what was asked for and the view knows how to ask for a name. */
   const [making, setMaking] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
+  /* One order per kind of list, remembered while the window is open. Two
+     rather than one because "recently added" means the same thing in both and
+     "album order" means nothing in a grid of albums. */
+  const [songOrder, setSongOrder] = React.useState<SongOrder>('natural');
+  const [albumOrder, setAlbumOrder] = React.useState<AlbumOrder>('artist');
   /* The track waiting to be filed. One at a time and one dialog for the whole
      screen: there are as many rows as there is music, and one of these. */
   const [filing, setFiling] = React.useState<Song | null>(null);
@@ -85,6 +101,24 @@ export default function Music({ query, onPlay, onShuffle, playing }: MusicProps)
     null,
   );
   const loadPlaylists = usePlaylistStore((s) => s.load);
+  const importFile = usePlaylistStore((s) => s.importFile);
+
+  /* What the last import or export did, shown once and dismissed. Held here
+     rather than in the store because it is a thing that happened on screen,
+     not a thing the library knows. */
+  const [said, setSaid] = React.useState<string | null>(null);
+
+  const importPlaylist = React.useCallback(async () => {
+    try {
+      const answer = await importFile();
+      if (answer) {
+        setSaid(answer);
+        go({ tab: 'playlists', album: null, playlist: null });
+      }
+    } catch (err) {
+      setSaid(String(err));
+    }
+  }, [importFile, go]);
 
   React.useEffect(() => {
     void load();
@@ -105,16 +139,19 @@ export default function Music({ query, onPlay, onShuffle, playing }: MusicProps)
      from what is left. Filtering the albums by their own titles instead would
      mean typing a song's name found nothing, which is how most people look for
      the record it is on. */
-  const found = React.useMemo(() => search(songs, query), [songs, query]);
+  const matched = React.useMemo(() => search(songs, query), [songs, query]);
+  const found = React.useMemo(() => sortSongs(matched, songOrder), [matched, songOrder]);
   const searching = query.trim().length > 0;
 
+  const orderedAlbums = React.useMemo(() => sortAlbums(albums, albumOrder), [albums, albumOrder]);
+
   const visibleAlbums = React.useMemo(() => {
-    if (!searching) return albums;
-    const keep = new Set(found.map((song) => song.path));
-    return albums
+    if (!searching) return orderedAlbums;
+    const keep = new Set(matched.map((song) => song.path));
+    return orderedAlbums
       .map((album) => ({ ...album, songs: album.songs.filter((song) => keep.has(song.path)) }))
       .filter((album) => album.songs.length > 0);
-  }, [albums, found, searching]);
+  }, [orderedAlbums, matched, searching]);
 
   const visibleArtists = React.useMemo(() => {
     if (!searching) return artists;
@@ -187,10 +224,30 @@ export default function Music({ query, onPlay, onShuffle, playing }: MusicProps)
           ))}
         </nav>
 
-        {/* One button for everything that can be made, rather than a button
-            per thing appearing on the tab that happens to show it. What can be
-            made does not depend on where you are standing. */}
-        <div className="ml-auto">
+        {/* Only where there is an order to change. Artists are alphabetical
+            and playlists are in the order somebody put them in; offering to
+            sort either is offering to undo the point of it. */}
+        {(tab === 'albums' || tab === 'songs') && (
+          <div className="ml-auto">
+            {tab === 'albums' ? (
+              <SortMenu
+                value={albumOrder}
+                onChange={setAlbumOrder}
+                options={ALBUM_ORDERS}
+                labels={ALBUM_LABELS}
+              />
+            ) : (
+              <SortMenu
+                value={songOrder}
+                onChange={setSongOrder}
+                options={SONG_ORDERS}
+                labels={SONG_LABELS}
+              />
+            )}
+          </div>
+        )}
+
+        <div className={tab === 'albums' || tab === 'songs' ? '' : 'ml-auto'}>
           {/* Controlled, so choosing something closes it. An uncontrolled
               popover stays open behind whatever the choice opened, which
               leaves two menus on screen and one of them stale. */}
@@ -212,6 +269,17 @@ export default function Music({ query, onPlay, onShuffle, playing }: MusicProps)
                 Playlist
                 <span className="block text-[11px] text-fg-subtle">
                   A name and an order you choose
+                </span>
+              </MenuItem>
+              <MenuItem
+                onSelect={() => {
+                  setCreating(false);
+                  void importPlaylist();
+                }}
+              >
+                Import a playlist
+                <span className="block text-[11px] text-fg-subtle">
+                  From an .m3u made anywhere else
                 </span>
               </MenuItem>
               <MenuItem
@@ -240,6 +308,20 @@ export default function Music({ query, onPlay, onShuffle, playing }: MusicProps)
           </Popover>
         </div>
       </div>
+      )}
+
+      {/* One line, gone when it is read. An import is a thing that happened,
+          not a state the screen is in. */}
+      {said && (
+        <button
+          type="button"
+          onClick={() => setSaid(null)}
+          className="mx-6 mt-4 flex items-center gap-3 rounded-[10px] border border-line bg-surface-1 px-4 py-2.5 text-left text-[12px] text-fg-muted transition-colors hover:bg-surface-2"
+        >
+          <Icon name="check" size={14} className="shrink-0 text-success" />
+          <span className="min-w-0 flex-1">{said}</span>
+          <Icon name="close" size={13} className="shrink-0 text-fg-subtle" />
+        </button>
       )}
 
       {managing && (
