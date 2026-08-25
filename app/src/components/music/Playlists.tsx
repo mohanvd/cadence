@@ -4,10 +4,12 @@ import { Dialog, DialogField } from '@/components/ui/dialog';
 import { Icon } from '@/components/ui/icons';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/format';
-import type { Song } from '@/store/libraryStore';
+import type { FolderList, Song } from '@/store/libraryStore';
+import { useLibraryStore } from '@/store/libraryStore';
 import { tracksOf, usePlaylistStore, type Playlist } from '@/store/playlistStore';
 import { useView, useViewStore } from '@/store/viewStore';
 import { Artwork } from './Artwork';
+import { ListActions } from './ListActions';
 import { SongRows } from './SongRows';
 import { TrackMenu } from './TrackMenu';
 
@@ -29,7 +31,6 @@ export interface PlaylistsProps {
   songs: Song[];
   playing: string | null;
   onPlay: (songs: Song[], index: number, label: string) => void;
-  onShuffle: (songs: Song[], label: string) => void;
   /** Open the dialog that puts a track in a list. */
   onAdd: (song: Song) => void;
   /** Change what a track says it is. */
@@ -50,13 +51,15 @@ export function Playlists({
   songs,
   playing,
   onPlay,
-  onShuffle,
   onAdd,
   onEdit,
   making = false,
   onMade,
 }: PlaylistsProps) {
   const lists = usePlaylistStore((s) => s.lists);
+  /* The folders under each watched folder, as lists. Derived by the library
+     from what is on the disk, so they cost nothing to keep in step. */
+  const folderLists = useLibraryStore((s) => s.folderLists);
   const create = usePlaylistStore((s) => s.create);
   const rename = usePlaylistStore((s) => s.rename);
   const remove = usePlaylistStore((s) => s.remove);
@@ -76,9 +79,17 @@ export function Playlists({
     setDraft(next?.kind === 'rename' ? next.list.name : '');
   }, []);
 
+  /* Made lists and folder lists open the same page. The prefix on the id is
+     what says which kind this is, and the page only differs in what it will
+     let you do to it: a folder is the disk's arrangement and cannot be
+     renamed or emptied from here. */
   const open = React.useMemo(
     () => lists.find((list) => list.id === openId) ?? null,
     [lists, openId],
+  );
+  const openFolder = React.useMemo(
+    () => (openId?.startsWith('folder:') ? (folderLists.find((f) => f.id === openId) ?? null) : null),
+    [folderLists, openId],
   );
 
   /* The Create menu lives in the window bar and this view owns the dialog, so
@@ -135,6 +146,21 @@ export function Playlists({
     </Dialog>
   );
 
+  if (openFolder) {
+    return (
+      <>
+        {question}
+        <FolderPage
+          list={openFolder}
+          playing={playing}
+          onPlay={onPlay}
+          onAdd={onAdd}
+          onEdit={onEdit}
+        />
+      </>
+    );
+  }
+
   if (open) {
     const tracks = tracksOf(open, songs);
     const missing = open.paths.length - tracks.length;
@@ -176,29 +202,18 @@ export function Playlists({
             </p>
           </header>
 
-          <div className="flex items-center gap-5 px-8 pb-7">
-            <button
-              type="button"
-              onClick={() => onPlay(tracks, 0, open.name)}
-              disabled={!tracks.length}
-              aria-label={`Play ${open.name}`}
-              className="flex size-14 items-center justify-center rounded-full bg-accent text-accent-fg shadow-[0_8px_24px_-6px_rgba(0,0,0,0.7)] transition-colors hover:bg-accent-hover disabled:pointer-events-none disabled:opacity-40"
-            >
-              <Icon name="play" size={22} />
-            </button>
-            <IconAction
-              label={`Shuffle ${open.name}`}
-              icon="shuffle"
-              onClick={() => onShuffle(tracks, open.name)}
-              disabled={!tracks.length}
-            />
+          <ListActions
+            songs={tracks}
+            label={open.name}
+            onPlay={(index) => onPlay(tracks, index, open.name)}
+          >
             <IconAction
               label={`Delete ${open.name}`}
               icon="remove"
               onClick={() => ask({ kind: 'delete', list: open })}
               className="ml-auto hover:text-danger"
             />
-          </div>
+          </ListActions>
 
           <div className="px-5 pt-2 pb-10">
             {tracks.length === 0 ? (
@@ -227,7 +242,31 @@ export function Playlists({
     <>
       {question}
 
-      {lists.length === 0 ? (
+      {folderLists.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-3 text-[11px] font-semibold tracking-[0.1em] text-fg-subtle uppercase">
+            From your folders
+          </h2>
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-1">
+            {folderLists.map((list) => (
+              <FolderRow
+                key={list.id}
+                list={list}
+                onOpen={() => setOpenId(list.id)}
+                onPlay={() => onPlay(list.songs, 0, list.name)}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {folderLists.length > 0 && lists.length > 0 && (
+        <h2 className="mb-3 text-[11px] font-semibold tracking-[0.1em] text-fg-subtle uppercase">
+          Yours
+        </h2>
+      )}
+
+      {lists.length === 0 && folderLists.length === 0 ? (
         <div className="flex flex-col items-center pt-20 text-center">
           <div className="mb-5 flex size-16 items-center justify-center rounded-[20px] border border-line bg-surface-1">
             <Icon name="queue" size={26} className="text-fg-subtle" />
@@ -242,7 +281,7 @@ export function Playlists({
             New playlist
           </Button>
         </div>
-      ) : (
+      ) : lists.length === 0 ? null : (
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-1">
           {lists.map((list) => (
             <PlaylistRow
@@ -251,7 +290,6 @@ export function Playlists({
               songs={songs}
               onOpen={() => setOpenId(list.id)}
               onPlay={() => onPlay(tracksOf(list, songs), 0, list.name)}
-              onShuffle={() => onShuffle(tracksOf(list, songs), list.name)}
               onRename={() => ask({ kind: 'rename', list })}
               onDelete={() => ask({ kind: 'delete', list })}
             />
@@ -297,7 +335,6 @@ function PlaylistRow({
   songs,
   onOpen,
   onPlay,
-  onShuffle,
   onRename,
   onDelete,
 }: {
@@ -305,7 +342,6 @@ function PlaylistRow({
   songs: Song[];
   onOpen: () => void;
   onPlay: () => void;
-  onShuffle: () => void;
   onRename: () => void;
   onDelete: () => void;
 }) {
@@ -321,7 +357,6 @@ function PlaylistRow({
       songs={tracks}
       label={list.name}
       onPlay={onPlay}
-      onShuffle={onShuffle}
       onRename={onRename}
       onDelete={onDelete}
     >
@@ -411,5 +446,115 @@ export function AddToPlaylist({ song, onClose }: { song: Song; onClose: () => vo
         ))}
       </ul>
     </Dialog>
+  );
+}
+
+/**
+ * A folder from the disk, opened as a list.
+ *
+ * The same page as a playlist with two things missing: it cannot be renamed
+ * and it cannot be emptied. Both of those belong to whoever arranged the
+ * folder, and offering them here would be offering to change something this
+ * page cannot actually change — the name is the folder's name, and taking a
+ * track out would mean deleting a file.
+ */
+function FolderPage({
+  list,
+  playing,
+  onPlay,
+  onAdd,
+  onEdit,
+}: {
+  list: FolderList;
+  playing: string | null;
+  onPlay: (songs: Song[], index: number, label: string) => void;
+  onAdd: (song: Song) => void;
+  onEdit?: ((song: Song) => void) | undefined;
+}) {
+  const minutes = Math.round(list.duration / 60);
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <header className="relative px-8 pt-14 pb-8">
+        {/* The folder's own colour, from the first sleeve in it. */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+          <Artwork
+            path={list.cover}
+            width={96}
+            rounded={false}
+            className="size-full scale-150 opacity-35 blur-[64px] saturate-150"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--bg)]/45 to-[var(--bg)]" />
+        </div>
+
+        <div className="relative">
+          <p className="text-[11px] font-semibold tracking-[0.1em] text-white/55 uppercase">
+            Folder
+          </p>
+          <h2 className="mt-1 truncate text-[clamp(1.75rem,4.5vw,3.25rem)] leading-[1.05] font-bold tracking-[-0.03em] text-white">
+            {list.name}
+          </h2>
+          <p className="mt-4 flex flex-wrap items-center gap-x-1.5 text-[13px] text-white/45">
+            <span>
+              {list.songs.length} {list.songs.length === 1 ? 'track' : 'tracks'}
+            </span>
+            {minutes > 0 && <span>· {minutes} min</span>}
+          </p>
+        </div>
+      </header>
+
+      <ListActions
+        songs={list.songs}
+        label={list.name}
+        onPlay={(index) => onPlay(list.songs, index, list.name)}
+      />
+
+      <div className="px-5 pt-2 pb-10">
+        <SongRows
+          songs={list.songs}
+          playing={playing}
+          onPlay={(index) => onPlay(list.songs, index, list.name)}
+          onAdd={onAdd}
+          onEdit={onEdit}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** One row in the list of folders. */
+export function FolderRow({
+  list,
+  onOpen,
+  onPlay,
+}: {
+  list: FolderList;
+  onOpen: () => void;
+  onPlay: () => void;
+}) {
+  return (
+    <TrackMenu songs={list.songs} label={list.name} onPlay={onPlay}>
+      <li>
+        <button
+          type="button"
+          onClick={onOpen}
+          className={cn(
+            'flex w-full items-center gap-3 rounded-[8px] p-2 text-left transition-colors',
+            'hover:bg-white/[0.07] focus-visible:bg-white/[0.07] focus-visible:outline-none',
+          )}
+        >
+          <Artwork path={list.cover} width={128} className="size-12 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[14px] font-medium text-fg" dir="auto">
+              {list.name}
+            </span>
+            <span className="block truncate text-[12px] text-fg-subtle">
+              {list.songs.length} {list.songs.length === 1 ? 'track' : 'tracks'}
+              {list.duration > 0 ? ` · ${formatTime(list.duration)}` : ''}
+            </span>
+          </span>
+        </button>
+      </li>
+    </TrackMenu>
   );
 }

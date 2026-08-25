@@ -606,7 +606,7 @@ export function PlayerSurface({
           />
         )}
 
-        {resume && chromeVisible && (
+        {resume && chromeVisible && !minimised && (
           <div
             data-player-chrome
             className={cn(
@@ -615,13 +615,32 @@ export function PlayerSurface({
               'bottom-28 left-6',
             )}
           >
+            {/* Two sentences for two situations. A film says what it did and
+                offers to undo it; a track says what it could do and offers to
+                do it, having started at the beginning like a track should. */}
             <span className="text-fg-muted">
-              Resumed from{' '}
+              {resume.taken ? 'Resumed from' : 'You stopped at'}{' '}
               <span className="tabular-nums text-fg">{formatTime(resume.from)}</span>
             </span>
-            <Button variant="secondary" size="sm" onClick={resume.startOver}>
-              Start over
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={resume.taken ? resume.startOver : resume.resume}
+            >
+              {resume.taken ? 'Start over' : 'Go there'}
             </Button>
+            {/* The offer waits rather than expiring, so it needs a way out.
+                The film's notice retires on its own and needs none. */}
+            {!resume.taken && (
+              <button
+                type="button"
+                onClick={resume.startOver}
+                aria-label="Dismiss"
+                className="flex size-7 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface-3 hover:text-fg"
+              >
+                <Icon name="close" size={13} />
+              </button>
+            )}
           </div>
         )}
 

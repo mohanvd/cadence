@@ -5,6 +5,54 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Back means up, not before.** It closes what is open — the player first,
+  then the record or playlist under it — and never crosses between the Files
+  and Music tabs. The old behaviour walked a flat list of everywhere you had
+  been, which produced the move that made this worth rewriting: put a record
+  on, glance at the file screen, come back to the library, press back, and land
+  on the file screen. Nothing about that is what "back" meant to the person
+  pressing it. They were in the player and wanted to be in the library.
+
+  Forward now undoes the last back and nothing else, which is the only thing
+  anybody ever uses forward for.
+
+- **Shuffle is a setting, not a button that plays something.** The one in a
+  record's header is the same shuffle the transport shows, and it looks it: on
+  or off, and staying that way. Play beside it says pause while that record is
+  playing, rather than saying "play" over music already coming out of the
+  speakers. Starting a shuffled list begins on a random track — starting at
+  track one and shuffling the rest opened every shuffled record with the same
+  song.
+
+### Added
+
+- **Every folder inside a watched folder is a playlist.** People who keep music
+  on a disk have already sorted it, and the sorting is the folders. They appear
+  under *From your folders*, derived from what is actually there rather than
+  copied into a list that goes stale — nothing to make, nothing to maintain,
+  and never wrong after a rescan.
+
+### Fixed
+
+- **A track starts at the beginning.** Having heard half a song yesterday is
+  not a request to skip the first half of it today, and in a queue it meant
+  every track anybody had ever half-listened to jumped on arriving. The
+  position is still kept and still offered — one click, in the player — and
+  nothing seeks on its own. A film still resumes silently, because a film is
+  the thing that should.
+
+  The offer waits to be answered rather than expiring after eight seconds. A
+  track starts with the player put away, so the whole eight seconds used to
+  elapse behind a bar with nowhere to show it.
+
+- A stray null byte had been sitting in the source since the library was
+  written, joining an album's name to its artist. It worked, invisibly, and is
+  now the escape it should always have been.
+
 ## [0.6.0] - 2026-08-20
 
 ### Added

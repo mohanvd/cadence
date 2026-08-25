@@ -30,7 +30,8 @@ applied the next time you restart it.
   from a local `.srt`, `.vtt`, `.ass` or `.ssa`, with adjustable timing
 - A library for your music: point it at a folder and it reads the tags once —
   albums as sleeves, artists as a list, and a search where each word may match
-  a different field
+  a different field. Every folder inside it becomes a playlist, because you
+  already did the sorting
 - Playlists, shuffle and repeat, and a queue that follows whatever you started
 - Playback carries on while you look for the next record, with a bar along the
   bottom to get back to it

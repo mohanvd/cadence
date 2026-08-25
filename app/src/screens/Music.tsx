@@ -314,7 +314,6 @@ export default function Music({ query, onPlay, onShuffle, playing }: MusicProps)
             songs={songs}
             playing={playing}
             onPlay={onPlay}
-            onShuffle={onShuffle}
             onAdd={setFiling}
             onEdit={(song) => setEditing({ songs: [song], scope: 'track' })}
           />
@@ -338,7 +337,6 @@ export default function Music({ query, onPlay, onShuffle, playing }: MusicProps)
             playing={playing}
             onClose={() => setOpenAlbum(null)}
             onPlay={(index) => playAlbum(album, index)}
-            onShuffle={() => onShuffle(album.songs, album.title)}
             onAdd={setFiling}
             onEdit={() => setEditing({ songs: album.songs, scope: 'album' })}
             onEditTrack={(song) => setEditing({ songs: [song], scope: 'track' })}

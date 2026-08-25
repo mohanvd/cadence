@@ -2,23 +2,31 @@ import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 
 /**
- * Where you are, and where you have been.
+ * Where you are, and the one step above it.
  *
- * The alternative was a back button on every panel that can be opened — one on
- * the album sheet, one on the playlist, one wherever the next thing lands —
- * and that is four affordances doing one job, each of them in a slightly
- * different place, each of them stealing a corner of the thing it sits on.
- * Two arrows in the window bar do all of it and cost nothing anywhere else.
+ * Back means *up*, not *before*. That is the whole design of this file, and it
+ * is a deliberate departure from what a browser does.
  *
- * A view is a whole position rather than a step, so going back is restoring
- * one rather than undoing the last thing that happened. That matters for the
- * case people actually hit: open an album, open another, change to Artists,
- * press back twice and land exactly where you were, with the right album open
- * on the right tab.
+ * A browser's back button walks a list of everything you looked at, which
+ * works there because a browser has one place to be — a page — and every move
+ * is the same kind of move. This window has two places to be, chosen by two
+ * tabs sitting side by side, and inside one of them a stack of things that
+ * open on top of each other: a record, a playlist, the player. Walking a flat
+ * list across all of that produces the thing that made this worth rewriting —
+ * put a record on, glance at the file screen, come back to the library, press
+ * back, and land on the file screen. Nothing about that is what "back" meant
+ * to the person pressing it. They were in the player and wanted to be in the
+ * library.
  *
- * Deliberately not the browser's history. This is a window, not a page, and
- * `popstate` would also answer to a mouse's fourth button pressed over a
- * webview that has its own idea of what Back means.
+ * So back closes what is open, in the order it was opened over: the player
+ * first, then the record or playlist under it. It never crosses between the
+ * two tabs, because those are peers and picking one is not a step you take
+ * *into* anything — it is the same move as picking the other, and undoing it
+ * is what the other tab is for.
+ *
+ * Forward undoes the last back and nothing else. It is not a second history;
+ * it is the way out of a mistaken press, which is the only thing anybody ever
+ * uses forward for.
  */
 
 export type Screen = 'home' | 'music';
@@ -29,16 +37,20 @@ export interface View {
   /** Which section of the library. Meaningless on the file screen, and kept
       anyway, so that leaving and coming back lands where you left. */
   tab: MusicTab;
-  /** The album whose sheet is open, by id. */
+  /** The album whose page is open, by id. */
   album: string | null;
-  /** The playlist that is open, by id. */
+  /**
+   * The playlist that is open.
+   *
+   * Either a made playlist's id, or a folder's path with the `folder:` prefix
+   * the library uses for the lists it derives from the disk. One field for
+   * both because they open the same page and back closes them the same way.
+   */
   playlist: string | null;
   /**
    * Whether the player is filling the window.
    *
-   * A position rather than a flag on the side, so that the back arrow in the
-   * window bar closes it — which is what stops the player needing a back arrow
-   * of its own, sitting a few pixels from the one that already exists.
+   * The topmost thing that can be open, so the first thing back closes.
    */
   player: boolean;
 }
@@ -51,58 +63,76 @@ const START: View = {
   player: false,
 };
 
-/** How many positions back you can go. Beyond this nobody is retracing. */
-const DEPTH = 50;
+/**
+ * What closing the topmost open thing looks like, or null at the top level.
+ *
+ * The order is the order things stack: the player sits over a record, a record
+ * sits over the library. Nothing here ever changes `screen`.
+ */
+function upFrom(view: View): Partial<View> | null {
+  if (view.player) return { player: false };
+  if (view.album !== null) return { album: null };
+  if (view.playlist !== null) return { playlist: null };
+  return null;
+}
 
 interface ViewState {
-  history: View[];
-  at: number;
-  /** Move to a new position, described by what changed about this one. */
+  view: View;
+  /** What the last back closed, so forward can put it back. */
+  undone: View | null;
+  /** Move somewhere, described by what changed about where you are. */
   go: (patch: Partial<View>) => void;
   back: () => void;
   forward: () => void;
 }
 
-function same(a: View, b: View): boolean {
-  return (
-    a.screen === b.screen &&
-    a.tab === b.tab &&
-    a.album === b.album &&
-    a.playlist === b.playlist &&
-    a.player === b.player
-  );
-}
-
 export const useViewStore = create<ViewState>((set, get) => ({
-  history: [START],
-  at: 0,
+  view: START,
+  undone: null,
 
   go: (patch) => {
-    const { history, at } = get();
-    const next: View = { ...history[at]!, ...patch };
-    if (same(next, history[at]!)) return;
-
-    /* Anything ahead is discarded, which is what every back button in the
-       world does: going somewhere new from the middle of a history makes the
-       part you had gone back from unreachable, and pretending otherwise would
-       leave a forward arrow that goes somewhere you never chose. */
-    const kept = [...history.slice(0, at + 1), next].slice(-DEPTH);
-    set({ history: kept, at: kept.length - 1 });
+    const { view } = get();
+    const next: View = { ...view, ...patch };
+    /* A move that changes nothing is not a move. Without this, clicking the
+       tab you are already on would count as navigation and clear the forward
+       arrow for no reason. */
+    if (
+      next.screen === view.screen &&
+      next.tab === view.tab &&
+      next.album === view.album &&
+      next.playlist === view.playlist &&
+      next.player === view.player
+    ) {
+      return;
+    }
+    // Going somewhere new makes the thing forward would have restored
+    // unreachable, which is what every forward button in the world does.
+    set({ view: next, undone: null });
   },
 
-  back: () => set(({ at }) => ({ at: Math.max(0, at - 1) })),
-  forward: () => set(({ history, at }) => ({ at: Math.min(history.length - 1, at + 1) })),
+  back: () => {
+    const { view } = get();
+    const up = upFrom(view);
+    if (!up) return;
+    set({ view: { ...view, ...up }, undone: view });
+  },
+
+  forward: () => {
+    const { undone } = get();
+    if (!undone) return;
+    set({ view: undone, undone: null });
+  },
 }));
 
 /** Where you are now. */
-export const useView = (): View => useViewStore((s) => s.history[s.at]!);
+export const useView = (): View => useViewStore((s) => s.view);
 
 /** What the two arrows need: whether they do anything, and what they do. */
 export const useHistory = () =>
   useViewStore(
     useShallow((s) => ({
-      canBack: s.at > 0,
-      canForward: s.at < s.history.length - 1,
+      canBack: upFrom(s.view) !== null,
+      canForward: s.undone !== null,
       back: s.back,
       forward: s.forward,
     })),

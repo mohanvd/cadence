@@ -28,19 +28,39 @@ const SAVE_INTERVAL_MS = 4000;
 const RESUME_NOTICE_MS = 8000;
 
 export interface ResumeInfo {
-  /** Seconds that playback was restored to. */
+  /** Seconds the saved position is at. */
   from: number;
-  /** Rewind to the beginning and forget the saved position. */
+  /**
+   * Whether playback was moved there, or is only being offered the chance.
+   *
+   * A film is moved. A track is offered, and starts at the beginning.
+   */
+  taken: boolean;
+  /** Rewind to the beginning and forget the saved position. Films only. */
   startOver: () => void;
+  /** Go to the saved position. Tracks only. */
+  resume: () => void;
 }
 
 /**
  * Restores volume, speed and playback position, and keeps them saved.
  *
- * Resuming happens *silently* rather than behind a modal. Being asked
- * "resume?" before every lecture is friction on the common path; the player
- * simply continues where it was and offers a one-click way to start over,
- * which is the same bargain every streaming service makes.
+ * A film is moved to where it was left, silently. Being asked "resume?" before
+ * every lecture is friction on the common path, so the player simply carries
+ * on and offers a one-click way to start over — the bargain every streaming
+ * service makes.
+ *
+ * A track is not. A song is a thing you play from the beginning; hearing half
+ * of one yesterday is not a request to skip the first half of it today, and it
+ * is worse than it sounds in a queue, where every track anybody had ever
+ * half-listened to would jump on arriving. So the position is still kept and
+ * still offered — one click, in the same place the film's notice appears — and
+ * nothing seeks on its own.
+ *
+ * Which of the two it is is read from the store at the moment the duration
+ * arrives rather than passed in, because the two facts land in the same
+ * update: a caller reading "is this music" from a render would still be
+ * holding the answer for the file before this one.
  */
 export function usePlaybackMemory(fileKey: string): ResumeInfo | null {
   const [resume, setResume] = React.useState<ResumeInfo | null>(null);
@@ -95,9 +115,30 @@ export function usePlaybackMemory(fileKey: string): ResumeInfo | null {
         return;
       }
 
+      /* Sound with no picture. Read from the tracks rather than from
+         `videoWidth`, which is still zero while a film's metadata settles. */
+      const soundOnly =
+        state.tracks.length > 0 &&
+        !state.tracks.some((track) => track.type === 'video' && track.playable);
+
+      if (soundOnly) {
+        setResume({
+          from: position,
+          taken: false,
+          startOver: () => setResume(null),
+          resume: () => {
+            usePlayerStore.getState().seek(position);
+            setResume(null);
+          },
+        });
+        return;
+      }
+
       usePlayerStore.getState().seek(position);
       setResume({
         from: position,
+        taken: true,
+        resume: () => setResume(null),
         startOver: () => {
           usePlayerStore.getState().seek(0);
           savePosition(fileKey, 0);
@@ -109,9 +150,18 @@ export function usePlaybackMemory(fileKey: string): ResumeInfo | null {
     return unsubscribe;
   }, [fileKey]);
 
-  /** Retire the notice once it has been on screen long enough to read. */
+  /**
+   * Retire the notice once it has been on screen long enough to read.
+   *
+   * Only the film's. That one explains something that already happened and
+   * expires the way an explanation should. The track's is an *offer*, and an
+   * offer that withdraws itself after eight seconds is one nobody ever
+   * accepts — least of all here, where a track starts with the player put
+   * away, so the whole eight seconds would elapse behind a bar with no room
+   * to show it. It waits until it is taken, dismissed, or the file changes.
+   */
   React.useEffect(() => {
-    if (!resume) return;
+    if (!resume?.taken) return;
     const timer = window.setTimeout(() => setResume(null), RESUME_NOTICE_MS);
     return () => window.clearTimeout(timer);
   }, [resume]);

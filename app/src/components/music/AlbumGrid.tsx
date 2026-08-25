@@ -3,6 +3,7 @@ import { Icon } from '@/components/ui/icons';
 import { cn } from '@/lib/utils';
 import type { Album } from '@/store/libraryStore';
 import { Artwork } from './Artwork';
+import { ListActions } from './ListActions';
 import { SongRows } from './SongRows';
 import { TrackMenu } from './TrackMenu';
 
@@ -78,7 +79,6 @@ export interface AlbumSheetProps {
   onClose: () => void;
   /** Play the album from a track, queueing the rest behind it. */
   onPlay: (index: number) => void;
-  onShuffle: () => void;
   /** Put one of its tracks in a playlist. */
   onAdd?: ((song: import('@/store/libraryStore').Song) => void) | undefined;
   /** Change what the whole record says it is. */
@@ -92,7 +92,6 @@ export function AlbumSheet({
   playing,
   onClose,
   onPlay,
-  onShuffle,
   onAdd,
   onEdit,
   onEditTrack,
@@ -160,36 +159,19 @@ export function AlbumSheet({
           {/* The actions, on their own line under the header rather than
               tucked beside the title. Play is the largest thing on the page
               after the sleeve, because it is what the page is for. */}
-          <div className="relative flex items-center gap-5 px-8 pb-7">
-            <button
-              type="button"
-              onClick={() => onPlay(0)}
-              aria-label={`Play ${album.title}`}
-              className="flex size-14 items-center justify-center rounded-full bg-accent text-accent-fg shadow-[0_8px_24px_-6px_rgba(0,0,0,0.7)] transition-colors hover:bg-accent-hover"
-            >
-              <Icon name="play" size={22} />
-            </button>
-            <button
-              type="button"
-              onClick={onShuffle}
-              aria-label={`Shuffle ${album.title}`}
-              /* Sized against Play rather than against nothing. A 36px button
-                 beside a 56px one reads as an afterthought; matching their
-                 optical weight is what makes them one pair of controls. */
-              className="flex size-11 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-white/10 hover:text-fg"
-            >
-              <Icon name="shuffle" size={22} />
-            </button>
-            {onEdit && (
-              <button
-                type="button"
-                onClick={onEdit}
-                aria-label={`Edit ${album.title}`}
-                className="ml-auto flex size-11 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-white/10 hover:text-fg"
-              >
-                <Icon name="settings" size={20} />
-              </button>
-            )}
+          <div className="relative">
+            <ListActions songs={album.songs} label={album.title} onPlay={onPlay}>
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  aria-label={`Edit ${album.title}`}
+                  className="ml-auto flex size-11 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-white/10 hover:text-fg"
+                >
+                  <Icon name="settings" size={20} />
+                </button>
+              )}
+            </ListActions>
           </div>
         </header>
 
