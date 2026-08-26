@@ -7,7 +7,16 @@ on:
   push:
     tags:
       - 'v*'
+  # Retrying a failed release should not mean deleting and re-pushing a tag.
+  # A tag is a record of what was shipped; moving one to get a second attempt
+  # rewrites that record to paper over a build problem. This takes the tag as
+  # an argument instead, so a run can be repeated as many times as it needs to
+  # be against exactly the same commit.
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and release, e.g. v0.7.0'
+        required: true
 
 # Where the installers go. Not this repository: this one is private, and a
 # release asset in a private repository is a 404 to everybody who is not signed
@@ -36,7 +45,48 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
+      # Ask the question that decides the run, before paying for the run.
+      #
+      # Everything below this is about ten minutes of Windows runner: Rust,
+      # FFmpeg, NSIS. Creating the release is the very last thing that happens,
+      # so a token that cannot write to the release repository used to be
+      # discovered only after the whole build had been bought and paid for —
+      # ten minutes to be told about a permission checkbox. This asks first,
+      # and fails in about a second.
+      #
+      # `permissions.push` is the repository's own answer to "can the bearer of
+      # this token write here", which is exactly the question, rather than a
+      # guess assembled from what the token claims about itself.
+      - name: Check the release token
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          set -uo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::RELEASES_TOKEN is not set on this repository. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          if ! response=$(gh api "repos/$RELEASE_REPO" 2>&1); then
+            echo "::error::RELEASES_TOKEN cannot see $RELEASE_REPO at all. Either the repository is not in the token's selected repositories, or the token has expired."
+            echo "$response"
+            exit 1
+          fi
+
+          push=$(printf '%s' "$response" | jq -r '.permissions.push // false')
+          if [ "$push" != "true" ]; then
+            echo "::error::RELEASES_TOKEN can read $RELEASE_REPO but cannot write to it. Give the token 'Contents: Read and write' — read-only is not enough to create a release."
+            exit 1
+          fi
+
+          echo "RELEASES_TOKEN can write to $RELEASE_REPO. Building."
+
       - uses: actions/checkout@v4
+        with:
+          # On a tag push this is already what is checked out; on a manual run
+          # it is the tag that was asked for rather than the default branch.
+          ref: ${{ inputs.tag || github.ref_name }}
 
       - uses: actions/setup-node@v4
         with:
@@ -87,8 +137,8 @@ jobs:
           # here. The tag itself stays private with the source.
           owner: ${{ github.repository_owner }}
           repo: cadence-releases
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Cadence ${{ github.ref_name }}'
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: 'Cadence ${{ inputs.tag || github.ref_name }}'
           releaseBody: |
             Download `Cadence-Setup.exe` below and run it.
 
@@ -103,7 +153,13 @@ jobs:
           # installed copy of Cadence polls to discover this release. The
           # download URLs inside it are addressed to whichever repository the
           # release was created in, so this follows `owner`/`repo` above.
-          uploadUpdaterJson: true
+          #
+          # `includeUpdaterJson`, not `uploadUpdaterJson`: the input was renamed
+          # upstream after the `v0` tag this workflow pins. An input this action
+          # does not recognise is ignored in silence rather than refused, so the
+          # wrong name here would look exactly like the right one until the day
+          # the default changed and the updater stopped being fed.
+          includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
 
@@ -122,6 +178,6 @@ jobs:
           set -euo pipefail
           original=$(ls src-tauri/target/release/bundle/nsis/Cadence_*_x64-setup.exe)
           cp "$original" "Cadence-Setup.exe"
-          gh release upload "${{ github.ref_name }}" "Cadence-Setup.exe" \
+          gh release upload "${{ inputs.tag || github.ref_name }}" "Cadence-Setup.exe" \
             --repo "$RELEASE_REPO" --clobber
           echo "uploaded Cadence-Setup.exe (copy of $(basename "$original")) to $RELEASE_REPO"
