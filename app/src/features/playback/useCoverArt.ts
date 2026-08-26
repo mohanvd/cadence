@@ -64,29 +64,58 @@ function quoted(text: string): string {
   return `"${text.replace(/["\\]/g, ' ')}"`;
 }
 
+/** The ways a tag says "more than one of us made this". */
+const JOINERS = /\s*[/;]\s*|\s+(?:&|feat\.?|ft\.?|with|vs\.?)\s+/i;
+
+/**
+ * The names worth asking a catalogue about, most likely first.
+ *
+ * The whole string first, always. A band really called `Florence + the Machine`
+ * or `Earth, Wind & Fire` has to be found under its own name before anything
+ * starts cutting it in half.
+ *
+ * Then the pieces, because a collaboration is tagged as one artist and
+ * catalogued as another: a file saying `League of Legends/Against The Current`
+ * returns nothing at all, and `Against The Current` alone scores 100 for the
+ * same record.
+ */
+function namesIn(artist: string): string[] {
+  const whole = artist.trim();
+  const parts = whole
+    .split(JOINERS)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 1 && part !== whole);
+  // Three at most. Past that the guesses are worse than the logo, and each one
+  // is a request to somebody else's server for a picture nobody asked twice for.
+  return [whole, ...parts].slice(0, 3);
+}
+
 async function fromMusicBrainz(
   artist: string,
   album: string,
   signal: AbortSignal,
 ): Promise<string | null> {
-  const query = encodeURIComponent(`artist:${quoted(artist)} AND releasegroup:${quoted(album)}`);
-  const response = await fetch(`${MUSICBRAINZ}?query=${query}&fmt=json&limit=3`, {
-    signal,
-    headers: { accept: 'application/json' },
-  });
-  if (!response.ok) return null;
+  for (const name of namesIn(artist)) {
+    const query = encodeURIComponent(`artist:${quoted(name)} AND releasegroup:${quoted(album)}`);
+    const response = await fetch(`${MUSICBRAINZ}?query=${query}&fmt=json&limit=3`, {
+      signal,
+      headers: { accept: 'application/json' },
+    });
+    if (!response.ok) continue;
 
-  const body = (await response.json()) as { 'release-groups'?: Group[] };
-  const best = body['release-groups']?.[0];
-  if (!best?.id || (best.score ?? 0) < CONFIDENT) return null;
+    const body = (await response.json()) as { 'release-groups'?: Group[] };
+    const best = body['release-groups']?.[0];
+    if (!best?.id || (best.score ?? 0) < CONFIDENT) continue;
 
-  /* Being catalogued is not the same as being photographed: plenty of records
-     are known here and have no sleeve on file. Asking for it now is one request
-     that saves handing Discord a URL it will fetch, fail on, and draw as an
-     empty square, which looks broken in a way the logo never does. */
-  const cover = `${COVER_ART}/${best.id}/front-500`;
-  const check = await fetch(cover, { signal, method: 'HEAD' });
-  return check.ok ? cover : null;
+    /* Being catalogued is not the same as being photographed: plenty of records
+       are known here and have no sleeve on file. Asking now is one request that
+       saves handing Discord a URL it will fetch, fail on, and draw as an empty
+       square, which looks broken in a way the logo never does. */
+    const cover = `${COVER_ART}/${best.id}/front-500`;
+    const check = await fetch(cover, { signal, method: 'HEAD' });
+    if (check.ok) return cover;
+  }
+  return null;
 }
 
 /**

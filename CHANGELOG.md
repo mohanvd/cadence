@@ -5,6 +5,17 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-08-26
+
+### Fixed
+
+- **Album art for tracks made by more than one person.** A file tagged
+  `League of Legends/Against The Current` returned nothing from the catalogue,
+  while `Against The Current` alone matched the same record perfectly. The
+  whole name is still tried first, so a band called `Earth, Wind & Fire` is
+  found under its own name rather than cut in half, and only then are the parts
+  tried.
+
 ## [0.8.1] - 2026-08-26
 
 ### Added
@@ -750,6 +761,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   installed program, which is no longer a problem worth solving.
 - A router, for an application with one screen.
 
+[0.8.2]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.2
 [0.8.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.1
 [0.8.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.0
 [0.7.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.7.0
