@@ -5,6 +5,34 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-08-26
+
+### Added
+
+- **Cadence can tell Discord what you are playing.** Off by default, and it
+  stays off until you switch it on in Settings.
+
+  It talks to the Discord already running on your machine over the pipe that
+  program opens for exactly this. No server, no account, no network, and
+  nothing at all if Discord is not running.
+
+  The card carries the title, the artist and the record, one to a line, with a
+  progress bar that moves on its own: Discord is given the times the track
+  starts and ends and draws the rest itself, so a track playing for four
+  minutes costs a single message rather than two hundred and forty. Pausing
+  stops the bar and says so.
+
+  Album art is looked up by name, from MusicBrainz first and iTunes behind it,
+  and refused when neither is confident, because a card wearing the wrong
+  sleeve is worse than one wearing the logo. Your files never leave the disk:
+  what is sent is the artist and album already printed on the card for
+  everyone to read.
+
+  Film titles are a separate switch, and it is also off. A file name says far
+  more about the person watching than a song title says about the person
+  listening. With it off, a film reads as *Watching something*, which still
+  says Cadence is open without saying what is in it.
+
 ## [0.7.0] - 2026-08-26
 
 ### Changed
@@ -709,6 +737,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   installed program, which is no longer a problem worth solving.
 - A router, for an application with one screen.
 
+[0.8.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.0
 [0.7.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.7.0
 [0.6.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.6.0
 [0.5.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.5.1

@@ -219,6 +219,42 @@ fn card(playing: &Snapshot, settings: &Settings) -> Card {
     }
 }
 
+/// Turn a card into the thing Discord is sent.
+///
+/// One function rather than one at each call site, so that the diagnostic below
+/// puts up the same card the player does. It used to build its own by hand, and
+/// went on showing a layout that had already been fixed.
+fn build(card: &Card) -> Activity<'_> {
+    let cover = !card.artwork.is_empty();
+    let large = if cover { &card.artwork } else { ARTWORK };
+    let mut assets = Assets::new().large_image(large).large_text(&card.hover);
+    if cover {
+        // The logo steps aside for the record and comes back as the badge,
+        // which is the only work it still has: saying which player this is.
+        assets = assets.small_image(ARTWORK).small_text("Cadence");
+    }
+
+    let mut activity = Activity::new()
+        .activity_type(activity_type(card.kind))
+        .details(&card.details)
+        .assets(assets)
+        .buttons(vec![Button::new("Get Cadence", SITE)]);
+
+    if !card.state.is_empty() {
+        activity = activity.state(&card.state);
+    }
+
+    if let Some(start) = card.start {
+        let mut timestamps = Timestamps::new().start(start);
+        if let Some(end) = card.end {
+            timestamps = timestamps.end(end);
+        }
+        activity = activity.timestamps(timestamps);
+    }
+
+    activity
+}
+
 /// What Discord is currently showing, and when it was told.
 struct Shown {
     details: String,
@@ -308,35 +344,7 @@ fn serve(receive: Receiver<Message>) {
             here only because every path out of this loop body sets it. */
         }
 
-        let cover = !wanted.artwork.is_empty();
-        let large = if cover { &wanted.artwork } else { ARTWORK };
-        let mut assets = Assets::new().large_image(large).large_text(&wanted.hover);
-        if cover {
-            // The logo steps aside for the record and comes back as the badge,
-            // which is the only place it is still doing any work: saying which
-            // player this is.
-            assets = assets.small_image(ARTWORK).small_text("Cadence");
-        }
-
-        let mut activity = Activity::new()
-            .activity_type(activity_type(wanted.kind))
-            .details(&wanted.details)
-            .assets(assets)
-            .buttons(vec![Button::new("Get Cadence", SITE)]);
-
-        if !wanted.state.is_empty() {
-            activity = activity.state(&wanted.state);
-        }
-
-        if let Some(start) = wanted.start {
-            let mut timestamps = Timestamps::new().start(start);
-            if let Some(end) = wanted.end {
-                timestamps = timestamps.end(end);
-            }
-            activity = activity.timestamps(timestamps);
-        }
-
-        if client.set_activity(activity).is_err() {
+        if client.set_activity(build(&wanted)).is_err() {
             // Discord quit, or restarted and handed us a dead pipe. Drop it and
             // let the retry above pick it up.
             let _ = client.close();
@@ -512,43 +520,58 @@ mod tests {
         client.close().expect("the pipe closed cleanly");
     }
 
-    /// Put a real card up for twenty seconds, so a human can look at it.
+    /// Put a real card up, so a human can look at it.
     ///
-    /// This one does publish. It exists because every failure in this module is
+    /// This one publishes. It exists because every failure in this module is
     /// deliberately silent (a player must not stop for Discord), and silence is
-    /// indistinguishable from a card nobody enabled. Run by hand:
+    /// indistinguishable from a card nobody switched on.
     ///
-    ///     cargo test a_card_a_person_can_look_at -- --ignored --nocapture
+    /// It builds the card through `card` and `build`, the same two functions
+    /// the player uses, so what appears is what will appear. An earlier version
+    /// assembled its own activity and went on showing a layout that had already
+    /// been corrected, which is a diagnostic lying to the person reading it.
+    ///
+    ///     CADENCE_DISCORD_HOLD=180 CADENCE_DISCORD_ART=<url> \
+    ///       cargo test a_card_a_person_can_look_at -- --ignored --nocapture
     #[test]
-    #[ignore = "publishes a real activity for twenty seconds"]
+    #[ignore = "publishes a real activity"]
     fn a_card_a_person_can_look_at() {
+        let env = |name: &str| std::env::var(name).ok().filter(|value| !value.is_empty());
+
+        let playing = Snapshot {
+            title: env("CADENCE_DISCORD_TITLE").unwrap_or("First Light".to_owned()),
+            subtitle: env("CADENCE_DISCORD_ARTIST").unwrap_or("Auva".to_owned()),
+            album: env("CADENCE_DISCORD_ALBUM").unwrap_or("Ascent".to_owned()),
+            music: true,
+            playing: env("CADENCE_DISCORD_PAUSED").is_none(),
+            duration: 225.0,
+            position: env("CADENCE_DISCORD_POSITION")
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(0.0),
+            artwork: env("CADENCE_DISCORD_ART").unwrap_or_default(),
+        };
+
+        let wanted = card(&playing, &Settings::default());
+        println!("line 1: {}", wanted.details);
+        println!("line 2: {}", wanted.state);
+        println!("line 3: {}", wanted.hover);
+        println!(
+            "picture: {}",
+            if wanted.artwork.is_empty() {
+                "the logo"
+            } else {
+                &wanted.artwork
+            }
+        );
+
         let mut client = DiscordIpcClient::new(APPLICATION);
         client.connect().expect("connected");
-
-        let start = now() - 107;
-        let large = std::env::var("CADENCE_DISCORD_LARGE").unwrap_or(ARTWORK.to_owned());
-        let small = std::env::var("CADENCE_DISCORD_SMALL").unwrap_or_default();
-        let activity = Activity::new()
-            .activity_type(ActivityType::Listening)
-            .details("First Light")
-            .state("Auva \u{b7} Ascent")
-            .assets({
-                let mut assets = Assets::new().large_image(&large).large_text("Ascent");
-                if !small.is_empty() {
-                    assets = assets.small_image(&small).small_text("Cadence");
-                }
-                assets
-            })
-            .buttons(vec![Button::new("Get Cadence", SITE)])
-            .timestamps(Timestamps::new().start(start).end(start + 225));
-
-        match client.set_activity(activity) {
+        match client.set_activity(build(&wanted)) {
             Ok(()) => println!("SET OK. Look at your profile now."),
             Err(err) => panic!("Discord refused the activity: {err}"),
         }
 
-        let hold: u64 = std::env::var("CADENCE_DISCORD_HOLD")
-            .ok()
+        let hold: u64 = env("CADENCE_DISCORD_HOLD")
             .and_then(|value| value.parse().ok())
             .unwrap_or(20);
         println!("holding for {hold}s");
