@@ -57,8 +57,8 @@ export interface PlayerSurfaceProps {
    * bar along the bottom is on screen.
    *
    * Rendered from in here rather than by the window, because the settings menu
-   * needs this component's own feature state — the equalizer, the sleep timer,
-   * the loop — and a bar drawn outside it would either go without them or
+   * needs this component's own feature state, the equalizer, the sleep timer,
+   * the loop, and a bar drawn outside it would either go without them or
    * would need all of it hoisted out for one menu.
    */
   minimised?: boolean;
@@ -69,8 +69,8 @@ export interface PlayerSurfaceProps {
    *
    * What the back arrow means for music. Leaving a record playing while you go
    * and look for the next one is the ordinary thing to do; stopping it because
-   * somebody wanted to see the library again is not. A film has no equivalent
-   * — nobody browses while watching one — so back there still means back.
+   * somebody wanted to see the library again is not. A film has no equivalent,
+   * nobody browses while watching one, so back there still means back.
    */
   onMinimise?: (() => void) | undefined;
   onNext?: (() => void) | undefined;
@@ -156,7 +156,7 @@ export function PlayerSurface({
   const isMusic = musicMode.forced;
   const song = useNowPlaying(source, isMusic);
   const path = source.kind === 'path' ? source.path : null;
-  /* What this track was played as part of — an album, an artist, a search, a
+  /* What this track was played as part of, an album, an artist, a search, a
      playlist. Blank when a file was simply opened, which is its own answer. */
   const queueLabel = useQueueStore((state) => state.label);
   // Media keys, the OS Now Playing panel, and the taskbar transport.
@@ -414,7 +414,7 @@ export function PlayerSurface({
      time. Two popovers sharing one exclusive-menu id fight: opening either
      puts the id in the store, the copy inside the hidden overlay sees itself
      open, dismisses because nothing there can take focus, and clears the id
-     again — so the visible one flickers open and shut in the same frame. */
+     again, so the visible one flickers open and shut in the same frame. */
   const musicSettings = (
     <SettingsMenu
       features={features}
@@ -431,7 +431,7 @@ export function PlayerSurface({
   return (
     <TooltipProvider delayDuration={400}>
       {/* Menus from the docked bar portal to the document, not into the hidden
-          overlay — a menu mounted inside `display: none` is a menu that opens
+          overlay, a menu mounted inside `display: none` is a menu that opens
           and cannot be seen. */}
       <PortalContainerProvider container={minimised ? null : shellEl}>
       {minimised && isMusic && (
@@ -458,8 +458,8 @@ export function PlayerSurface({
         className={cn(
           /* No `h-full`: the class below is `position: fixed` with an inset
              that already sizes it, and a height of 100% *of the viewport*
-             applied on top of a 46px offset pushed the bottom of the player —
-             and the transport sitting on it — off the bottom of the window. */
+             applied on top of a 46px offset pushed the bottom of the player,
+             and the transport sitting on it, off the bottom of the window. */
           'player-overlay overflow-hidden bg-black outline-none',
           !chromeVisible && 'cursor-none',
         )}
@@ -550,7 +550,7 @@ export function PlayerSurface({
         >
           {/* No back arrow here at all. Being in the player is a position in
               the window's own history, film or track, so the arrow in the
-              window bar leaves it — and two back arrows a few pixels apart,
+              window bar leaves it, and two back arrows a few pixels apart,
               doing the same thing, is one too many. */}
           {/* For music the name is already the largest thing on the screen and
               the bar along the bottom says it a second time. A third copy up
@@ -577,7 +577,7 @@ export function PlayerSurface({
         {/* Music gets the same bar it has when the player is put away, so
             collapsing the player moves nothing. A film keeps the control bar,
             which carries a timeline with thumbnails, subtitles, bookmarks and
-            a frame grab — none of which an album has any use for. */}
+            a frame grab, none of which an album has any use for. */}
         {isMusic && !minimised ? (
           <div className="music-bar--player">
             <MusicTransport

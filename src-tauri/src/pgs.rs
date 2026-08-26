@@ -6,7 +6,7 @@
 //! no text layout, and a picture needs neither.
 //!
 //! It is often said that showing these means OCR. It does not. OCR is for
-//! turning them back into words — to search them, to restyle them, to feed
+//! turning them back into words, to search them, to restyle them, to feed
 //! them to something that reads aloud. Showing one only means decoding a small
 //! image, which is what this file does. The distinction matters because the
 //! first is a research problem and the second is an afternoon.
@@ -21,7 +21,7 @@ use std::collections::HashMap;
 /// One picture, with when and where it is shown.
 ///
 /// Coordinates are on the authoring canvas, which is the video's own frame
-/// size at the time the disc was made — usually 1920×1080. The page scales
+/// size at the time the disc was made, usually 1920×1080. The page scales
 /// them to whatever size it is actually painting at.
 pub struct Cue {
     pub start: f64,
@@ -50,8 +50,8 @@ const END: u8 = 0x80;
 
 /// A composition seen but not yet drawn.
 ///
-/// The segments that a screenful is made of arrive in a fixed order — what to
-/// show, then the palette, then the picture, then an end marker — so the
+/// The segments that a screenful is made of arrive in a fixed order, what to
+/// show, then the palette, then the picture, then an end marker, so the
 /// composition names an object that has not been read yet. Drawing waits for
 /// the end marker, by which time everything it refers to has arrived.
 struct Set {
@@ -102,7 +102,7 @@ fn u32be(bytes: &[u8]) -> u32 {
 ///
 /// Damage is survived rather than reported. A rip with a truncated final
 /// segment, or one segment whose length runs past the end of the file, should
-/// cost the viewer that one line and not the whole track — so the loop stops
+/// cost the viewer that one line and not the whole track, so the loop stops
 /// where it can no longer make sense of the bytes and returns what it read.
 pub fn read(stream: &[u8]) -> Track {
     let mut palettes: HashMap<u8, Vec<[u8; 4]>> = HashMap::new();
@@ -184,7 +184,7 @@ fn close(shown: Open, end: f64) -> Cue {
 
 /// What is to be shown, and where.
 ///
-/// A composition with no objects in it is how the format says "nothing" — it
+/// A composition with no objects in it is how the format says "nothing", it
 /// is the instruction to clear the screen, and it is what gives the previous
 /// cue its end time.
 fn composition(payload: &[u8], at: f64, canvas: &mut (u16, u16)) -> Option<Set> {
@@ -254,8 +254,8 @@ fn palette(payload: &[u8], palettes: &mut HashMap<u8, Vec<[u8; 4]>>) {
 
 /// One colour, converted the way FFmpeg's own decoder converts it.
 ///
-/// Studio-range BT.601. Not because BT.601 is right for high definition — it
-/// is not — but because every player that reads these treats the palette that
+/// Studio-range BT.601. Not because BT.601 is right for high definition, it
+/// is not, but because every player that reads these treats the palette that
 /// way, so the discs were authored against it. Matching the specification here
 /// and not the practice would shift the colour of every subtitle ever pressed.
 fn rgba(y: u8, cr: u8, cb: u8, alpha: u8) -> [u8; 4] {
@@ -359,7 +359,7 @@ fn draw(
     let span = usize::from(right - left);
     let rows = usize::from(bottom - top);
     /* One palette index per pixel, not four bytes of colour. The pictures
-    arrive palettised and leave palettised — a PNG can hold them that way —
+    arrive palettised and leave palettised, a PNG can hold them that way,
     so resolving to colour here would be spending four times the memory to
     throw the saving away again at the encoder. */
     let mut canvas = vec![0u8; span * rows];
@@ -464,7 +464,7 @@ fn encode(pixels: &[u8], colours: &[[u8; 4]], width: u32, height: u32) -> Option
 /// Undo the run-length encoding, into one palette index per pixel.
 ///
 /// Rows are encoded independently and each ends with a marker, so a row that
-/// decodes to the wrong length cannot corrupt the next one — the writer's
+/// decodes to the wrong length cannot corrupt the next one, the writer's
 /// mistake stays on its own line.
 fn unpack(data: &[u8], width: u16, height: u16) -> Vec<u8> {
     let span = usize::from(width);

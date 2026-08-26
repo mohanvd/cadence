@@ -9,8 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **Back means up, not before.** It closes what is open — the player first,
-  then the record or playlist under it — and never crosses between the Files
+- **Back means up, not before.** It closes what is open, the player first,
+  then the record or playlist under it, and never crosses between the Files
   and Music tabs. The old behaviour walked a flat list of everywhere you had
   been, which produced the move that made this worth rewriting: put a record
   on, glance at the file screen, come back to the library, press back, and land
@@ -24,7 +24,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   record's header is the same shuffle the transport shows, and it looks it: on
   or off, and staying that way. Play beside it says pause while that record is
   playing, rather than saying "play" over music already coming out of the
-  speakers. Starting a shuffled list begins on a random track — starting at
+  speakers. Starting a shuffled list begins on a random track. Starting at
   track one and shuffling the rest opened every shuffled record with the same
   song.
 
@@ -37,7 +37,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   making that repository private took the download button and every installed
   copy's update channel down with it, in the same minute and without warning.
 
-  Both now go through this site — `/download` and `/latest.json` — which
+  Both now go through this site, `/download` and `/latest.json`, which
   redirect to wherever the files actually are. `latest.json`'s address is
   compiled into every binary and can never be changed afterwards, so it had to
   name something permanent. Moving the files again is now one redirect, not a
@@ -48,7 +48,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **Playlists come in and go out as `.m3u` files.** Import one made anywhere
-  else — a phone, another player, a decade ago — and export any of yours for
+  else (a phone, another player, a decade ago) and export any of yours for
   something else to read.
 
   The interesting half is the finding, not the reading. A list exported from a
@@ -64,14 +64,14 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Lists can be ordered.** Songs by title, artist, album, recently added or
   longest first; albums by artist, title, year or recently added. The default
-  is unchanged — by album, then disc and track — which is right for browsing by
+  is unchanged, by album, then disc and track, which is right for browsing by
   record and wrong for a flat list of eight thousand tracks, where nobody is
   looking for the fourth song of something.
 
 - **Every folder inside a watched folder is a playlist.** People who keep music
   on a disk have already sorted it, and the sorting is the folders. They appear
   under *From your folders*, derived from what is actually there rather than
-  copied into a list that goes stale — nothing to make, nothing to maintain,
+  copied into a list that goes stale, nothing to make, nothing to maintain,
   and never wrong after a rescan.
 
 ### Fixed
@@ -79,7 +79,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A track starts at the beginning.** Having heard half a song yesterday is
   not a request to skip the first half of it today, and in a queue it meant
   every track anybody had ever half-listened to jumped on arriving. The
-  position is still kept and still offered — one click, in the player — and
+  position is still kept and still offered (one click, in the player) and
   nothing seeks on its own. A film still resumes silently, because a film is
   the thing that should.
 
@@ -112,7 +112,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of them.
 
   Nothing had to be taught to decode them. Every one of these formats already
-  played — the pipeline has read them since the day it was written — and they
+  played, the pipeline has read them since the day it was written, and they
   were turned away by a list of extensions that only had video on it. The
   sentence people were shown was that Cadence does not open .mp3 files, about a
   file it would have played had it been let past the door.
@@ -123,8 +123,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a video does not silently end the queue.
 
 - **Your music, as a library.** Point Cadence at the folder your music lives
-  in and it reads the tags once — title, artist, album, album artist, track,
-  disc, year, genre — and keeps them. Albums are a wall of sleeves, artists are
+  in and it reads the tags once (title, artist, album, album artist, track,
+  disc, year, genre) and keeps them. Albums are a wall of sleeves, artists are
   a list to read down, and the search box matches each word against any field,
   so *auva light* finds *First Light* by Auva.
 
@@ -137,8 +137,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Sleeves.** Inside the file first, because on a compilation that picture
   belongs to the track; beside it second, which is where every ripper leaves
-  one. They are scaled on the way out — album art is routinely stored three
-  thousand pixels square — and they appear on the tiles, on the now-playing
+  one. They are scaled on the way out, because album art is routinely stored three
+  thousand pixels square, and they appear on the tiles, on the now-playing
   card, and blurred behind it for colour.
 
 - **A queue you chose, with shuffle and repeat.** Play an album, an artist, a
@@ -158,22 +158,22 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **One window bar.** The wordmark, back and forward, the two screens and the
   search all sit in the strip that carries the window. There is no second bar
-  under it — a title bar with another bar beneath it doing the same job is what
+  under it. A title bar with another bar beneath it doing the same job is what
   made this look like a web page in a frame.
 
   Back and forward are the whole of the navigation. Opening a record, changing
   section, expanding the player and going back are all positions, so one arrow
-  in one place undoes any of them — and no panel needs a close button of its
+  in one place undoes any of them, and no panel needs a close button of its
   own in the corner of the thing it is showing you.
 
 - **Right-click menus.** Play, play next, add to the queue, add to a playlist,
-  edit, show in Explorer. WebView2's own menu — Back, Refresh, Save as, Print,
-  Inspect — is gone from the whole window; it was the browser underneath
+  edit, show in Explorer. WebView2's own menu (Back, Refresh, Save as, Print,
+  Inspect) is gone from the whole window; it was the browser underneath
   introducing itself, and three of its five items would have done something
   actively wrong here.
 
 - **Editing what a file says it is.** Rename a track, fix an artist, set a
-  year, replace a sleeve — for one track or for a whole record at once. It is
+  year or replace a sleeve, for one track or for a whole record at once. It is
   written into the file rather than kept in a database here, so every other
   player on the machine sees the correction too, and it survives copying the
   file somewhere else. Nothing is re-encoded: the streams are copied and only
@@ -182,7 +182,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A player that knows it is playing music.** The sleeve fills the frame, the
   title and artist come from the tags rather than the filename, the transport
   grows shuffle and repeat and loses subtitles, and the settings menu drops
-  everything that is about a picture — brightness, zoom, fill, frame grab —
+  everything that is about a picture: brightness, zoom, fill, frame grab,
   rather than offering them greyed out. Windows gets the music card too, with
   somewhere to put an artist and an album.
 
@@ -229,14 +229,14 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it was wired up.
 
   The cause is worth writing down, because nothing about it is visible from the
-  page. A web page can ask Windows for that panel, and Cadence did — but
+  page. A web page can ask Windows for that panel, and Cadence did, but
   Windows names the panel after the *process* that asked, and the process that
   asks on a page's behalf is the browser it runs in. Here that is WebView2, a
   program Windows knows only as `msedgewebview2.exe` and cannot name or draw an
   icon for. No amount of correcting the page could have fixed it.
 
   So the shell asks instead. It is an ordinary program with a name and an icon
-  Windows already has — the installer writes both onto the Start menu shortcut —
+  Windows already has. The installer writes both onto the Start menu shortcut,
   and it takes the panel for its own window. The browser's copy is switched off
   in the same breath, or there would be two entries in the flyout. What the
   page keeps is everything that needs knowing: what is playing, how far in,
@@ -250,7 +250,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   The browser is not being careless: it reports a file it cannot fetch and a
   file it cannot decode as the same failure, and from inside the page the two
-  are genuinely indistinguishable. The shell can simply look, so now it does —
+  are genuinely indistinguishable. The shell can simply look, so now it does,
   after the failure rather than before every attempt, because the check is only
   worth making once something has already gone wrong.
 
@@ -281,7 +281,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   The second half is not a nicety. libass runs inside the webview, and a
   webview may not read the fonts on the computer it is running on without
-  asking permission first — a question nobody can answer usefully, asked in the
+  asking permission first: a question nobody can answer usefully, asked in the
   middle of a film. So the shell reads them, which it is an ordinary program
   and perfectly allowed to do, and hands over the ones asked for. Without it an
   Arabic subtitle is drawn in a font with no Arabic in it and every letter
@@ -316,9 +316,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and is not needed to look at it. A Blu-ray player shows these without reading
   them. So does this, now.
 
-  The track is copied out of the container rather than decoded on the way —
+  The track is copied out of the container rather than decoded on the way,
   the pictures are already compressed, so there is nothing for FFmpeg to do but
-  find the packets — and Cadence decodes them itself: the run-length encoding,
+  find the packets, and Cadence decodes them itself: the run-length encoding,
   the palette, the position of each line on the frame the disc was authored
   against. A film's worth is a few seconds of work and a few megabytes held.
 
@@ -329,7 +329,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   or a caption higher up does not, because the bar was never going to cover it.
 
   Nothing about them can be restyled, and the settings panel says so by not
-  being there. There is no font to change and no colour to choose — the disc
+  being there. There is no font to change and no colour to choose: the disc
   made those decisions, which is the whole reason the format exists.
 
   DVD subtitles are pictures too, in a different encoding, and are still
@@ -348,8 +348,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Subtitles that are inside the video. Until now the menu took an `.srt` or a
-  `.vtt` from disk and nothing else, so a film that arrived subtitled — which
-  is most of what an MKV is used for — played as though it had none, and the
+  `.vtt` from disk and nothing else, so a film that arrived subtitled, which
+  is most of what an MKV is used for, played as though it had none, and the
   only way to read it was to go and find on the internet a copy of a track
   already in the file. Every text track in the container is now listed by name
   and language and shown on choosing.
@@ -373,7 +373,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   inside the film intact.
 
 - The next video plays when this one ends. The folder a file was opened from
-  is the queue — there is no playlist to build and none to save, because a
+  is the queue. There is no playlist to build and none to save, because a
   season of television is already arranged on a disk and asking anybody to
   arrange it a second time inside a player is asking for work they have done.
   Skip buttons appear in the control bar, the media keys and the system's Now
@@ -395,7 +395,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   at all.
 
   Three things follow from owning the drawing. The text steps up out of the way
-  when the control bar appears and settles back when it goes — it used to sit
+  when the control bar appears and settles back when it goes. It used to sit
   behind the buttons, which is where a line goes unread. The backdrop is one
   box behind a whole line rather than a separate box behind each fragment the
   cue happened to be split into. And a right-to-left line is laid out as one,
@@ -413,7 +413,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   What can be set has grown with the room to put it: font, size, text colour
   and opacity, backdrop colour and opacity, and the edge drawn around the
-  glyphs. The edge is the one that matters and looks like it does not — a white
+  glyphs. The edge is the one that matters and looks like it does not: a white
   line crossing a snow field disappears without one, and it is what makes
   turning the backdrop off a choice rather than a mistake.
 
@@ -426,7 +426,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   arrived as mojibake. The file itself says nothing about its encoding, so it
   is read from the bytes: a byte-order mark if there is one, then strict UTF-8,
   which bytes that are not UTF-8 overwhelmingly fail; only then is anything
-  guessed. The guess is settled by coherence — real writing is in one alphabet,
+  guessed. The guess is settled by coherence: real writing is in one alphabet,
   and a wrong decoding scatters letters across several.
 
 - Tracks are marked the way a film marks them: `CC` for the version written for
@@ -443,7 +443,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   only percent-decoded, so the plus stayed and the path named a file nobody
   had. It hid because the files it spares are the ones anybody tests with: an
   MP4 the browser demuxes never asks the shell for a stream, so reaching it
-  needed a Matroska — or anything else FFmpeg has to open — with a space in its
+  needed a Matroska, or anything else FFmpeg has to open, with a space in its
   name or in a folder above it. Which is most films anybody owns.
 
   A plus that is genuinely part of a name is sent percent-encoded and still
@@ -452,7 +452,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The timing offset moved the cues of whichever text track the element listed
   first. That was this player's own track until a container contributed one of
   its own, and then it was a coin toss. It moves the track being shown.
-- The offset was also lost, silently, whenever the video element was rebuilt —
+- The offset was also lost, silently, whenever the video element was rebuilt,
   which is what a backend falling back mid-file does. The readout went on
   claiming a correction that was no longer applied to anything. It is
   re-applied when the track is parsed again.
@@ -544,7 +544,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `crossOrigin`, which makes the request cross-origin and has the browser
   discard the response of any server that does not answer with a matching
   header. Most video hosts do not send one, so the video was refused before a
-  byte of it was decoded — and the message shown blamed the format, which was
+  byte of it was decoded, and the message shown blamed the format, which was
   never the problem.
 - The recent list lost the location of every file it listed. The path was
   written when a file was opened and dropped again when the list was read
@@ -555,8 +555,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   said it could: `canPlayType`, `MediaSource.isTypeSupported` and
   `VideoDecoder.isConfigSupported` all answer yes for HEVC on Windows, and the
   element then refuses the file. They answer from a codec list, not from a
-  decoder. Cadence now learns instead of asking — a codec is trusted until a
-  file fails on it, after which every inspection routes around it — so the
+  decoder. Cadence now learns instead of asking. A codec is trusted until a
+  file fails on it, after which every inspection routes around it, so the
   first such film costs one failed attempt and none after it do.
 - MP3 audio inside an MP4 was being copied through untouched to a Media Source
   that will not accept it, even though the same browser plays it from disk.
@@ -575,8 +575,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   scrub bar work for every file the player opens rather than only the ones the
   browser demuxes by itself. Entries already in the list without a picture are
   filled in on sight.
-- A video played from a link cannot be screenshotted — reading pixels back out
-  of it is what its origin forbids — and says so rather than failing silently.
+- A video played from a link cannot be screenshotted, because reading pixels back out
+  of it is what its origin forbids, and says so rather than failing silently.
 
 ## [0.2.2] - 2026-08-18
 

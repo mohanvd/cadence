@@ -13,14 +13,14 @@ import { Artwork } from './Artwork';
  * here is a label Cadence keeps to itself: the tags go into the file, so a
  * track renamed here is renamed in every other player on the machine, and a
  * sleeve set here is the sleeve the phone shows when the file is copied to it.
- * That is the whole point — a library whose corrections live in one
+ * That is the whole point, a library whose corrections live in one
  * application's database is a library you have to correct again in the next
  * application.
  *
  * One dialog for a track and for a record, because the difference between them
  * is only which fields are offered and how many files get written. Editing an
- * album offers the fields an album has — its name, its artist, its year, its
- * sleeve — and writes them into every track on it; the per-track fields are
+ * album offers the fields an album has, its name, its artist, its year, its
+ * sleeve, and writes them into every track on it; the per-track fields are
  * missing there because they are not the same on every track and a single box
  * could only flatten them.
  */
@@ -45,7 +45,7 @@ interface Fields {
 /**
  * The tag names each field is written under.
  *
- * FFmpeg's own spellings, which it maps into whichever the container uses —
+ * FFmpeg's own spellings, which it maps into whichever the container uses,
  * ID3 frames for MP3, atoms for MP4, comments for FLAC. Writing the
  * container's own names here would mean three tables and a way to pick between
  * them.

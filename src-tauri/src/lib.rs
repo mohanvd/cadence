@@ -33,7 +33,7 @@ const PIPELINE_WAIT: std::time::Duration = std::time::Duration::from_secs(30);
 ///
 /// Waiting is the whole point of this function. Startup runs FFmpeg several
 /// times to find out what this machine can encode, and a page that asks the
-/// moment it loads gets there first — as does anyone who double-clicked a video
+/// moment it loads gets there first, as does anyone who double-clicked a video
 /// to launch the app, which is the most common way it starts. Answering "there
 /// is no pipeline" while one is being built is a lie the page has no way to
 /// tell from the truth, and it believes it for as long as it runs.
@@ -102,8 +102,8 @@ async fn media_subtitle(
 /// One subtitle track as the script it already is, styles and all.
 ///
 /// Separate from `media_subtitle` because they answer different questions. That
-/// one asks for the sentences and gets WebVTT; this asks for the whole script —
-/// where each line goes, in what font, at what angle — and gets ASS, which is
+/// one asks for the sentences and gets WebVTT; this asks for the whole script,
+/// where each line goes, in what font, at what angle, and gets ASS, which is
 /// what libass in the page reads.
 /// Every font installed on this machine, by name.
 ///
@@ -117,7 +117,7 @@ fn media_font_names() -> Vec<&'static str> {
 
 /// The fonts come with it. A script that names a face the machine does not have
 /// is drawn in something else, which for a sign painted onto a wall is the
-/// difference between a translation and a caption — so the rip carries the
+/// difference between a translation and a caption, so the rip carries the
 /// fonts, and they are no use to the page unless it is told they are there.
 #[tauri::command]
 async fn media_script(
@@ -141,7 +141,7 @@ async fn media_script(
 /// frame it sits, and how large it is.
 ///
 /// Not the pictures. Those come from the socket one at a time, for the reason
-/// the socket exists at all — a film carries a thousand or so, and handing them
+/// the socket exists at all, a film carries a thousand or so, and handing them
 /// all over on the strength of somebody opening the menu would cost several
 /// megabytes to show one line.
 ///
@@ -244,7 +244,7 @@ fn library_unwatch(
 /// Walk every watched folder and read the tags of what is in them.
 ///
 /// Two things keep this from being expensive twice. A file whose size and
-/// modification time are unchanged since the last scan is not read again — its
+/// modification time are unchanged since the last scan is not read again, its
 /// record is carried across, which is what makes a rescan of a large library
 /// take a second rather than a minute. And a scan already running refuses a
 /// second one rather than doubling the work and racing itself to write the
@@ -394,7 +394,7 @@ fn playlists(store: tauri::State<'_, music::PlaylistStore>) -> Vec<music::Playli
 ///
 /// Both at once because both are how one gets made: from the button that says
 /// so, with nothing in it, and from a track being put somewhere that does not
-/// exist yet — which is the more common of the two and would otherwise be two
+/// exist yet, which is the more common of the two and would otherwise be two
 /// round trips and a half-made list if the second failed.
 #[tauri::command]
 fn playlist_create(
@@ -438,7 +438,7 @@ fn playlist_delete(
 ///
 /// The interesting part is not the parsing, it is the finding. A playlist made
 /// on a phone names files under a root that exists nowhere on a PC, and the
-/// music it points at is usually still here under a different one — so a path
+/// music it points at is usually still here under a different one, so a path
 /// that leads nowhere is looked up by file name, and then by the title and
 /// artist the file's own `#EXTINF` line carried. What comes back says how many
 /// were found the hard way and how many were not found at all, because a list
@@ -536,7 +536,7 @@ async fn pick_playlist_target(
 ///
 /// Several files at once because that is what editing an *album* is: the same
 /// album name, artist and year written into every track on it. Done one after
-/// another rather than in parallel — they are writes to the same folder, and a
+/// another rather than in parallel, they are writes to the same folder, and a
 /// dozen FFmpeg processes rewriting a dozen files at once is a way to find out
 /// which of them the antivirus was watching.
 ///
@@ -575,7 +575,7 @@ async fn music_write(
 
     match failed {
         Some(err) if written.is_empty() => Err(err),
-        Some(err) => Err(format!("{err} — the rest were changed")),
+        Some(err) => Err(format!("{err}, the rest were changed")),
         None => Ok(written),
     }
 }
@@ -604,7 +604,7 @@ async fn pick_picture(app: tauri::AppHandle) -> Result<Option<String>, String> {
 /// scrolled to the top is a folder you then have to search by hand.
 ///
 /// The path is passed as one argument and never through a shell, so a name
-/// with a space, a quote or an ampersand in it reaches Explorer intact — and
+/// with a space, a quote or an ampersand in it reaches Explorer intact, and
 /// nothing in it can be read as a command.
 #[tauri::command]
 fn reveal(path: String) -> Result<(), String> {
@@ -633,8 +633,8 @@ fn reveal(path: String) -> Result<(), String> {
 /// Whether a file is still where the page last saw it.
 ///
 /// Asked after a failure rather than before an attempt. The browser reports a
-/// file it cannot fetch and a file it cannot decode as the same thing — a
-/// source it does not support — so a video deleted while it sat in a folder
+/// file it cannot fetch and a file it cannot decode as the same thing, a
+/// source it does not support, so a video deleted while it sat in a folder
 /// queue used to be explained as an unsupported format, which is an answer
 /// about the wrong subject entirely.
 #[tauri::command]
@@ -719,7 +719,7 @@ fn natural_order(a: &str, b: &str) -> std::cmp::Ordering {
 /// the playlist, which is how a season of television and an album are both
 /// already organised on everyone's disk.
 ///
-/// An empty list is returned for anything unreadable — a file on a drive that
+/// An empty list is returned for anything unreadable, a file on a drive that
 /// has since been unplugged, a folder without permission. The player then has
 /// no next file, which is exactly what it should conclude.
 #[tauri::command]
@@ -784,8 +784,8 @@ fn file_from_args(args: &[String]) -> Option<String> {
 
 /// Tell Windows which application this process is.
 ///
-/// Without it the "Now Playing" panel — the one the volume keys and a headset
-/// button reach — says "Unknown app" over the title of the film. The panel is
+/// Without it the "Now Playing" panel, the one the volume keys and a headset
+/// button reach, says "Unknown app" over the title of the film. The panel is
 /// drawn by Windows from whatever is playing audio, and what is playing audio
 /// is the webview: a process called `msedgewebview2.exe`, which Windows has
 /// never heard of and cannot name.

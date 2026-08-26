@@ -2,9 +2,9 @@
  * What a file's name says it is.
  *
  * By extension, and that is the point rather than a shortcut. Three places
- * need this answer — the tile that has to choose between a frame and a sleeve,
+ * need this answer, the tile that has to choose between a frame and a sleeve,
  * the mode that decides whether "no video track" is news, and the window that
- * decides whether leaving the player should stop it — and all three are asked
+ * decides whether leaving the player should stop it, and all three are asked
  * about a list of files at once, where opening each one to find out would cost
  * a process per answer to learn something the name already told us.
  *

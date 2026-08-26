@@ -3,7 +3,7 @@
  *
  * A track lifted out of a video needs none of this: Matroska stores text as
  * UTF-8 and FFmpeg emits UTF-8, so what arrives is already right. A `.srt`
- * downloaded from the internet is the opposite case — it carries no
+ * downloaded from the internet is the opposite case, it carries no
  * declaration of its own encoding, and a great many of them are not UTF-8.
  */
 

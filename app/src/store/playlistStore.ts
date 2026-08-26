@@ -117,7 +117,7 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
     const parts = [`${playlist.paths.length} added to “${playlist.name}”`];
     /* Said plainly. A playlist made on a phone names files under a root that
        exists nowhere here, so most of it arrives having been matched by name
-       or by tag — and somebody who is not told that will wonder why one track
+       or by tag, and somebody who is not told that will wonder why one track
        is the wrong recording. */
     if (rematched > 0) parts.push(`${rematched} found by name`);
     if (missing > 0) parts.push(`${missing} not on this machine`);

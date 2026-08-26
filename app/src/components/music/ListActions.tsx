@@ -9,8 +9,8 @@ import { useQueueStore } from '@/store/queueStore';
 /**
  * The play and shuffle controls at the head of a record or a playlist.
  *
- * Two buttons that were doing the wrong jobs. Shuffle was an action — press it
- * and the list plays shuffled once — which meant the setting it was really
+ * Two buttons that were doing the wrong jobs. Shuffle was an action, press it
+ * and the list plays shuffled once, which meant the setting it was really
  * changing was invisible, and the transport's own shuffle button said
  * something different from the one you had just pressed. It is a toggle now,
  * showing the same state the transport shows, because there is only one

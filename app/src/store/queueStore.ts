@@ -9,7 +9,7 @@ import { useShallow } from 'zustand/react/shallow';
  * exactly right for a season of television, where somebody has already done
  * the arranging and the arrangement is the folder. It is not enough for music,
  * where the thing you want to play is "this album", "everything by them", or
- * "all of it, shuffled" — none of which is a folder.
+ * "all of it, shuffled", none of which is a folder.
  *
  * So there are two queues, and which one is in use is decided by how playback
  * started. Open a file and the folder answers, as it always did, with nothing
@@ -112,7 +112,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     if (order.length === 0) return null;
     /* Repeat-one does not move. The caller plays the same file again, which
        for a queue means the next track is this one and the one after it is
-       still this one — that is what the setting says. */
+       still this one, that is what the setting says. */
     if (repeat === 'one') return currentOf(get());
 
     const next = cursor + 1;

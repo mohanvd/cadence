@@ -32,7 +32,7 @@ export function AlbumGrid({ albums, onOpen, onPlay, onShuffle, onEdit }: AlbumGr
         <TrackMenu
           key={album.id}
           songs={album.songs}
-          label={`${album.title} — ${album.artist}`}
+          label={`${album.title}, ${album.artist}`}
           onPlay={() => (onPlay ? onPlay(album) : onOpen(album))}
           onShuffle={onShuffle ? () => onShuffle(album) : undefined}
           onEdit={onEdit ? () => onEdit(album) : undefined}
@@ -64,7 +64,7 @@ export function AlbumGrid({ albums, onOpen, onPlay, onShuffle, onEdit }: AlbumGr
  *
  * A page rather than a list with a caption. What makes it one is the header:
  * the sleeve at a size worth looking at, the title at the size of the thing
- * you came here for, and behind both of them the record's own colour — taken
+ * you came here for, and behind both of them the record's own colour, taken
  * from the sleeve itself, blurred past recognition, so the page belongs to the
  * album instead of every album looking identically black.
  *
@@ -115,7 +115,7 @@ export function AlbumSheet({
       <div className="custom-scroll flex-1 overflow-y-auto">
         <header className="relative">
           {/* The record's colour. The sleeve at thumbnail size, blurred to
-              nothing and faded into the page — no palette extraction, no
+              nothing and faded into the page, no palette extraction, no
               second request, and it cannot pick a colour the sleeve does not
               have. */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>

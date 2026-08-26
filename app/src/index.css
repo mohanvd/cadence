@@ -615,7 +615,7 @@ video::cue {
   z-index: 100;
   /* Pure black, and the only place it belongs: a film letterboxed on grey has
      a grey frame around the picture, and this is the one surface whose job is
-     to disappear. Music never sees it — the stage paints over it with the
+     to disappear. Music never sees it, the stage paints over it with the
      window's own colour. */
   background: #000;
 }

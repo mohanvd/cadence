@@ -47,14 +47,14 @@ export interface ResumeInfo {
  *
  * A film is moved to where it was left, silently. Being asked "resume?" before
  * every lecture is friction on the common path, so the player simply carries
- * on and offers a one-click way to start over — the bargain every streaming
+ * on and offers a one-click way to start over, the bargain every streaming
  * service makes.
  *
  * A track is not. A song is a thing you play from the beginning; hearing half
  * of one yesterday is not a request to skip the first half of it today, and it
  * is worse than it sounds in a queue, where every track anybody had ever
  * half-listened to would jump on arriving. So the position is still kept and
- * still offered — one click, in the same place the film's notice appears — and
+ * still offered, one click, in the same place the film's notice appears, and
  * nothing seeks on its own.
  *
  * Which of the two it is is read from the store at the moment the duration
@@ -156,7 +156,7 @@ export function usePlaybackMemory(fileKey: string): ResumeInfo | null {
    * Only the film's. That one explains something that already happened and
    * expires the way an explanation should. The track's is an *offer*, and an
    * offer that withdraws itself after eight seconds is one nobody ever
-   * accepts — least of all here, where a track starts with the player put
+   * accepts, least of all here, where a track starts with the player put
    * away, so the whole eight seconds would elapse behind a bar with no room
    * to show it. It waits until it is taken, dismissed, or the file changes.
    */

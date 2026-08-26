@@ -11,7 +11,7 @@ import { isDesktop, pickMediaFile, onFileDrop } from '../lib/desktop';
  * others while the player accepted four, so double-clicking an .avi opened a
  * window that then failed on it.
  *
- * It was also, until now, only video — which is what everyone who tried to
+ * It was also, until now, only video, which is what everyone who tried to
  * play an album here ran into. Not a codec problem and not a decoder problem:
  * the file was turned away at the door by this list, with a sentence saying
  * Cadence does not open .mp3 files, about a format it has always been able to
@@ -112,8 +112,8 @@ export function useVideoIntake({
   /* Fill in the tiles that have no picture yet.
    *
    * Entries are given one when their file is opened, so a list built before
-   * this existed — or by a version that dropped the field on the way out of
-   * storage — is a wall of grey until every one of them is watched again.
+   * this existed, or by a version that dropped the field on the way out of
+   * storage, is a wall of grey until every one of them is watched again.
    * FFmpeg can read a frame from any of them right now, so it does.
    *
    * Each path is tried once per session. Without that the effect would chase

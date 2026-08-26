@@ -50,7 +50,7 @@ that a store's distribution terms sit badly with, and on Android a user cannot
 practically swap out a bundled `.so`, which is the freedom the LGPL is
 protecting. Two ways out, both fine:
 
-- Use the platform decoder — [Media3/ExoPlayer](https://developer.android.com/media/media3)
+- Use the platform decoder. [Media3/ExoPlayer](https://developer.android.com/media/media3)
   is Apache-2.0 and has no such terms.
 - Or build FFmpeg without `--enable-version3`, which keeps it at LGPL-2.1 and
   drops the components that forced the upgrade.
@@ -75,7 +75,7 @@ The requirement is the same shape as FFmpeg's and is met the same way: the
 `.wasm` and worker files are emitted as separate assets and fetched at runtime
 rather than inlined into the JavaScript bundle. That is what keeps them
 replaceable. `SubtitleOverlay.tsx` imports them with Vite's `?url` suffix
-precisely to force this — inlining them, which a bundler will happily do to a
+precisely to force this. Inlining them, which a bundler will happily do to a
 small asset, would turn a loaded library into a linked one.
 
 ## Bundled at runtime

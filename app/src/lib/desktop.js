@@ -182,7 +182,7 @@ const AUDIO = [
  * restarts, where a browser file handle needs its permission re-granted.
  *
  * Three filters rather than one. The first is what somebody opening the dialog
- * almost always wants — everything Cadence plays, so that a film and the album
+ * almost always wants, everything Cadence plays, so that a film and the album
  * beside it are both visible without changing anything. The two below it are
  * for the times you know which of the two you are looking for and would rather
  * not read past the other.
@@ -209,7 +209,7 @@ export async function pickMediaFile() {
  * In flight or resolved to an endpoint. Never a resolved null.
  *
  * The endpoint outlives every file played through it, so asking twice is
- * waste — but a *failure* must not be remembered the same way. The shell holds
+ * waste, but a *failure* must not be remembered the same way. The shell holds
  * this call open until the pipeline has settled, so the only way to get null
  * is a broken install or a timeout, and caching either would mean one unlucky
  * question at startup left the player crippled until it was restarted.
@@ -341,8 +341,8 @@ export async function fileIsThere(path) {
 /**
  * Tell Windows what is playing, for the panel behind the volume keys.
  *
- * The page could ask for that panel itself — `navigator.mediaSession` exists
- * and works — and the reason it does not is that Windows names the panel after
+ * The page could ask for that panel itself, `navigator.mediaSession` exists
+ * and works, and the reason it does not is that Windows names the panel after
  * the process that asked. A page's request is made by the browser it runs in,
  * which here is WebView2, a program Windows knows only as
  * `msedgewebview2.exe`: hence the **Unknown app** that used to sit over the
@@ -380,7 +380,7 @@ export async function onNowPlaying(handler) {
  * A script names the faces it wants and expects the machine to have them, which
  * every player before a browser-based one could simply assume. libass here runs
  * inside the webview, and a webview may not read the fonts on the computer it
- * is running on without asking permission first — a question nobody can answer
+ * is running on without asking permission first, a question nobody can answer
  * usefully, asked in the middle of a film. The shell has no such restriction,
  * so it reads them and this is the list of what it found.
  *
@@ -436,8 +436,8 @@ export async function installedFonts() {
  * it moves; converting it to WebVTT keeps the words and discards all of that,
  * which turns a sign painted on a wall into a caption underneath the picture.
  *
- * The fonts come as URLs rather than bytes because some of them are not small
- * — a CJK face runs to megabytes — and the webview fetches and caches them
+ * The fonts come as URLs rather than bytes because some of them are not small,
+ * a CJK face runs to megabytes, and the webview fetches and caches them
  * perfectly well on its own.
  *
  * @param {string} path
@@ -483,7 +483,7 @@ export async function scriptSubtitleTrack(path, index) {
  */
 
 /**
- * A subtitle track that is pictures rather than words — what a Blu-ray carries.
+ * A subtitle track that is pictures rather than words, what a Blu-ray carries.
  *
  * These come back as a table of times and places, with a URL for each picture
  * rather than the picture itself. A film holds around a thousand of them, and
@@ -686,7 +686,7 @@ export async function onLibraryScan(handler) {
  *
  * The page keeps a copy of the library to draw from, and a copy is only as
  * true as the last time it was refreshed. Reloading when the *store's* own
- * scan resolves covers the ordinary case and nothing else — a scan started
+ * scan resolves covers the ordinary case and nothing else, a scan started
  * from anywhere else leaves the screen showing a library that no longer
  * exists, which looks exactly like a scan that found nothing.
  *
@@ -702,8 +702,8 @@ export async function onLibraryScanned(handler) {
 /**
  * One file's tags, read now.
  *
- * For a track that has never been scanned — opened by double-clicking it in
- * Explorer, or dropped on the window — which still deserves to say who it is
+ * For a track that has never been scanned, opened by double-clicking it in
+ * Explorer, or dropped on the window, which still deserves to say who it is
  * by while it plays.
  *
  * @param {string} path
@@ -723,7 +723,7 @@ export async function musicTags(path) {
  * Where to fetch a track's sleeve from.
  *
  * Null when there is no pipeline to serve it. A missing sleeve is not an error
- * here — most files have none — and the answer for one is a 404 from the
+ * here, most files have none, and the answer for one is a 404 from the
  * address below rather than a null from this.
  *
  * @param {string} path
@@ -842,7 +842,7 @@ export async function revealFile(path) {
  * `tags` is left alone; one present but empty is cleared.
  *
  * Resolves with the updated records. Rejects with a sentence worth showing if
- * any file could not be written — the commonest reason being that it is the
+ * any file could not be written, the commonest reason being that it is the
  * one currently playing, which Windows will not let anything rename over.
  *
  * @param {string[]} paths
@@ -877,7 +877,7 @@ export async function pickPicture() {
  *
  * Resolves with the playlist and two counts: how many tracks had to be found
  * by name or by tag because the path in the file led nowhere, and how many
- * could not be found at all. Both are worth showing — a list that quietly
+ * could not be found at all. Both are worth showing, a list that quietly
  * arrives eleven tracks short is worse than one that says so.
  *
  * @param {string} path

@@ -132,7 +132,7 @@ function albumArtistOf(song: Song): string {
  * One album's identity: its name and who it is by.
  *
  * Joined on a character that cannot occur in either half, written as an escape
- * rather than typed. It had been a literal null byte in the source — invisible
+ * rather than typed. It had been a literal null byte in the source, invisible
  * in every editor, and the sort of thing that survives for months and then
  * breaks a diff, a grep or a copy-paste for reasons nobody can see.
  */
@@ -260,7 +260,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         if (get().scanning) set({ progress: update });
       }),
       /* Whoever started it. The store reloads after its own scans anyway, so
-         this is for the ones it did not start — and it costs one read of a
+         this is for the ones it did not start, and it costs one read of a
          list that is already in the shell's memory. */
       onLibraryScanned(() => {
         void get().load();
@@ -302,7 +302,7 @@ function parentOf(path: string): string {
  * The *immediate* subfolder rather than the deepest one: somebody who keeps
  * `Music/Rock/Album/01.flac` filed it under Rock, and a list per album would
  * be the album list again under a different name. Tracks lying loose in the
- * watched folder itself belong to no subfolder and are left out — a list
+ * watched folder itself belong to no subfolder and are left out, a list
  * called "Music" containing everything is the library.
  *
  * Compared case-insensitively because Windows paths are, and a watched folder

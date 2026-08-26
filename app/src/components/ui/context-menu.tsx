@@ -71,7 +71,7 @@ export const ContextMenuItem = React.forwardRef<
      *
      * A prop rather than a child, because every row reserves that gutter for
      * the check indicator and a glyph passed as a child lands inside the label
-     * instead — where, the label being a block, it sits above the words rather
+     * instead, where, the label being a block, it sits above the words rather
      * than beside them.
      */
     icon?: IconName;

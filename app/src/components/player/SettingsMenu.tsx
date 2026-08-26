@@ -47,7 +47,7 @@ export interface SettingsMenuProps {
    * The rows below are not disabled for music, they are absent. A disabled
    * control is a promise that it would do something under other
    * circumstances, and "brightness" over an album is not a setting waiting for
-   * the right moment — it is a setting about a different kind of file. What is
+   * the right moment, it is a setting about a different kind of file. What is
    * left is everything that is genuinely about sound, and it becomes the whole
    * menu rather than one row in a list of picture controls.
    */

@@ -131,8 +131,8 @@ export function ControlBar({
    * Publish how tall the bar's controls are, for the subtitles to clear.
    *
    * Measured rather than written down. The height depends on the density the
-   * viewer chose — `--control-scale` is applied here as `zoom`, so it is
-   * already in what the box reports — and on which optional buttons this file
+   * viewer chose, `--control-scale` is applied here as `zoom`, so it is
+   * already in what the box reports, and on which optional buttons this file
    * gave the bar. A number kept in the stylesheet would be right at one
    * setting and would put the subtitles through the buttons at the others.
    */

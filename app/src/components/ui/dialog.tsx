@@ -8,8 +8,8 @@ import { createPortal } from 'react-dom';
  * A modal the application asks a question with.
  *
  * There is one of these rather than a hand-rolled overlay per question,
- * because the three questions worth asking — name this, rename this, are you
- * sure — differ only in their words. Written separately they drift into three
+ * because the three questions worth asking, name this, rename this, are you
+ * sure, differ only in their words. Written separately they drift into three
  * slightly different boxes with the buttons in three different orders, which
  * is what makes an application feel assembled rather than designed.
  *
@@ -25,7 +25,7 @@ export interface DialogProps {
   confirm: string;
   /** Red rather than white, for the ones that take something away. */
   destructive?: boolean;
-  /** Disabled until this is true — a name field with nothing in it. */
+  /** Disabled until this is true, a name field with nothing in it. */
   ready?: boolean;
   onConfirm: () => void;
   onCancel: () => void;

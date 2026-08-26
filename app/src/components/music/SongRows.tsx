@@ -64,7 +64,7 @@ export function SongRows({
   return (
     <div>
       {/* The ruler: one line of small capitals over a hairline, which is all a
-          heading has to do here — name the columns and get out of the way. */}
+          heading has to do here, name the columns and get out of the way. */}
       <div
         className={cn(
           'grid items-center gap-4 border-b border-line px-4 pb-2 text-[11px] font-medium tracking-[0.08em] text-fg-subtle uppercase',
@@ -149,7 +149,7 @@ export function SongRows({
                 </span>
 
                 {!numbered && (
-                  <span className="truncate text-[13px] text-fg-subtle">{song.album ?? '—'}</span>
+                  <span className="truncate text-[13px] text-fg-subtle">{song.album ?? ', '}</span>
                 )}
 
                 <span className="flex items-center justify-end gap-1">
@@ -175,7 +175,7 @@ export function SongRows({
                     )}
                   </span>
                   <span className="text-[13px] tabular-nums text-fg-subtle">
-                    {song.duration > 0 ? formatTime(song.duration) : '—'}
+                    {song.duration > 0 ? formatTime(song.duration) : ', '}
                   </span>
                 </span>
               </li>

@@ -13,7 +13,7 @@
  *
  * Only the latin and latin-ext subsets are kept, and the unicode-range on each
  * face is what lets the browser skip latin-ext for text that never leaves
- * ASCII — which, on this page, is all of it.
+ * ASCII, which, on this page, is all of it.
  */
 
 @font-face {

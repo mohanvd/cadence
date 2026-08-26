@@ -1,7 +1,7 @@
 //! The fonts on this machine, by the names a subtitle asks for.
 //!
-//! A script names the faces it wants — "Arial", "Segoe UI", "Noto Naskh
-//! Arabic" — and expects the player to have them, because every player until
+//! A script names the faces it wants, "Arial", "Segoe UI", "Noto Naskh
+//! Arabic", and expects the player to have them, because every player until
 //! now has been a program on a computer with fonts on it. libass here runs
 //! inside the webview, which is a browser, and a browser is not allowed to read
 //! the fonts on the machine it is running on without asking the person first.

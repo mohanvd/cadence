@@ -9,7 +9,7 @@
 //! Two things make this worth writing down.
 //!
 //! The first is that reading a tag costs a process. There is no library linked
-//! in here — the pipeline is the bundled FFmpeg binaries, called as programs —
+//! in here, the pipeline is the bundled FFmpeg binaries, called as programs,
 //! so every file is one `ffprobe`, and one `ffprobe` is about seventy
 //! milliseconds almost all of which is Windows starting a program. Ten
 //! thousand tracks read one after another is twelve minutes. They are read
@@ -138,7 +138,7 @@ impl Song {
 /// The file's own tags first and the audio stream's after, filling only what
 /// the first left empty. Most formats keep everything in the first place;
 /// Matroska is the one that routinely uses both, and there the file is the
-/// better witness — a stream title in an `.mka` is as often the codec's name
+/// better witness, a stream title in an `.mka` is as often the codec's name
 /// as the song's.
 ///
 /// Keys are lower-cased on the way in, which is what lets every lookup below
@@ -306,7 +306,7 @@ pub fn walk(root: &Path, limit: usize) -> Vec<PathBuf> {
 /// The convention every ripper and every download follows, in the order they
 /// are worth trying. Only used for a file with nothing embedded, because what
 /// is in the file is about the track and what is in the folder is about the
-/// folder — and they disagree on a compilation.
+/// folder, and they disagree on a compilation.
 const SLEEVE_NAMES: &[&str] = &["cover", "folder", "front", "album", "albumart", "art"];
 const SLEEVE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp"];
 
@@ -647,7 +647,7 @@ pub struct Entry {
 /// `#EXTINF` is `#EXTINF:<seconds>,<label>` where the label is conventionally
 /// `Artist - Title` but is quite often just a title. Both are kept, because on
 /// a playlist exported from a phone the label is frequently the only thing
-/// that will still be true on a different machine — the paths certainly are
+/// that will still be true on a different machine, the paths certainly are
 /// not.
 pub fn parse(text: &str) -> Vec<Entry> {
     let mut entries = Vec::new();
@@ -713,14 +713,14 @@ fn split_label(label: &str) -> (Option<String>, Option<String>) {
 /// Four attempts, in falling order of confidence, and the last two are the
 /// reason importing a playlist from a phone works at all. A list exported from
 /// an Android device names files under `/storage/emulated/0/Music/...`, which
-/// exists nowhere on a PC — but the same music usually does, under a different
+/// exists nowhere on a PC, but the same music usually does, under a different
 /// root, with the same file names and the same tags.
 ///
 ///   1. The path as written, if something is there.
 ///   2. The same path resolved against the playlist's own folder, which is
 ///      what a relative entry means.
-///   3. A file in the library with the same name. Names collide across albums
-///      — every rip has an `01.mp3` — so this only counts when exactly one
+///   3. A file in the library with the same name. Names collide across albums,
+///      every rip has an `01.mp3`, so this only counts when exactly one
 ///      file matches.
 ///   4. A file in the library with the same title and artist, from the
 ///      `#EXTINF` label. The last resort, and the one that survives a change

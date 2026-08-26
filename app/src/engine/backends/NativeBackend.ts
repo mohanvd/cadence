@@ -116,15 +116,15 @@ export class NativeBackend extends BaseBackend {
    * Enumerate the tracks this source has.
    *
    * The inspection first, because it is the better answer to every part of the
-   * question: real codec names, real channel counts, and — the part that
-   * matters most here — no video track for a file that has none. A plain
+   * question: real codec names, real channel counts, and, the part that
+   * matters most here, no video track for a file that has none. A plain
    * element hides all of that. `audioTracks` is still unshipped in Chrome, so
    * asking the element yields one nameless entry regardless of what is inside.
    *
    * What is left is the case with no inspection to draw on: a `File` handed in
    * through a browser tab, where there is no shell to ask and the element is
    * the only witness there is. Then it is asked, and the picture is claimed
-   * only if there is one — a video track invented for an audio file is what
+   * only if there is one, a video track invented for an audio file is what
    * puts a black rectangle where the now-playing card belongs.
    */
   private readNativeTracks(video: HTMLVideoElement): MediaTrack[] {

@@ -18,7 +18,7 @@ import { TrackMenu } from './TrackMenu';
  *
  * The whole point of a playlist is that it is *not* derived from anything: not
  * from a folder, not from a tag, not from what a machine thinks goes together.
- * So there is nothing clever here — a name, an order, and the three things you
+ * So there is nothing clever here, a name, an order, and the three things you
  * do to it.
  *
  * Those three go through dialogs rather than through fields that appear in
@@ -468,7 +468,7 @@ export function AddToPlaylist({ song, onClose }: { song: Song; onClose: () => vo
  * The same page as a playlist with two things missing: it cannot be renamed
  * and it cannot be emptied. Both of those belong to whoever arranged the
  * folder, and offering them here would be offering to change something this
- * page cannot actually change — the name is the folder's name, and taking a
+ * page cannot actually change, the name is the folder's name, and taking a
  * track out would mean deleting a file.
  */
 function FolderPage({

@@ -83,8 +83,8 @@ pub const COPYABLE_AUDIO: &[&str] = &["aac", "mp3", "flac", "opus"];
 /// "lossy" for FLAC would be false in a way that is invisible until the day
 /// something else asks.
 ///
-/// `pcm_` is a prefix rather than a name because there are dozens of them —
-/// one per width, sign and byte order — and they are all uncompressed.
+/// `pcm_` is a prefix rather than a name because there are dozens of them,
+/// one per width, sign and byte order, and they are all uncompressed.
 const LOSSLESS_AUDIO: &[&str] = &["flac", "alac", "wavpack", "tta", "mlp", "truehd", "ape"];
 
 /// Whether re-encoding this codec would be the second time it lost something.
@@ -104,7 +104,7 @@ pub const TEXT_SUBTITLES: &[&str] = &["subrip", "srt", "mov_text", "webvtt", "te
 /// Subtitles that are a script: text, and instructions for drawing it.
 ///
 /// ASS carries where each line sits, in what font, at what angle, in what
-/// colour, and how it moves — which is how a translated sign appears on the
+/// colour, and how it moves, which is how a translated sign appears on the
 /// wall it is written on rather than as a caption underneath. Converting one to
 /// WebVTT keeps the sentences and throws all of that away, which this player
 /// used to do, so a translated sign arrived as a line of text at the bottom of
@@ -118,7 +118,7 @@ pub const SCRIPT_SUBTITLES: &[&str] = &["ass", "ssa"];
 ///
 /// A script names the fonts it wants and a rip carries them, because the
 /// alternative is a sign that reads correctly and looks nothing like the sign.
-/// Anything else attached — cover art, a text file, the release notes — is not
+/// Anything else attached, cover art, a text file, the release notes, is not
 /// wanted here.
 pub const FONT_ATTACHMENTS: &[&str] = &["ttf", "otf", "woff", "woff2"];
 
@@ -286,8 +286,8 @@ impl Media {
 
         args.push("-map".into());
         /* Capital `V` is video that is really video. The lower-case selector
-        also matches an attached picture — the cover art on an MP3, which
-        ffprobe reports as a single mjpeg frame — and muxing that into the
+        also matches an attached picture, the cover art on an MP3, which
+        ffprobe reports as a single mjpeg frame, and muxing that into the
         fragments produces a stream the page is then told has a video track,
         which is a black rectangle where a record sleeve belongs.
 
@@ -426,7 +426,7 @@ fn text(status: StatusCode, message: &str) -> Response<StreamBody> {
 /// The plus sign is a space in that encoding, and a space is exactly what it
 /// means here: these URLs are built by `URLSearchParams`, which is what writes
 /// the plus. Percent-decoding alone leaves it standing, and the path that
-/// arrives then names a file nobody has — which broke every video with a space
+/// arrives then names a file nobody has, which broke every video with a space
 /// anywhere in its path, meaning very nearly every video anybody owns.
 ///
 /// The order matters and is the reason this is a function rather than a call.
@@ -800,8 +800,8 @@ impl Media {
     /// convert to different things.
     ///
     /// The page has to declare what is coming before a byte of it does, so it
-    /// cannot be left to infer this. It used to be able to — the answer was
-    /// always AAC — and then lossless sources started converting to FLAC
+    /// cannot be left to infer this. It used to be able to, the answer was
+    /// always AAC, and then lossless sources started converting to FLAC
     /// instead, at which point an inference would have been a declaration of
     /// AAC over a stream carrying FLAC, which Media Source refuses outright.
     fn audio_fallbacks(probe: &serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
@@ -847,7 +847,7 @@ impl Media {
                     "subtitles": subtitles,
                     /* Three lists rather than one list of what works, because
                     the page fetches each by its own route and draws each its
-                    own way — words into a track element, a script into libass,
+                    own way, words into a track element, a script into libass,
                     a picture onto the frame where the disc put it. A single
                     list would only have to be taken apart again, and the three
                     are disjoint: a codec is in exactly one of them. */
@@ -965,7 +965,7 @@ impl Media {
         }
 
         // An ASS file is UTF-8 by the format's own account and FFmpeg emits
-        // UTF-8 regardless, so there is nothing to detect here — unlike a
+        // UTF-8 regardless, so there is nothing to detect here, unlike a
         // script found loose on a disk, which declares nothing about itself.
         let text = String::from_utf8(output.stdout)
             .map_err(|_| format!("subtitle track {index} is not a script"))?;
@@ -1167,7 +1167,7 @@ impl Media {
             .filter(|value| value.is_finite() && *value > 0.0)
     }
 
-    /// Write tags — and optionally a new sleeve — into a file.
+    /// Write tags, and optionally a new sleeve, into a file.
     ///
     /// FFmpeg cannot edit a file in place, so this is a remux: the streams are
     /// copied into a new file beside the old one with different metadata, and
@@ -1177,7 +1177,7 @@ impl Media {
     ///
     /// The temporary file is written into the same folder rather than into the
     /// system temp directory, for two reasons. A rename within a folder is
-    /// atomic and a move across volumes is a copy — which for a two-hour
+    /// atomic and a move across volumes is a copy, which for a two-hour
     /// recording is a minute of disk and a window in which both copies exist.
     /// And a music folder is somewhere the user can write by definition,
     /// whereas the temp directory on a locked-down machine may not be.
@@ -1220,7 +1220,7 @@ impl Media {
         if let Some(picture) = art {
             args.extend(["-i".into(), picture.to_owned()]);
             /* Sound from the first input, picture from the second, and the
-            picture marked as a sleeve rather than as a video track — without
+            picture marked as a sleeve rather than as a video track, without
             that flag every player treats the file as a one-frame film. */
             args.extend([
                 "-map".into(),
@@ -1267,12 +1267,12 @@ impl Media {
         }
 
         /* The replacement. A file being played is open on Windows and cannot
-        be renamed over, which is the one failure worth naming precisely —
+        be renamed over, which is the one failure worth naming precisely,
         "permission denied" sends people to look at their disk. */
         if let Err(err) = std::fs::rename(&temp, file) {
             let _ = std::fs::remove_file(&temp);
             return Err(if err.kind() == std::io::ErrorKind::PermissionDenied {
-                "the file is in use — stop playing it and try again".to_owned()
+                "the file is in use, stop playing it and try again".to_owned()
             } else {
                 err.to_string()
             });
@@ -1288,7 +1288,7 @@ impl Media {
     /// The sleeve for a track, as a JPEG.
     ///
     /// Two places to look, and the order matters. Inside the file first,
-    /// because that picture is about the *track* — on a compilation every
+    /// because that picture is about the *track*, on a compilation every
     /// track has its own, and the folder has one that belongs to none of them.
     /// Beside the file second, which is where every ripper and every download
     /// puts it when the tagger did not embed one.
@@ -1486,7 +1486,7 @@ mod tests {
     }
 
     /// The bug: a record sleeve read as the file's video track. It cannot be
-    /// copied — no browser takes mjpeg in an MP4 fragment — so the file was
+    /// copied, no browser takes mjpeg in an MP4 fragment, so the file was
     /// reported as needing its "video" converted, and the page then declared a
     /// video codec to Media Source for a stream that carries none.
     #[test]

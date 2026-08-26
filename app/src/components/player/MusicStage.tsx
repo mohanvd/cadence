@@ -10,7 +10,7 @@ import { useIsPaused, usePlayerStore } from '@/store/playerStore';
  *
  * Deliberately not a spectrum analyser. Reading real levels needs a
  * `MediaElementAudioSourceNode`, an element may only ever have one, and the
- * equalizer already owns it — so a visualiser here would either fight the
+ * equalizer already owns it, so a visualiser here would either fight the
  * equalizer for the element or, worse, animate to nothing at all and pretend
  * it was listening. What goes here instead is the record sleeve, which is the
  * thing a person actually looks at while music plays, and costs one image
@@ -18,7 +18,7 @@ import { useIsPaused, usePlayerStore } from '@/store/playerStore';
  *
  * The sleeve is also the wallpaper. Blurred and dimmed behind itself, it gives
  * the screen the colour of whatever is playing without sampling video frames
- * the way the ambient glow does — there are no frames here to sample.
+ * the way the ambient glow does, there are no frames here to sample.
  *
  * It is drawn as large as the window allows rather than at a fixed size. A
  * record sleeve is a twelve-inch object and the screen is the only place left
@@ -49,7 +49,7 @@ export function MusicStage({ title, song, forced, path }: MusicStageProps) {
   const heading = song?.title ?? clean;
 
   /* Under the title: who it is by and what it is from. Only what the file
-     actually says — a card reading "Unknown artist · Unknown album" tells you
+     actually says, a card reading "Unknown artist · Unknown album" tells you
      nothing twice, and is worse than one that shows only the name. */
   const byline = React.useMemo(
     () => [song?.artist, song?.album].filter(Boolean).join(' · '),

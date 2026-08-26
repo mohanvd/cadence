@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
  *
  * Up there rather than in the library's content because there is only one bar
  * now, and because searching is the fastest route to a record you can already
- * name — it should be in the same place whatever section you happen to be
+ * name, it should be in the same place whatever section you happen to be
  * looking at.
  */
 export interface MusicSearchProps {

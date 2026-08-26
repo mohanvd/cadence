@@ -83,7 +83,7 @@ export function MenuGroup({ children }: { children: React.ReactNode }) {
  *
  * Unmounting is not the only way a menu stops being reachable. The music
  * player is *hidden* rather than closed when you go back to the library, which
- * takes its buttons off the screen while leaving them mounted — and a menu
+ * takes its buttons off the screen while leaving them mounted, and a menu
  * left open behind that reappears, still open, when the player comes back.
  */
 export function closeMenus(): void {

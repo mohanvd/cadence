@@ -16,7 +16,7 @@ import type { Album, Song } from '@/store/libraryStore';
  * and track within it, which is the order a record is meant to be heard in and
  * the right answer for a library browsed by album. It is the wrong answer for
  * a flat list of eight thousand tracks, where nobody is looking for the fourth
- * song of something — they are looking down the titles, or for the thing they
+ * song of something, they are looking down the titles, or for the thing they
  * added last week.
  *
  * The orders below are the ones people actually ask for. There is no "reverse"

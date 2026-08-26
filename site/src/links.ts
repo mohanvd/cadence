@@ -1,5 +1,5 @@
 /**
- * The public release channel — not the source repository, which is private.
+ * The public release channel, not the source repository, which is private.
  *
  * These are two different repositories on purpose. The source moved private
  * when Cadence stopped being open source, and everything addressed through it
@@ -33,7 +33,7 @@ const INSTALLER_ASSET = 'Cadence-Setup.exe';
  * changes, which is precisely what happened to the previous one: it pointed
  * into the source repository, the repository went private, and the button
  * broke. Pointing at our own domain means the next move needs one line of
- * `vercel.json` changed and nothing else — no page rebuilt, no link reissued.
+ * `vercel.json` changed and nothing else, no page rebuilt, no link reissued.
  *
  * Addressed through `releases/latest` at the other end rather than by version,
  * too: a built page is a static artifact that outlives the release it was
@@ -75,8 +75,8 @@ interface Release {
  * release API at build time means the number is as old as the last deployment
  * instead of as old as whoever edited it last.
  *
- * Every failure — offline, rate-limited (this asks anonymously, and a build
- * machine's address is shared), a release with no such asset — returns the
+ * Every failure, offline, rate-limited (this asks anonymously, and a build
+ * machine's address is shared), a release with no such asset, returns the
  * fallback rather than throwing. A landing page that cannot state its download
  * size to one decimal place is still a landing page; one that fails to build
  * is not.

@@ -9,11 +9,11 @@ import { useShallow } from 'zustand/react/shallow';
  * is a deliberate departure from what a browser does.
  *
  * A browser's back button walks a list of everything you looked at, which
- * works there because a browser has one place to be — a page — and every move
+ * works there because a browser has one place to be, a page, and every move
  * is the same kind of move. This window has two places to be, chosen by two
  * tabs sitting side by side, and inside one of them a stack of things that
  * open on top of each other: a record, a playlist, the player. Walking a flat
- * list across all of that produces the thing that made this worth rewriting —
+ * list across all of that produces the thing that made this worth rewriting,
  * put a record on, glance at the file screen, come back to the library, press
  * back, and land on the file screen. Nothing about that is what "back" meant
  * to the person pressing it. They were in the player and wanted to be in the
@@ -22,7 +22,7 @@ import { useShallow } from 'zustand/react/shallow';
  * So back closes what is open, in the order it was opened over: the player
  * first, then the record or playlist under it. It never crosses between the
  * two tabs, because those are peers and picking one is not a step you take
- * *into* anything — it is the same move as picking the other, and undoing it
+ * *into* anything, it is the same move as picking the other, and undoing it
  * is what the other tab is for.
  *
  * Forward undoes the last back and nothing else. It is not a second history;
@@ -144,7 +144,7 @@ export const useHistory = () =>
  *
  * Every mouse with more than three buttons has had these two doing back and
  * forward for twenty years, and the hand reaches for them without asking the
- * eye first — which is exactly why an application that ignores them feels
+ * eye first, which is exactly why an application that ignores them feels
  * broken rather than merely plain. WebView2 does not act on them by itself,
  * because nothing here is a page it could navigate.
  *

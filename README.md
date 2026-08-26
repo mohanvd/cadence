@@ -18,18 +18,18 @@ applied the next time you restart it.
   inside them: H.264, HEVC, AV1, AC-3, DTS
 - Plays music too: MP3, M4A, FLAC, WAV, Opus, Ogg, AAC, WMA and more, with the
   picture switched off and the transport where it always is. Lossless stays
-  lossless — FLAC and Opus are handed to the decoder untouched, and the formats
+  lossless: FLAC and Opus are handed to the decoder untouched, and the formats
   that cannot be are converted to FLAC rather than to AAC
 - Drag and drop a file anywhere in the window, or open one from the file dialog
 - Double-click any video or audio file to open it in Cadence
 - Speed control from 0.25× to 4×, remembered across files
 - Frame-accurate stepping
 - Timestamp bookmarks with notes
-- Subtitles from inside the file — every track it carries, by name and
-  language: plain text, styled ASS drawn by libass, or Blu-ray pictures — or
-  from a local `.srt`, `.vtt`, `.ass` or `.ssa`, with adjustable timing
-- A library for your music: point it at a folder and it reads the tags once —
-  albums as sleeves, artists as a list, and a search where each word may match
+- Subtitles from inside the file: every track it carries, by name and
+  language, whether plain text, styled ASS drawn by libass, or Blu-ray
+  pictures, or from a local `.srt`, `.vtt`, `.ass` or `.ssa`, with adjustable timing
+- A library for your music. Point it at a folder and it reads the tags once.
+  Albums are sleeves, artists are a list, and a search lets each word match
   a different field. Every folder inside it becomes a playlist, because you
   already did the sorting
 - Playlists, shuffle and repeat, and a queue that follows whatever you started.
@@ -37,11 +37,11 @@ applied the next time you restart it.
   name and tag when the paths inside it point at a device you no longer have
 - Playback carries on while you look for the next record, with a bar along the
   bottom to get back to it
-- Fix what a file says it is — title, artist, album, year, sleeve — for one
+- Fix what a file says it is (title, artist, album, year, sleeve) for one
   track or a whole record. It is written into the file, so every other player
   sees the correction too, and nothing is re-encoded
 - Plays the rest of the folder: the next file starts when one ends, in the
-  order the names read — a season of television and an album alike
+  order the names read, for a season of television and an album alike
 - Resumes each file where you stopped
 - Save the current frame as a PNG
 
@@ -110,13 +110,13 @@ Five things are worth knowing, because none of them has anywhere to say so:
   that directory as a resource, and a build without it produces an installer
   that runs and cannot open a Matroska file.
 
-- Subtitle scripts — ASS and SSA — are drawn by libass, compiled to
+- Subtitle scripts, ASS and SSA, are drawn by libass, compiled to
   WebAssembly and shipped as `jassub`. It is the library mpv and VLC draw them
   with, and it is here for the same reason FFmpeg is: the format has no
   specification worth the name, so a second implementation would only be a
   second set of answers. Like FFmpeg it is LGPL, and like FFmpeg it is pinned
-  to an exact version — the player names files inside the package, which is
-  not something a minor release promises to keep still.
+  to an exact version, because the player names files inside the package,
+  which is not something a minor release promises to keep still.
 
 - `version` in `src-tauri/tauri.conf.json` is a path to `package.json` rather
   than a number. That file is the only place a version is written, so the
@@ -149,7 +149,7 @@ This repository is private and the installers cannot live in it. A release
 asset in a private repository is a 404 to everyone who is not signed in with
 access to it, which is everyone Cadence is for. So the tag is pushed here and
 the release is created in **`mohanvd/cadence-releases`**, a public repository
-that holds no source — only the built files.
+that holds no source, only the built files.
 
 Nothing outside points at either repository directly. Both public addresses go
 through the site:
@@ -160,7 +160,7 @@ through the site:
 | `cadence.auva.dev/latest.json` | the update manifest on the latest release | every installed copy |
 
 Both are ordinary redirects in `site/vercel.json`. This indirection is not
-decoration — it is the fix for how the last move broke. `latest.json`'s address
+decoration; it is the fix for how the last move broke. `latest.json`'s address
 is compiled into every binary ever shipped and can never be changed
 retroactively, so it has to name something we will own for as long as Cadence
 exists. Moving the files somewhere else later is one line of `vercel.json`; it
@@ -190,14 +190,14 @@ anywhere.
 failure it produces is a confusing one: the build succeeds, takes its ten
 minutes, and then fails at the last step with a 403 on a repository that
 obviously exists. If a release ever fails that way and nothing about the
-release changed, the token is the first thing to check — mint a new one the
+release changed, the token is the first thing to check. Mint a new one the
 same way and replace the secret. Nothing else needs touching.
 
 ## Licence
 
 Cadence is proprietary. See [LICENSE](LICENSE).
 
-It is built on components that are not, and two of them — FFmpeg and JASSUB —
+It is built on components that are not, and two of them, FFmpeg and JASSUB,
 are LGPL and place real conditions on how it is shipped. Those conditions are
 written out in [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md), including
 one that has to be settled before the Android player is written.

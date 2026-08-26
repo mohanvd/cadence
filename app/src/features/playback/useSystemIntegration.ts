@@ -11,7 +11,7 @@ import { isDesktop, onNowPlaying, setNowPlaying } from '@/lib/desktop';
  * web page and something that behaves like an installed app.
  *
  * On the desktop the shell asks for the same panel as well, and the browser's
- * copy is switched off — see `useShellNowPlaying` below for why. The page's
+ * copy is switched off, see `useShellNowPlaying` below for why. The page's
  * own is kept for everywhere that is not the desktop app, where it is the only
  * one there is.
  */
@@ -104,7 +104,7 @@ export function useMediaSession(
  *
  * On Windows the page's own request produces a panel headed **Unknown app**,
  * because Windows names it after the process that asked and the process that
- * asks for a page is the browser — here WebView2, which it knows only as
+ * asks for a page is the browser, here WebView2, which it knows only as
  * `msedgewebview2.exe`. The shell has a name and an icon, so it asks instead,
  * and the browser's copy is switched off in the window's arguments so that
  * only one entry appears.
@@ -154,8 +154,8 @@ function useShellNowPlaying(
 
     /* The clock moves constantly and the panel does not need to hear about it
        constantly: a scrubber that is a second out is a scrubber nobody can see
-       is a second out. Everything else — a pause, a new file, the end of a
-       queue — goes over the moment it happens, because those are the things
+       is a second out. Everything else, a pause, a new file, the end of a
+       queue, goes over the moment it happens, because those are the things
        somebody is looking at the panel to check. */
     let sent = 0;
 

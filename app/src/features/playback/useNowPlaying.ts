@@ -9,7 +9,7 @@ import type { MediaSourceInput } from '@/engine/types';
  *
  * The library first, because it has already read every file it watches and
  * asking again would be a process spawned to learn something already known.
- * The shell second, for the tracks the library has never seen — one opened by
+ * The shell second, for the tracks the library has never seen, one opened by
  * double-clicking it in Explorer, or dropped on the window, which is how most
  * music arrives the first time somebody tries this.
  *

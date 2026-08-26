@@ -5,7 +5,7 @@
 //! as **Unknown app**, and the reason is worth writing down because it is not
 //! obvious and cost an afternoon to find.
 //!
-//! A web page can ask for that panel — `navigator.mediaSession` — and the page
+//! A web page can ask for that panel, `navigator.mediaSession`, and the page
 //! did, which is why the title and the buttons were right. But Windows names
 //! the panel after the *process* that asked, and the process that asks on a
 //! page's behalf is the browser it is running in. Here that is WebView2: a
@@ -49,9 +49,9 @@ pub struct Playing {
     pub album: String,
     /// Whether Windows should file this under music rather than video.
     ///
-    /// Not cosmetic. The panel draws a different card for each — music gets a
+    /// Not cosmetic. The panel draws a different card for each, music gets a
     /// square sleeve, an artist line and an album line; video gets a wide
-    /// still and neither — and a track filed as video is a track whose artist
+    /// still and neither, and a track filed as video is a track whose artist
     /// Windows has nowhere to put.
     pub music: bool,
     pub playing: bool,

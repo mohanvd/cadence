@@ -5,7 +5,7 @@
 Email **mohanadtsx@gmail.com**.
 
 The repository this is built from is private, so there is no issue tracker or
-advisory form to reach — which also means a report has nowhere public to leak
+advisory form to reach, which also means a report has nowhere public to leak
 to before it is fixed. Please include the file that triggers it if there is
 one.
 

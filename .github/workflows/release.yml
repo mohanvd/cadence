@@ -20,7 +20,7 @@ on:
 
 # Where the installers go. Not this repository: this one is private, and a
 # release asset in a private repository is a 404 to everybody who is not signed
-# in with access to it — which is everybody who wants to download Cadence. The
+# in with access to it, which is everybody who wants to download Cadence. The
 # public repository below holds no source, only the built files.
 #
 # Changing this name means changing `site/vercel.json` in the same commit, and
@@ -50,7 +50,7 @@ jobs:
       # Everything below this is about ten minutes of Windows runner: Rust,
       # FFmpeg, NSIS. Creating the release is the very last thing that happens,
       # so a token that cannot write to the release repository used to be
-      # discovered only after the whole build had been bought and paid for —
+      # discovered only after the whole build had been bought and paid for,
       # ten minutes to be told about a permission checkbox. This asks first,
       # and fails in about a second.
       #
@@ -76,13 +76,13 @@ jobs:
 
           push=$(printf '%s' "$response" | jq -r '.permissions.push // false')
           if [ "$push" != "true" ]; then
-            echo "::error::RELEASES_TOKEN can read $RELEASE_REPO but cannot write to it. Give the token 'Contents: Read and write' — read-only is not enough to create a release."
+            echo "::error::RELEASES_TOKEN can read $RELEASE_REPO but cannot write to it. Give the token 'Contents: Read and write', read-only is not enough to create a release."
             exit 1
           fi
 
           # A release has to hang off a commit. GitHub attaches one to the
           # default branch unless told otherwise, so a repository with no
-          # commits in it cannot take a release at all — not even a draft,
+          # commits in it cannot take a release at all, not even a draft,
           # which is the surprising part, and the reason this is worth a check
           # rather than a comment. A freshly created repository is empty, and
           # the repository record still names a default branch that does not
@@ -90,7 +90,7 @@ jobs:
           # attempted at the very end of the build.
           branch=$(printf '%s' "$response" | jq -r '.default_branch')
           if ! gh api "repos/$RELEASE_REPO/branches/$branch" >/dev/null 2>&1; then
-            echo "::error::$RELEASE_REPO has no commits, so its default branch ($branch) does not exist and no release can be attached to it. Push anything to it — a README is enough."
+            echo "::error::$RELEASE_REPO has no commits, so its default branch ($branch) does not exist and no release can be attached to it. Push anything to it, a README is enough."
             exit 1
           fi
 

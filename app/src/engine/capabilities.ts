@@ -69,7 +69,7 @@ export function mseCodecString(
     copyVideo = true,
     copyAudio = true,
     /* What a converted audio track will arrive as. AAC for anything that was
-       already lossy, FLAC for anything that was not — and the shell decides
+       already lossy, FLAC for anything that was not, and the shell decides
        which, per track, because it is the one running the encoder. A default
        here would be a second opinion, so this one is only the value used when
        there is no track to have an opinion about. */
@@ -110,7 +110,7 @@ export function containerCodecString(
   tracks: readonly { type: string; codec: string }[],
 ): string | null {
   /* Except where the container already answers it. These hold one codec and
-     only ever that one, so there is nothing for a `codecs=` to disambiguate —
+     only ever that one, so there is nothing for a `codecs=` to disambiguate,
      and Chromium, measured in this webview, treats the redundant spelling as a
      type it has never heard of:
 
@@ -176,8 +176,8 @@ export function canPlayNatively(mime: string): boolean {
  * The audio half of this list is what lets an album play with no second
  * process at all: an MP3 or a FLAC goes straight to the element, decoded by
  * the same code the browser uses for every other sound it makes, and FFmpeg is
- * never started. Anything absent here — Windows Media Audio, Monkey's Audio,
- * AIFF, an ALAC rip — takes the stream route instead and arrives
+ * never started. Anything absent here, Windows Media Audio, Monkey's Audio,
+ * AIFF, an ALAC rip, takes the stream route instead and arrives
  * repackaged. AIFF is absent on purpose: this webview answers "no" to every
  * spelling of it, so a mapping for it would be a claim that is never true.
  */

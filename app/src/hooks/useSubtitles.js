@@ -207,8 +207,8 @@ export function useSubtitles(videoRef, videoEl = null) {
    *
    * The cues carry the times written in the file, and the offset is not one of
    * them: it is applied by moving the cues, so a track that is parsed again
-   * comes back unshifted. That happens whenever the element is rebuilt — a
-   * backend falling back mid-file is the case that does it — and until this
+   * comes back unshifted. That happens whenever the element is rebuilt, a
+   * backend falling back mid-file is the case that does it, and until this
    * ran, the readout went on claiming a correction the screen had lost.
    */
   const offsetRef = useRef(offset);
@@ -394,7 +394,7 @@ export function useSubtitles(videoRef, videoEl = null) {
    *
    * A Blu-ray carries its subtitles already drawn, in whatever font and colour
    * the disc was authored with. Nothing here is converted, because there is
-   * nothing to convert them into — the pictures are put on the screen as they
+   * nothing to convert them into, the pictures are put on the screen as they
    * are, which is what the disc player does and is why the format has no font
    * to be missing.
    *
@@ -437,7 +437,7 @@ export function useSubtitles(videoRef, videoEl = null) {
   /**
    * Show a subtitle track that is a script rather than plain words.
    *
-   * ASS carries the drawing along with the sentences — where each line sits, in
+   * ASS carries the drawing along with the sentences, where each line sits, in
    * what face, at what angle, in what colour, and how it moves. Converting it
    * to WebVTT keeps the words and loses the rest, which is why this route
    * exists: the script is handed to libass, unchanged, along with whatever

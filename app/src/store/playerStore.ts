@@ -158,7 +158,7 @@ function learn(
      properly and put FFmpeg in front of it.
 
      Only a link. A *path* with no tracks is one ffprobe already failed to read,
-     and FFmpeg will not read it any better on a second pass — retrying there
+     and FFmpeg will not read it any better on a second pass, retrying there
      would replace the browser's description of what is wrong with a worse
      one. */
   if (!forceStream && source.kind === 'url' && probe.tracks.length === 0) {
@@ -281,7 +281,7 @@ async function attempt(
     if (fatal && recoveries < MAX_RECOVERIES) {
       /* Except when the file has gone. A codec verdict is learned from a
          failure and kept for good, and a file that is not on the disk is a
-         failure that says nothing about any codec — but it looks identical
+         failure that says nothing about any codec, but it looks identical
          from in here, because the browser reports what it cannot fetch and
          what it cannot decode as the same error. Distrusting H.264 because
          somebody deleted one H.264 file is how every film afterwards ends up
@@ -360,7 +360,7 @@ async function attempt(
  * Why a file would not play, checked against the disk before it is repeated.
  *
  * The browser reports a file it cannot fetch and a file it cannot decode as
- * the same failure — an unsupported source — so a video that has been deleted,
+ * the same failure, an unsupported source, so a video that has been deleted,
  * renamed, or left on an external disk that is no longer plugged in used to be
  * explained as an unsupported format. That is an answer to a question nobody
  * asked, and it sends the reader to look for a codec rather than for the file.

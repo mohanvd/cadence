@@ -30,7 +30,7 @@ import { useView, useViewStore, type MusicTab } from '@/store/viewStore';
  * Deliberately not the same screen as the one for opening a file, and that is
  * the decision the rest of this follows from. A film is a file: you know which
  * one you want, you go and get it, and a player's job is to be out of the way
- * between the double-click and the picture. Music is not — the thing somebody
+ * between the double-click and the picture. Music is not, the thing somebody
  * wants is "that record", and finding it means looking at what there is.
  *
  * So this is a library, with the two ways anybody actually looks: by sleeve,
@@ -70,7 +70,7 @@ export default function Music({ query, onPlay, onShuffle, playing }: MusicProps)
   const removeFolder = useLibraryStore((s) => s.removeFolder);
 
   /* Which section, and what is open in it, are positions in the window's
-     history rather than state of this screen — that is what lets the two
+     history rather than state of this screen, that is what lets the two
      arrows in the window bar undo them. */
   const view = useView();
   const go = useViewStore((s) => s.go);

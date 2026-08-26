@@ -132,7 +132,7 @@ export default function App() {
   /* The rest of the folder, and the two ways through it.
    *
    * Derived from whatever is playing rather than assembled when a file is
-   * opened, so it is right no matter how the file arrived — the launcher, a
+   * opened, so it is right no matter how the file arrived, the launcher, a
    * double-click while Cadence was already running, or the end of the previous
    * episode. */
   const folder = useFolderQueue(videoSource);
@@ -232,8 +232,8 @@ export default function App() {
   /* Leaving the player, for a film, means closing it.
    *
    * Music is put away and keeps playing, with a bar along the bottom to come
-   * back to. A film has neither — nobody browses a library while watching one
-   * — so the same gesture that puts a track away stops a film. Watched here
+   * back to. A film has neither, nobody browses a library while watching one,
+   * so the same gesture that puts a track away stops a film. Watched here
    * rather than in the back arrow because there are three ways out now: the
    * arrow, the section tabs, and the history. */
   useEffect(() => {
@@ -298,8 +298,8 @@ export default function App() {
 
   return (
     /* One provider for the whole window rather than one inside the player.
-       The transport now appears in two places — over the sleeve and docked to
-       the window — and only one of them was inside the player's provider, so
+       The transport now appears in two places, over the sleeve and docked to
+       the window, and only one of them was inside the player's provider, so
        the other threw the moment it rendered a tooltip. */
     <TooltipProvider delayDuration={400}>
     <div className={`app-shell${playerOpen && minimised ? ' app-shell--playing' : ''}`}>

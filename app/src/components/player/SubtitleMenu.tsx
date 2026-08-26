@@ -94,7 +94,7 @@ export function SubtitleMenu({ features }: { features: PlayerFeatures }) {
                    appearance controls apply to cues Cadence draws itself and
                    to nothing else: a Blu-ray's subtitles were drawn once by
                    the disc, and a script decides its own fonts and colours and
-                   positions, so for those two the panel holds only Timing —
+                   positions, so for those two the panel holds only Timing,
                    and Timing is offered only for a file from disk. */
                 subtitles.hasSubtitles && (stylable(subtitles) || subtitles.sourceId === 'file')
                   ? { label: 'Options', onSelect: () => setPanel('options') }
@@ -250,8 +250,8 @@ function Options({
        *
        * A track lifted out of the video was authored against that video, so it
        * is in sync by construction and there is nothing here to correct. What
-       * gets out of sync is a subtitle downloaded for a different release —
-       * another cut, another framerate, the advertisements still in — and that
+       * gets out of sync is a subtitle downloaded for a different release,
+       * another cut, another framerate, the advertisements still in, and that
        * is the only case in which this row means anything. Offering it for
        * every track invites people to fix what is not broken. */}
       {subtitles.sourceId === 'file' && (
@@ -427,8 +427,8 @@ function Badges({ track, pendingId }: { track: MediaTrack; pendingId: string | n
   const marks: string[] = [];
   if (track.hearingImpaired) marks.push('CC');
   if (track.forced) marks.push('Forced');
-  // A Blu-ray's subtitles are pictures. Saying so is not a warning — they play
-  // — but it is worth knowing before opening a settings panel that will have
+  // A Blu-ray's subtitles are pictures. Saying so is not a warning, they play,
+  // but it is worth knowing before opening a settings panel that will have
   // nothing in it, and before wondering why the search does not find them.
   if (track.pictures) marks.push('Image');
   // And this one genuinely cannot be chosen.

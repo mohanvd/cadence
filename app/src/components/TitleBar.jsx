@@ -92,7 +92,7 @@ export default function TitleBar({ screen, onScreen, search }) {
       )}
 
       {/* The application's only navigation, and it lives here because here is
-          the one strip that is on screen in every state the window has —
+          the one strip that is on screen in every state the window has,
           including while something is playing, which is exactly when somebody
           wants to go back to the library and pick the next record without
           stopping the one they are listening to. */}

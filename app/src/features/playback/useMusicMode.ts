@@ -54,8 +54,8 @@ export function useMusicMode(onToast?: (message: string) => void): MusicModeApi 
      doing, and an unexplained audio-only screen is the thing worth explaining.
      
      Never for music. The message exists for the file that looks like video and
-     turns out not to be — a concert `.mkv` that is really a recording, an
-     `.mp4` rip of a podcast — where a black screen would otherwise need
+     turns out not to be, a concert `.mkv` that is really a recording, an
+     `.mp4` rip of a podcast, where a black screen would otherwise need
      explaining. Somebody who put on an album already knows it has no picture,
      and saying so once per track is a notification every three minutes about
      the thing they chose. */

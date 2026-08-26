@@ -27,7 +27,7 @@ import { Artwork } from './Artwork';
  * Three columns, and they are laid out by grid rather than by flex on purpose.
  * The transport is centred *in the window*, not in whatever space the title
  * happens to leave it, so a long song name does not push play out of the
- * middle — which is the difference between a row of controls and a row of
+ * middle, which is the difference between a row of controls and a row of
  * controls that moves while you use it.
  */
 export interface MusicTransportProps {
@@ -160,7 +160,7 @@ export function MusicTransport({
  * The scrub bar for a track.
  *
  * Its own rather than the film timeline, which carries a thumbnail preview, a
- * buffered range and bookmark markers — three things that mean nothing over
+ * buffered range and bookmark markers, three things that mean nothing over
  * audio and one of which starts an FFmpeg process per hover. What is left is
  * the part that matters: where you are, how long it is, and the ability to go
  * somewhere else.

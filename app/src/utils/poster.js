@@ -11,13 +11,13 @@ const POSTER_WIDTH = 420;
  *
  * A frame for a film and a sleeve for a track. They are not the same request:
  * a frame is a moment part-way through a video stream, and a sleeve is a still
- * with no timeline that may not be in the file at all — asking for one the way
+ * with no timeline that may not be in the file at all, asking for one the way
  * you ask for the other gets nothing back.
  *
  * FFmpeg's frame, not the media element's. That is the whole reason the list
  * has pictures on it at all: the element could only produce one for a file it
  * could already open by itself, so an MKV, or anything holding a codec the
- * browser refuses, got a grey tile — which was most of what a video player is
+ * browser refuses, got a grey tile, which was most of what a video player is
  * asked to open.
  *
  * The result is a data URL rather than a link to the shell, because it outlives

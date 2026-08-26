@@ -23,8 +23,8 @@ import type { MediaSourceInput, MediaTrack } from '@/engine/types';
  *    nothing after the first pass.
  *
  * That second element can only open what the browser demuxes by itself, so it
- * serves natively-played files and nothing else. Everything else — which is
- * every Matroska file, and anything holding a codec the browser refuses — asks
+ * serves natively-played files and nothing else. Everything else, which is
+ * every Matroska file, and anything holding a codec the browser refuses, asks
  * the shell for the frame instead. FFmpeg is already open for those, and one
  * frame from it costs a keyframe seek.
  */

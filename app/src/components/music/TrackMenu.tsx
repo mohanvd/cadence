@@ -20,7 +20,7 @@ import { useQueueStore } from '@/store/queueStore';
  * the odd extra item differ, and those are arguments.
  *
  * The point of it existing at all is that without it a right-click reached
- * WebView2's own menu — Back, Refresh, Save as, Print, Inspect — which is the
+ * WebView2's own menu, Back, Refresh, Save as, Print, Inspect, which is the
  * browser underneath announcing itself. Every surface worth right-clicking is
  * wrapped in one of these, and the ones that are not suppress the browser's
  * instead (see `useNoBrowserMenu`).
@@ -156,7 +156,7 @@ export function TrackMenu({
  * Stop the browser's own context menu appearing anywhere in the window.
  *
  * WebView2 offers Back, Refresh, Save as, Print and Inspect on a right-click,
- * which is the browser underneath the application introducing itself — and
+ * which is the browser underneath the application introducing itself, and
  * three of those five would do something actively wrong to a media player.
  *
  * Registered once, at the document, in the bubble phase. Radix's own triggers

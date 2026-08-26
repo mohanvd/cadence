@@ -125,7 +125,7 @@ function route(
  *
  * ffprobe files cover art under `codec_type: video`, because in the container
  * that is what it is: one mjpeg or png frame, marked `attached_pic`. Reading it
- * as the file's picture is how an album becomes a film — a track list that
+ * as the file's picture is how an album becomes a film, a track list that
  * reports a video codec, a route that decides the codec needs converting, and a
  * black rectangle where the sleeve should have been.
  */
@@ -229,15 +229,15 @@ export async function probeSource(
   const audioFallbacks = payload.cadence?.audioFallbacks ?? {};
 
   /* Subtitle streams are listed, and they are the one kind that can be listed
-     unplayable. Nothing subtitled reaches the browser through the fragments —
-     the muxer carries picture and sound and drops the rest — so a track shown
+     unplayable. Nothing subtitled reaches the browser through the fragments,
+     the muxer carries picture and sound and drops the rest, so a track shown
      here is a promise that FFmpeg will be asked for it separately when it is
      chosen. The shell says which of them it can keep that promise for, in
      three lists: plain words, a script, and pictures. All three play. They are
      kept apart because each arrives by its own route and is drawn its own way.
 
      What is in none of the three is a format nobody has written the reader for
-     yet — DVD subtitles, today. Those appear greyed rather than not at all,
+     yet, DVD subtitles, today. Those appear greyed rather than not at all,
      because a rip whose only subtitles cannot be shown should say so rather
      than look like a film nobody subtitled. */
   const extractable = new Set(payload.cadence?.subtitles ?? []);
@@ -277,7 +277,7 @@ export async function probeSource(
 /**
  * The RFC 6381 spelling of what a converted track will arrive as.
  *
- * The shell names its own encoder's output — `aac`, `flac` — and this turns
+ * The shell names its own encoder's output, `aac`, `flac`, and this turns
  * that into the word Media Source understands. AAC when the shell has said
  * nothing, which is what every version before the map existed produced.
  */

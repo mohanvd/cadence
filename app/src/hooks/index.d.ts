@@ -108,13 +108,13 @@ export interface SubtitlesApi {
   pendingId: string | null;
   enabled: boolean;
   /**
-   * The showing track, when it is pictures rather than words — what a Blu-ray
+   * The showing track, when it is pictures rather than words, what a Blu-ray
    * carries. Never set at the same time as `textTrack`: one is a track the
    * browser parses, the other a list the overlay walks itself.
    */
   pictures: PictureTrack | null;
   /**
-   * The showing track, when it is a script — ASS or SSA — that carries its own
+   * The showing track, when it is a script, ASS or SSA, that carries its own
    * drawing. Never set at the same time as the other two.
    */
   script: SubtitleScript | null;

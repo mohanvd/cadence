@@ -2,8 +2,8 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import type JASSUB from 'jassub';
 // The renderer's own pieces, named rather than left to be found. A worker and
-// two builds of the same WebAssembly — one using SIMD instructions and one for
-// machines without them — which the library picks between at load.
+// two builds of the same WebAssembly, one using SIMD instructions and one for
+// machines without them, which the library picks between at load.
 import workerUrl from 'jassub/dist/worker/worker.js?worker&url';
 import wasmUrl from 'jassub/dist/wasm/jassub-worker.wasm?url';
 import modernWasmUrl from 'jassub/dist/wasm/jassub-worker-modern.wasm?url';
@@ -120,7 +120,7 @@ export function SubtitleOverlay({
  * what a karaoke line is written in.
  *
  * None of that survives a conversion to WebVTT, which has no position and no
- * colours, so Cadence used to keep the sentences and quietly lose the rest —
+ * colours, so Cadence used to keep the sentences and quietly lose the rest,
  * a sign painted on a wall arrived as a caption underneath the picture with no
  * indication of what it was labelling.
  *
@@ -149,7 +149,7 @@ function ScriptLayer({
 
     /* Loaded on demand rather than with the page. The renderer is a couple of
        megabytes of WebAssembly, and most of what anybody plays has no script
-       in it at all — there is no reason for a film with an `.srt` beside it to
+       in it at all, there is no reason for a film with an `.srt` beside it to
        pay for a font shaper it will never call. */
     void import('jassub').then(({ default: JASSUB }) => {
       if (!live) return;
@@ -198,7 +198,7 @@ function ScriptLayer({
 
   /* Nothing is rendered here. libass draws onto a canvas of its own, which it
      puts beside the video element and keeps exactly the size and position of
-     the picture — letterboxing included. Every coordinate in a script is
+     the picture, letterboxing included. Every coordinate in a script is
      measured against the frame, so that is the only place the canvas can be. */
   return null;
 }
@@ -213,7 +213,7 @@ function ScriptLayer({
  * they were meant to go.
  *
  * Which is what the box below is for. The coordinates are on the canvas the
- * disc was authored against — 1920 by 1080, usually — and the video is drawn
+ * disc was authored against, 1920 by 1080, usually, and the video is drawn
  * inside the window at whatever size fits. So the cues are placed in a box of
  * the canvas's own shape, sized the way the picture is sized, and positioned
  * within it as fractions. The subtitle then lands on the same part of the
@@ -311,7 +311,7 @@ function PictureLayer({
  * Two places name one: the style definitions at the top, and a `\fn` override
  * on a line that wants something other than its style's face. What is not here
  * is anything a script asks for by some other means, which the renderer will
- * still find by name — this list exists to have the common ones in hand before
+ * still find by name, this list exists to have the common ones in hand before
  * the first frame rather than one frame after it.
  *
  * A leading `@` marks a face to be drawn vertically, which is a instruction
@@ -337,8 +337,8 @@ function facesIn(script: string, installed: Record<string, string>): string[] {
  * The cue showing at `at`, or null.
  *
  * A search rather than a scan because this runs on every animation frame and a
- * film holds a thousand or so cues. They never overlap — each one is a whole
- * screenful, and the next one replaces it — so the last cue that has started
+ * film holds a thousand or so cues. They never overlap, each one is a whole
+ * screenful, and the next one replaces it, so the last cue that has started
  * is the only candidate, and it is showing if it has not yet ended.
  */
 function cueAt(cues: PictureCue[], at: number): PictureCue | null {
@@ -364,7 +364,7 @@ function cueAt(cues: PictureCue[], at: number): PictureCue | null {
 /**
  * One cue.
  *
- * The text arrives as WebVTT markup — `<i>`, `<b>`, `<v Speaker>` — and
+ * The text arrives as WebVTT markup, `<i>`, `<b>`, `<v Speaker>`, and
  * `getCueAsHTML` is the parser for it that the browser already has. Using it
  * rather than the raw string is also what keeps a subtitle file from being able
  * to inject anything: the fragment it returns holds text and formatting nodes,

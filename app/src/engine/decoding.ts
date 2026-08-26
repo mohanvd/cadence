@@ -18,8 +18,8 @@
  * restart.
  *
  * The verdict is per codec rather than per file because that is the thing that
- * varies. What is on the machine — the platform extension, the graphics
- * driver — changes far less often than the files being opened, and when it
+ * varies. What is on the machine, the platform extension, the graphics
+ * driver, changes far less often than the files being opened, and when it
  * does change `forget` is one call away.
  */
 

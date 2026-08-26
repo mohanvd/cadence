@@ -40,7 +40,7 @@ export interface MediaTrack {
   default?: boolean;
   /**
    * Marked forced: the handful of lines that have to be read even by someone
-   * who speaks the language — a sign on a wall, a line in another tongue. A
+   * who speaks the language, a sign on a wall, a line in another tongue. A
    * viewer scanning a list of four English tracks needs this to tell which one
    * is the film and which is a dozen captions.
    */
@@ -50,13 +50,13 @@ export interface MediaTrack {
   /** Whether this specific track can be played by the active backend. */
   playable: boolean;
   /**
-   * A subtitle track that is pictures rather than words — what a Blu-ray
+   * A subtitle track that is pictures rather than words, what a Blu-ray
    * carries. It plays, but by a different route and with nothing to restyle,
    * which is why it is marked rather than merely playable.
    */
   pictures?: boolean;
   /**
-   * A subtitle track that is a script — ASS or SSA — carrying not only the
+   * A subtitle track that is a script, ASS or SSA, carrying not only the
    * words but where they go, in what font and at what angle. Drawn by libass
    * rather than converted, which is what keeps a translated sign on the wall
    * it is written on.
@@ -90,7 +90,7 @@ export interface ProbeResult {
   /**
    * What a converted audio track would arrive as, by stream index.
    *
-   * An ffmpeg codec name — `aac` or `flac` — rather than an RFC 6381 string,
+   * An ffmpeg codec name, `aac` or `flac`, rather than an RFC 6381 string,
    * because it is the shell's word for what its encoder is about to produce.
    * Keyed by index because the viewer can change audio track without anything
    * being inspected again, and a lossless mix and a lossy commentary in the
