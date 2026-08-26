@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Email **mohanadtsx@gmail.com**.
+Email **cadence@auva.dev**.
 
 The repository this is built from is private, so there is no issue tracker or
 advisory form to reach, which also means a report has nowhere public to leak
