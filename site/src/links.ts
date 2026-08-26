@@ -14,7 +14,7 @@ const REPO = `https://github.com/${REPO_PATH}`;
 
 export const REPO_URL = REPO;
 export const RELEASES_URL = `${REPO}/releases`;
-export const CONTACT_EMAIL = 'mohanadtsx@gmail.com';
+export const CONTACT_EMAIL = 'cadence@auva.dev';
 export const CONTACT_URL = `mailto:${CONTACT_EMAIL}`;
 
 /**

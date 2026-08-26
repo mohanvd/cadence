@@ -2,9 +2,10 @@
 import Hero from '../components/Hero';
 import AppPreview from '../components/AppPreview';
 import FeatureBento from '../components/FeatureBento';
+import MusicLibrary from '../components/MusicLibrary';
 import ShortcutStrip from '../components/ShortcutStrip';
 import CapabilityList from '../components/CapabilityList';
-import OpenSource from '../components/OpenSource';
+import Assurances from '../components/Assurances';
 import Closing from '../components/Closing';
 import Footer from '../components/Footer';
 import { REPO_URL, INSTALLER_URL, resolveInstallerSize } from '../links';
@@ -13,11 +14,15 @@ import { REPO_URL, INSTALLER_URL, resolveInstallerSize } from '../links';
 import '../styles/base.css';
 import '../styles/landing.css';
 
-// Asked once, here, at build time. The hero states it; nothing else needs it.
+// Asked once, here, at build time. The hero states it, the closing repeats it,
+// and nothing else needs it.
 const installerSize = await resolveInstallerSize();
 
+// "Media player", not "video player". The application grew a music library and
+// the page kept describing half of it, including in the one line that search
+// results and link previews actually show.
 const description =
-  'A minimal, keyboard-first video player for Windows. Open a file and it plays.';
+  'A minimal, keyboard-first media player for Windows. Plays the files other players hand back, and keeps your music library in the same window.';
 ---
 
 <!doctype html>
@@ -25,9 +30,9 @@ const description =
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Cadence: a video player for Windows</title>
+    <title>Cadence: a media player for Windows</title>
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="theme-color" content="#08080a" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
     <!--
@@ -37,7 +42,7 @@ const description =
     <style>
       html,
       body {
-        background-color: #0a0a0a;
+        background-color: #08080a;
         margin: 0;
         padding: 0;
         min-height: 100vh;
@@ -47,11 +52,11 @@ const description =
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Cadence" />
     <meta property="og:url" content="https://cadence.auva.dev" />
-    <meta property="og:title" content="Cadence" />
+    <meta property="og:title" content="Cadence: a media player for Windows" />
     <meta property="og:description" content={description} />
 
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Cadence" />
+    <meta name="twitter:title" content="Cadence: a media player for Windows" />
     <meta name="twitter:description" content={description} />
   </head>
 
@@ -60,27 +65,49 @@ const description =
       No `client:` directive on any of these. They are rendered here, once, and
       the page ships as HTML and CSS.
     -->
+    <a class="ld-skip" href="#main">Skip to content</a>
+
     <nav class="navbar">
       <div class="navbar__left">
-        <span class="navbar__brand">
+        <a class="navbar__brand" href="#top">
           <span class="navbar__brand-bold">Cadence</span>
-        </span>
+        </a>
       </div>
+
+      <!--
+        Hidden on narrow viewports rather than folded into a menu button: three
+        in-page anchors are not worth a drawer, and a drawer is not worth the
+        JavaScript this page does not otherwise ship.
+      -->
+      <div class="navbar__links">
+        <a class="navbar__action" href="#features">Features</a>
+        <a class="navbar__action" href="#music">Music</a>
+        <a class="navbar__action" href="#keyboard">Keyboard</a>
+      </div>
+
       <div class="navbar__actions">
-        <a class="navbar__action" href={REPO_URL}>GitHub</a>
+        <a class="navbar__action navbar__action--repo" href={REPO_URL}>GitHub</a>
         <a class="ld-nav-cta" href={INSTALLER_URL}>Download</a>
       </div>
     </nav>
 
-    <main class="ld-main">
-      <div class="ld-column">
+    <main class="ld-main" id="main">
+      <!--
+        The hero's light, and the only coloured thing above the fold. Behind the
+        column rather than inside it: it has to run wider than the measure and
+        under the window, and a child of a 1120px flex column can do neither.
+      -->
+      <div class="ld-aura" aria-hidden></div>
+
+      <div class="ld-column" id="top">
         <Hero installerSize={installerSize} />
         <AppPreview />
         <FeatureBento />
+        <MusicLibrary />
         <ShortcutStrip />
         <CapabilityList />
-        <OpenSource />
-        <Closing />
+        <Assurances />
+        <Closing installerSize={installerSize} />
       </div>
       <Footer />
     </main>

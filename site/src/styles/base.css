@@ -9,8 +9,8 @@
  * on to permit it, and the failure it produced said nothing about why.
  *
  * So this is the site's own copy, and the only thing it owes the player is a
- * likeness. What the page draws of the application — the window, the drop card
- * inside it — is a picture, and a picture is allowed to be repainted when the
+ * likeness. What the page draws of the application (the window, the drop card
+ * inside it) is a picture, and a picture is allowed to be repainted when the
  * thing it depicts changes. The names are kept identical to the player's for
  * that repaint: when the two disagree, `app/src/index.css` and
  * `app/src/styles/home.css` are what this file is read against.
@@ -21,8 +21,9 @@
 :root {
   /* ── The ramp ──
      Achromatic, and shallow on purpose: depth on this page comes from hairline
-     borders and small steps in surface lightness, never from a glow. */
-  --bg: #080808;
+     borders, a light source above, and small steps in surface lightness, never
+     from a coloured glow behind a card. */
+  --bg: #08080a;
   --surface-2: #1a1a1a;
   --border: #2a2a2a;
   --border-2: #3a3a3a;
@@ -30,6 +31,9 @@
   --text: #f5f5f5;
   --text-2: #a1a1aa;
   --text-3: #52525b;
+  /* Dimmer than --text-3, for a label that has to be present without being
+     read: the footer's fine print, the inactive tab in a drawn window. */
+  --text-4: #3a3a41;
 
   /* The panel the drop card and the feature cards sit on, and the hairline
      drawn inside them: both a shade off the page rather than a step up from
@@ -37,10 +41,64 @@
   --xn-panel: #0f1013;
   --xn-hairline: #1d1f24;
 
-  /* Cadence light, the one saturated hue on an otherwise achromatic page, and
-     it is spent in exactly one place: the icon on the engine card. Anything
-     else reaching for it is what stops that card reading as the headline. */
+  /* Cadence light, the one saturated hue on an otherwise achromatic page.
+     `--xn-accent` is the player's own value; the lighter step is for ink on a
+     dark ground, where the base value is too dim to read as a colour. */
+  --xn-accent: oklch(0.72 0.17 250);
   --xn-accent-strong: oklch(0.81 0.15 250);
+
+  /* ── The light ──
+
+     Everything raised on this page is lit from above, and these are the whole
+     vocabulary for saying so: a hairline of light along a surface's top edge,
+     and shadow underneath it. Applied together they are the difference between
+     a card and a rectangle with a border, and they cost nothing that a second
+     border colour would not have cost anyway.
+
+     The highlight is deliberately weaker than instinct suggests. At 8% it reads
+     as a bevel; at 4% it reads as light. */
+  --sheen: inset 0 1px 0 rgba(255, 255, 255, 0.042);
+  --sheen-strong: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+
+  /* Cast downward and far, because the page is near-black and a tight shadow on
+     a dark ground is invisible: what separates a card from the page is the
+     large, soft absence of light beneath it, not a dark edge around it. */
+  --lift-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --lift-2: 0 4px 16px -4px rgba(0, 0, 0, 0.5);
+  --lift-3: 0 18px 50px -12px rgba(0, 0, 0, 0.7);
+  --lift-4: 0 40px 120px -24px rgba(0, 0, 0, 0.85);
+
+  /* ── Rhythm ──
+     One scale, so vertical space on this page is chosen from a set rather than
+     typed. The section step is what separates one subject from the next, and is
+     the only measure allowed to scale with the viewport. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-section: clamp(76px, 11vh, 132px);
+
+  --r-2: 8px;
+  --r-3: 12px;
+  --r-4: 16px;
+  --r-5: 20px;
+  --r-6: 28px;
+
+  /* The column everything on this page is measured against. */
+  --measure: 1120px;
+
+  /* ── Motion ──
+     One easing for everything: a strong ease-out that spends most of its travel
+     early and then settles. A page with four easings has none. */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-1: 140ms;
+  --t-2: 260ms;
+  --t-3: 620ms;
 
   /* Two display faces with different jobs. The brand face is worn only by the
      name itself, in the navigation and the footer sign-off; headings use the
@@ -57,17 +115,69 @@
 }
 
 body {
+  position: relative;
   background: var(--bg);
   color: var(--text);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Versions, file sizes and key counts all appear on this page, and figures
+     that change width as they change value are what make a number look like it
+     is wobbling. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Grain ──
+
+   A near-black page is a wall of one colour, and a wall of one colour is where
+   an 8-bit display shows its seams: the hero's ambient light lands as three
+   visible steps rather than as a gradient. A little noise over the whole page
+   dithers those steps away.
+
+   It is also the cheapest thing here that reads as expensive. Generated rather
+   than fetched, so it costs no request and nothing to cache, and pinned to the
+   viewport rather than to the document: grain that scrolls is a texture
+   printed on the page, and grain that holds still is the light in the room the
+   page is being read in.
+
+   Kept out of the way of the pointer: it covers the viewport, so anything it
+   intercepted would be everything. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.032;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Everything the page draws sits above the grain. Without this the grain is
+   painted over the content rather than under it, and the type picks up a fuzz
+   that reads as a rendering fault rather than as texture. */
+body > * {
+  position: relative;
+  z-index: 1;
 }
 
 ::selection {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
   color: var(--text);
+}
+
+/* ── Focus ──
+
+   The page had none, which on a page that is almost entirely links means a
+   keyboard can reach every control on it and see none of them. In the accent,
+   because that is the one colour here that means "this one".
+
+   `:focus-visible` rather than `:focus`: a ring that also appears on every mouse
+   click is the reason people turn them off. */
+:focus-visible {
+  outline: 2px solid var(--xn-accent);
+  outline-offset: 3px;
+  border-radius: 3px;
 }
 
 /* ── The page's scrollbar ──
@@ -86,6 +196,9 @@ html {
   scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: var(--border-2) transparent;
+  /* An anchor otherwise lands under the fixed navigation. */
+  scroll-padding-top: 84px;
+  background: var(--bg);
 }
 
 html::-webkit-scrollbar {
@@ -108,4 +221,31 @@ html::-webkit-scrollbar-thumb {
 html::-webkit-scrollbar-thumb:hover {
   background: var(--text-3);
   background-clip: content-box;
+}
+
+/* Every motion on this page is decoration on something already legible without
+   it, so all of it goes at once rather than being tuned down.
+
+   The scroll-linked reveals need their end state forced as well: an animation
+   that never runs leaves its subject at the `from` keyframe, and for those that
+   is invisible. Turning the reveals off has to mean the content is simply
+   there, never that it is permanently hidden. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    animation-timeline: auto !important;
+  }
+
+  .rise {
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }

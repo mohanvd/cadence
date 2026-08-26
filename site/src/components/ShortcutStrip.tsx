@@ -3,10 +3,14 @@
  *
  * "Keyboard-first" is the one promise on this page a visitor cannot verify by
  * looking at a screenshot, so the keys are printed instead. Every row here is a
- * real binding from `features/keyboard/useKeyboardShortcuts`, so the table is
+ * real binding from `features/keyboard/useKeyboardShortcuts`, and the table is
  * duplicated rather than imported because that module reaches into the player
- * store, and the landing screen has no business pulling the player's state into
+ * store, and the landing page has no business pulling the player's state into
  * its bundle to render fifteen labels.
+ *
+ * Duplicated means checkable, and it had not been checked: this list advertised
+ * an A–B loop on A and D, which is not a binding the player has and never was.
+ * Anything printed below has to appear in `BINDINGS` with the same key.
  */
 
 /**
@@ -28,10 +32,12 @@ const SHORTCUTS: Shortcut[] = [
   { keys: [',', '.'], label: 'Frame step' },
   { keys: ['⇧', ',', '.'], label: 'Speed' },
   { keys: ['0', RANGE, '9'], label: 'Jump to %' },
+  { keys: ['N', 'P'], label: 'Next file' },
   { keys: ['F'], label: 'Fullscreen' },
   { keys: ['C'], label: 'Subtitles' },
   { keys: ['B'], label: 'Bookmark' },
-  { keys: ['A', 'D'], label: 'A–B loop' },
+  { keys: ['R'], label: 'Loop file' },
+  { keys: ['Z'], label: 'Zoom' },
   { keys: ['S'], label: 'Save frame' },
   { keys: ['G'], label: 'Ambient glow' },
   { keys: ['M'], label: 'Mute' },
@@ -40,13 +46,15 @@ const SHORTCUTS: Shortcut[] = [
 
 export default function ShortcutStrip() {
   return (
-    <section className="xn-section">
-      <header className="xn-section__head">
-        <h2 className="xn-section__title">Keyboard</h2>
-        <span className="xn-section__meta">No chord ever leaves the home row for long</span>
+    <section className="xn-section" id="keyboard">
+      <header className="xn-section__head rise">
+        <h2 className="xn-section__title">
+          Every control is one key away, and none of them leaves the home row for
+          long
+        </h2>
       </header>
 
-      <div className="xn-keys">
+      <div className="xn-keys rise">
         {SHORTCUTS.map(({ keys, label }) => (
           <div key={label} className="xn-keys__row">
             <span className="xn-keys__caps">

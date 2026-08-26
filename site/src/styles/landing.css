@@ -2,39 +2,117 @@
  * cadence.auva.dev, in full.
  *
  * Everything the page draws is here, including the parts that are a picture of
- * the application: the window, and the drop card inside it. Those used to be
- * imported from the player so that the drawing could not drift from the thing
- * it draws. They are copied now — see the note at the top of `base.css` for
- * what that import cost — and the class names are the player's, unchanged, so
- * that a repaint is a matter of reading the two files side by side.
+ * the application: the window, its title bar, and the drop card inside it.
+ * Those used to be imported from the player so that the drawing could not drift
+ * from the thing it draws. They are copied now (see the note at the top of
+ * `base.css` for what that import cost), and the class names are the player's
+ * where they overlap, so that a repaint is a matter of reading the two files
+ * side by side.
  *
  * What that import was never able to give the page anyway is worth saying: the
  * player's rules describe live controls, and half of what arrived here had to
  * be undone at the other end. The drop card is a button that opens a file; here
  * it is a `<span>` inside an `inert` subtree, which can be hovered by nothing
  * and disabled never. So the hover states, the focus states and the transitions
- * are gone, and the two rules that used to put a submitted-looking URL field
- * back to the state the player actually opens in are gone with them: the field
- * is simply drawn the way it looks.
+ * are gone, and the field is simply drawn the way it looks at rest.
+ *
+ * ── How this page makes depth ──
+ *
+ * Three things, and nothing else. A hairline of light along the top edge of
+ * anything raised (`--sheen`), shadow beneath it (`--lift-*`), and a surface a
+ * shade off the page. No coloured glow behind a card, no large blurred halo
+ * under a heading. The two places light is coloured (behind the hero, behind
+ * the closing) are behind the *page*, at a chroma low enough that what reaches
+ * the eye is a warm patch of dark rather than a blue smear.
  */
 
-/* ── The page ──
-   The navigation is fixed, so the document starts below where it ends. */
+/* ── The page ── */
 .ld-main {
+  position: relative;
   padding-top: calc(56px + env(safe-area-inset-top));
 }
 
 .ld-column {
+  position: relative;
   width: 100%;
-  max-width: 1080px;
+  max-width: var(--measure);
   margin: 0 auto;
-  padding: clamp(36px, 7vh, 76px) 24px 72px;
+  padding: clamp(36px, 7vh, 76px) var(--s-5) var(--s-8);
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-/* ── Navigation ── */
+/* Reachable by keyboard, invisible until it is. The page is a column of links
+   and the navigation sits above all of them; without this the first four tabs
+   of every visit are spent walking past it. */
+.ld-skip {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 100;
+  padding: 10px 16px;
+  border-radius: var(--r-2);
+  background: var(--text);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform var(--t-1) var(--ease);
+}
+
+.ld-skip:focus-visible {
+  transform: translateY(0);
+}
+
+/* ── The hero's light ──
+
+   Two overlapping radials, both enormous and both nearly out of chroma. The
+   point is not to be seen as colour: it is to keep the top third of the page
+   from being one flat value, so the window below it has something to be lit
+   against. The grain in `base.css` is what stops the falloff banding.
+
+   Pinned behind the column and out of the flow, because it has to be wider than
+   the measure and reach under the window, and because a child of a centred flex
+   column can do neither. */
+.ld-aura {
+  position: absolute;
+  top: -120px;
+  left: 50%;
+  z-index: 0;
+  /* Capped at the page's own width rather than at a multiple of the viewport.
+     `150vw` was wider than the window by definition, and an absolutely
+     positioned child that overflows still counts toward the document's scroll
+     width, so a decorative gradient was giving the whole page a horizontal
+     scrollbar. `100%` here is the full page width, which is as wide as this
+     needs to be. */
+  width: min(1500px, 100%);
+  height: 980px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background:
+    radial-gradient(
+      52% 46% at 50% 26%,
+      oklch(0.72 0.17 250 / 0.1) 0%,
+      oklch(0.72 0.17 250 / 0.04) 42%,
+      transparent 72%
+    ),
+    radial-gradient(
+      68% 52% at 50% 8%,
+      rgba(255, 255, 255, 0.05) 0%,
+      transparent 62%
+    );
+  /* Feathered at the bottom rather than allowed to end, so the light fades into
+     the page instead of stopping on a line. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+}
+
+/* ── Navigation ──
+   The resting state is the settled one, so a browser that cannot drive an
+   animation from the scroll position still gets a legible bar. The transparent
+   state at the top of the page is added below, where it can be taken away. */
 .navbar {
   position: fixed;
   top: 0;
@@ -48,23 +126,65 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(9, 10, 12, 0.78);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: var(--s-4);
+  background: rgba(9, 10, 12, 0.72);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
 }
 
-.navbar__left {
+/* At the very top of the page the bar has nothing to separate itself from and
+   a rule across the screen is just a line drawn under a heading. It earns its
+   background on the way down.
+
+   Driven from the scroll position rather than from a listener, which is the
+   only reason this page can have the effect at all: it ships no JavaScript, and
+   an `IntersectionObserver` for a navigation bar is not a good enough reason to
+   start. Browsers without scroll-driven animations keep the settled bar above,
+   which is the state that was there before and is correct everywhere. */
+@supports (animation-timeline: scroll()) {
+  .navbar {
+    animation: nav-settle linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 110px;
+  }
+
+  @keyframes nav-settle {
+    from {
+      background: rgba(9, 10, 12, 0);
+      border-bottom-color: rgba(255, 255, 255, 0);
+      backdrop-filter: blur(0) saturate(100%);
+      -webkit-backdrop-filter: blur(0) saturate(100%);
+    }
+  }
+}
+
+.navbar__left,
+.navbar__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s-2);
   min-width: 0;
+}
+
+/* The centre group is absolutely placed so it is centred on the window rather
+   than on whatever is left between two groups of different widths, the same
+   reason the application's own search field is positioned this way. */
+.navbar__links {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
 }
 
 .navbar__brand {
   display: inline-flex;
   align-items: center;
   line-height: 1;
+  text-decoration: none;
+  border-radius: var(--r-2);
 }
 
 /* The wordmark is the whole logo, so it carries the brand face. */
@@ -75,74 +195,128 @@
   line-height: 1;
   letter-spacing: 0;
   color: var(--text);
+  transition: color var(--t-1) var(--ease);
 }
 
-.navbar__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.navbar__brand:hover .navbar__brand-bold {
+  color: #fff;
 }
 
 .navbar__action {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 7px 11px;
+  border-radius: var(--r-2);
+  font-size: 12.5px;
   line-height: 1;
   color: var(--text-2);
   text-decoration: none;
-  transition: color 140ms ease;
+  transition: color var(--t-1) var(--ease), background var(--t-1) var(--ease);
 }
 
 .navbar__action:hover {
   color: var(--text);
+  background: rgba(255, 255, 255, 0.045);
 }
 
 .ld-nav-cta {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 7px 14px;
-  border-radius: 8px;
+  padding: 8px 15px;
+  border-radius: var(--r-2);
   background: var(--text);
   color: var(--bg);
   font-size: 12.5px;
   font-weight: 600;
+  letter-spacing: -0.008em;
   text-decoration: none;
-  transition: opacity 140ms ease;
+  box-shadow: var(--lift-1);
+  transition: transform var(--t-1) var(--ease), box-shadow var(--t-1) var(--ease),
+    background var(--t-1) var(--ease);
 }
 
 .ld-nav-cta:hover {
-  opacity: 0.86;
+  background: #fff;
+  transform: translateY(-1px);
+  box-shadow: var(--lift-2);
+}
+
+.ld-nav-cta:active {
+  transform: translateY(0);
 }
 
 /* ── Hero ── */
 .ld-hero {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding-top: clamp(56px, 11vh, 116px);
+  padding-top: clamp(52px, 10vh, 104px);
+}
+
+/* The one badge on the page, and the only place the accent appears above the
+   fold. A link, not a label: a pill announcing a feature and then not going to
+   it is an advertisement. */
+.ld-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 6px 12px;
+  border: 1px solid var(--xn-hairline);
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.022);
+  box-shadow: var(--sheen);
+  font-size: 12.5px;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: border-color var(--t-1) var(--ease), color var(--t-1) var(--ease),
+    background var(--t-1) var(--ease);
+}
+
+.ld-pill:hover {
+  border-color: var(--border-2);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.ld-pill svg {
+  color: var(--text-3);
+  transition: transform var(--t-1) var(--ease), color var(--t-1) var(--ease);
+}
+
+.ld-pill:hover svg {
+  color: var(--text-2);
+  transform: translateX(2px);
 }
 
 .ld-hero__title {
+  margin-top: var(--s-5);
   font-family: var(--xn-display);
   font-weight: 600;
   /* Sized against the viewport rather than a breakpoint ladder: the line has
      to break in the same place at every width, and it only does that if the
      type scales with the measure. */
-  font-size: clamp(31px, 5.1vw, 60px);
-  line-height: 1.06;
-  letter-spacing: -0.038em;
-  color: var(--text);
+  font-size: clamp(32px, 5.3vw, 64px);
+  line-height: 1.04;
+  letter-spacing: -0.042em;
   text-wrap: balance;
+  /* Barely a gradient: the last line sits a few percent darker than the first,
+     which is what a page lit from above would do to it anyway. Any more and it
+     reads as a heading with an effect applied. */
+  background: linear-gradient(180deg, #fff 0%, #e6e7ec 52%, #b9bcc6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .ld-hero__sub {
-  margin-top: 20px;
-  max-width: 52ch;
+  margin-top: var(--s-5);
+  max-width: 54ch;
   font-size: clamp(15px, 1.4vw, 17.5px);
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--text-2);
   text-wrap: pretty;
 }
@@ -152,108 +326,300 @@
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 14px;
-  margin-top: 34px;
+  gap: var(--s-3);
+  margin-top: var(--s-7);
 }
 
 .ld-hero__meta {
-  margin-top: 18px;
+  margin-top: var(--s-4);
   font-size: 12.5px;
   letter-spacing: 0.01em;
   color: var(--text-3);
 }
 
+/* Everything above the fold arrives, once, on a stagger. Load-time rather than
+   scroll-driven: at the top of the page there is no scroll to drive it, and an
+   element whose entry animation has already run out is one that renders at its
+   end state anyway, which for these would mean the effect never appears. */
+@media (prefers-reduced-motion: no-preference) {
+  .ld-pill,
+  .ld-hero__title,
+  .ld-hero__sub,
+  .ld-hero__actions,
+  .ld-hero__meta {
+    animation: intro var(--t-3) var(--ease) both;
+  }
+
+  .ld-hero__title {
+    animation-delay: 60ms;
+  }
+  .ld-hero__sub {
+    animation-delay: 130ms;
+  }
+  .ld-hero__actions {
+    animation-delay: 200ms;
+  }
+  .ld-hero__meta {
+    animation-delay: 270ms;
+  }
+}
+
+@keyframes intro {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
 /* ── Calls to action ── */
 .ld-cta {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 15px 30px;
-  border-radius: 12px;
+  padding: 15px 28px;
+  border-radius: var(--r-3);
   /* The one inverted surface on the page. Nothing else is allowed to use it,
      which is what makes it read as the action rather than as a colour. */
-  background: var(--text);
-  color: var(--bg);
+  background: linear-gradient(180deg, #fff 0%, #dedee4 100%);
+  color: #08080a;
   font-size: 15.5px;
   font-weight: 600;
   letter-spacing: -0.011em;
   text-decoration: none;
-  transition: transform 140ms ease, box-shadow 140ms ease;
+  box-shadow: var(--lift-2), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: transform var(--t-1) var(--ease), box-shadow var(--t-1) var(--ease),
+    filter var(--t-1) var(--ease);
 }
 
 .ld-cta:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow: var(--lift-3), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .ld-cta:active {
   transform: translateY(0);
+  box-shadow: var(--lift-1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.ld-cta--lg {
+  padding: 17px 34px;
+  font-size: 16px;
 }
 
 .ld-ghost {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s-2);
   padding: 15px 22px;
-  border: 1px solid var(--border-2);
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  background: rgba(255, 255, 255, 0.016);
+  box-shadow: var(--sheen);
   font-size: 14.5px;
   color: var(--text-2);
   text-decoration: none;
-  transition: border-color 140ms ease, color 140ms ease;
+  transition: border-color var(--t-1) var(--ease), color var(--t-1) var(--ease),
+    background var(--t-1) var(--ease);
 }
 
 .ld-ghost:hover {
-  border-color: var(--text-3);
+  border-color: var(--border-2);
+  background: rgba(255, 255, 255, 0.038);
   color: var(--text);
 }
 
 /* ── The application, drawn in the page ──
 
-   Nothing behind it. The page and the application are painted the same
-   near-black, and the hairline is what separates them: one pixel of light along
-   the window's own edge does the whole job, where a glow behind it only smears
-   the background it was meant to distinguish the window from. */
+   The window is the one object on this page that is meant to read as a thing
+   rather than as a panel, so it gets what none of the cards get: a real shadow
+   under it and a floor to cast onto. `.ld-stage` is that floor.
+
+   The page and the application are painted the same near-black, and a hairline
+   is what separates them: one pixel of light along the window's own edge does
+   the whole job, where a glow behind it only smears the background it was meant
+   to distinguish the window from. */
+.ld-stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin-top: clamp(48px, 8vh, 88px);
+  display: flex;
+  justify-content: center;
+}
+
+/* The contact shadow. Elliptical and offset below the window, which is what a
+   large soft light above and in front produces, and what makes the window sit
+   on the page rather than float in it. */
+.ld-stage::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: -34px;
+  width: 78%;
+  height: 130px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, 0.85), transparent 72%);
+  filter: blur(26px);
+  pointer-events: none;
+}
+
 .ld-window {
   width: 100%;
   max-width: 1060px;
-  margin: clamp(44px, 7vh, 78px) auto 0;
 }
 
 .ld-window__inner {
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   /* The radius Windows 11 gives a window, so the drawing and the thing it
      depicts round by the same amount. */
-  border-radius: 8px;
-  background: var(--bg);
+  border-radius: var(--r-2);
+  /* The application's own near-black, which is a shade off this page's. Drawing
+     it in the page's value would be a picture of a window painted to match the
+     wall behind it. */
+  background: #080808;
+  box-shadow: var(--lift-4);
+
+  /* ── Why this is a container ──
+
+     Everything the application sizes with `vw` is sized against *its own
+     window*, because inside the application the window is the viewport. Drawn
+     into this page, `vw` means the browser window instead, which is wider than
+     the drawing, so every heading in here came out at a fraction of the size the
+     same heading has in the real thing. The picture had the right parts in the
+     right places and still did not look like the application, because the type
+     was the wrong size relative to the box around it.
+
+     Making the frame a container turns `cqw` into "a percent of this window",
+     which is exactly what `vw` means to the application. The drawing is then a
+     scale model: shrink it and it goes on looking like a smaller Cadence rather
+     than like Cadence with smaller writing. */
+  container-type: inline-size;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .ld-window {
+    animation: window-in 900ms var(--ease) 240ms both;
+  }
+}
+
+/* Rises further and slower than the copy above it, and starts fractionally
+   small. A large object that arrives at the same speed as a line of text reads
+   as a slide transition; one that settles reads as weight. */
+@keyframes window-in {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.985);
+  }
+}
+
+/* ── The window's own bar ──
+   `app/src/components/TitleBar.jsx`, and the file to read this against. The
+   shell runs undecorated, so this strip carries the whole window: where it has
+   been, which section it is on, the search, and the three controls. */
 .ld-window__bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  height: 38px;
-  padding-left: 14px;
+  gap: var(--s-3);
+  position: relative;
+  height: 46px;
+  padding-left: var(--s-2);
   border-bottom: 1px solid var(--divider-line);
+  background: #080808;
 }
 
-.ld-window__brand {
-  font-family: var(--xn-brand);
-  font-size: 14px;
-  line-height: 1;
+.ld-window__history {
+  display: flex;
+  gap: 2px;
+}
+
+.ld-window__arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   color: var(--text-2);
+}
+
+/* Dimmed rather than hidden, which is what the real pair does when there is
+   nowhere to go: an arrow that disappears takes the other one with it every
+   time the row re-centres. */
+.ld-window__arrow--off {
+  opacity: 0.3;
+}
+
+.ld-window__nav {
+  display: flex;
+  gap: 2px;
+  margin-left: var(--s-1);
+  margin-right: auto;
+}
+
+.ld-window__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-3);
+}
+
+/* The application's `--icon-hover-bg`, exactly. */
+.ld-window__tab--on {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+/* Centred on the window rather than pushed against the controls, because the
+   bar's contents are different widths on the two sections and the middle is the
+   one position that is the same on both. */
+.ld-window__search {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 22rem;
+  height: 32px;
+  padding: 0 var(--s-3);
+  /* `--color-line` and `--color-surface-1` from the player's Tailwind theme,
+     which is what the real field is built from. */
+  border: 1px solid oklch(0.28 0.004 285);
+  border-radius: 99px;
+  background: oklch(0.178 0.002 285);
+  font-size: 13px;
+}
+
+.ld-window__search-icon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.ld-window__search-text {
+  color: var(--text-3);
 }
 
 .ld-window__controls {
   display: flex;
-  height: 38px;
+  height: 46px;
 }
 
 .ld-window__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* 46px wide is what Windows itself uses, and the reason the real bar matches
+     it: the pointer lands where muscle memory expects. */
   width: 46px;
   height: 100%;
   color: var(--text-2);
@@ -266,23 +632,31 @@
   /* Tighter than the application's own spacing. The launcher is centred in
      whatever height the window happens to be, and reproducing that here would
      be a picture that is mostly empty. */
-  padding: clamp(38px, 5vw, 62px) 24px clamp(26px, 3vw, 38px);
+  padding: clamp(38px, 5vw, 64px) var(--s-5) clamp(26px, 3vw, 38px);
 }
 
+/* `4.6vw` capped at 53px is the application's own rule, read here in `cqw`.
+   Only the floor differs: the application never has a window narrower than a
+   window, whereas this drawing is a few hundred pixels wide on a phone, and 33px
+   in a 320px-wide picture of a window is a headline with no room to break. */
 .ld-window__title {
   font-family: var(--xn-display);
   font-weight: 600;
-  font-size: clamp(23px, 2.9vw, 36px);
+  font-size: clamp(21px, 4.6cqw, 53px);
   line-height: 1.1;
-  letter-spacing: -0.032em;
+  letter-spacing: -0.035em;
   color: var(--text);
   text-align: center;
 }
 
 .ld-window__sub {
-  margin-top: 12px;
-  font-size: clamp(12.5px, 1.15vw, 14.5px);
-  color: var(--text-2);
+  margin-top: 18px;
+  max-width: 56ch;
+  font-size: clamp(12px, 1.35cqw, 16.5px);
+  line-height: 1.66;
+  /* The application's own value, which is a step dimmer than this page's
+     `--text-2`. */
+  color: #90959f;
   text-align: center;
 }
 
@@ -301,7 +675,7 @@
   margin-top: clamp(32px, 5vh, 48px);
   padding: 12px 12px 16px;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--r-5);
   background: var(--xn-panel);
 }
 
@@ -310,8 +684,10 @@
   flex-direction: column;
   align-items: center;
   width: 100%;
-  padding: 30px 24px 28px;
+  padding: 30px var(--s-5) 28px;
   border: 1px dashed var(--border-2);
+  /* 14px, the player's own. Not the page's 16px step: this is a drawing of a
+     specific corner, not a card on this page. */
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.012);
 }
@@ -332,7 +708,7 @@
 }
 
 .xn-drop__hint {
-  margin-top: 8px;
+  margin-top: var(--s-2);
   font-size: 13.5px;
   color: var(--text-2);
 }
@@ -349,13 +725,13 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
-  margin-top: 20px;
+  margin-top: var(--s-5);
 }
 
 .xn-drop__divider {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--s-3);
   margin: 18px 6px 14px;
   font-size: 12px;
   color: var(--text-3);
@@ -418,38 +794,48 @@
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--r-2);
   /* Its disabled face. The button only takes the accent once the field has
      something in it, and this field never will. */
   background: var(--surface-2);
   color: var(--text-3);
 }
 
-/* ── Section scaffolding ── */
+/* ── Section scaffolding ──
+
+   A heading and a hairline that fades out to the right, and nothing else. Each
+   section used to be announced twice: eleven-and-a-half pixels of uppercase
+   grey behind a little rule, and then the actual heading directly under it
+   saying the same thing at readable size. One of the two was decoration, and it
+   was the one that looks like every dashboard ever shipped, so the headings
+   were rewritten to stand on their own and the label was taken out. */
 .xn-section {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  margin-top: clamp(48px, 8vh, 76px);
+  margin-top: var(--s-section);
+  scroll-margin-top: 90px;
 }
 
 .xn-section__head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  flex-direction: column;
+  padding-bottom: var(--s-5);
+  margin-bottom: var(--s-6);
+  border-bottom: 1px solid transparent;
+  border-image: linear-gradient(to right, var(--border) 0%, var(--divider-line) 42%, transparent 92%)
+    1;
 }
 
 .xn-section__title {
-  font-size: 11.5px;
+  max-width: 30ch;
+  font-family: var(--xn-display);
   font-weight: 600;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-
-.xn-section__meta {
-  font-size: 12px;
-  color: var(--text-3);
+  font-size: clamp(22px, 2.8vw, 33px);
+  line-height: 1.14;
+  letter-spacing: -0.032em;
+  color: var(--text);
+  text-wrap: balance;
 }
 
 /* ── Feature bento ──
@@ -459,22 +845,26 @@
 .xn-bento {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: 14px;
+  gap: var(--s-3);
 }
 
 .xn-feat {
+  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 24px 24px 26px;
+  padding: var(--s-5) var(--s-5) 26px;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--xn-panel);
-  transition: border-color 160ms ease, background 160ms ease;
+  border-radius: var(--r-4);
+  background: linear-gradient(180deg, #131418 0%, var(--xn-panel) 100%);
+  box-shadow: var(--sheen), var(--lift-1);
+  transition: border-color var(--t-2) var(--ease), transform var(--t-2) var(--ease),
+    box-shadow var(--t-2) var(--ease);
 }
 
 .xn-feat:hover {
   border-color: var(--border-2);
-  background: #131418;
+  transform: translateY(-2px);
+  box-shadow: var(--sheen-strong), var(--lift-3);
 }
 
 .xn-feat--lead {
@@ -492,19 +882,29 @@
 .xn-feat__icon {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border: 1px solid var(--xn-hairline);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.025);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: var(--sheen);
   color: var(--text-2);
+  transition: color var(--t-2) var(--ease);
+}
+
+.xn-feat:hover .xn-feat__icon {
+  color: var(--text);
 }
 
 /* The one card that gets the accent. Spending it here and nowhere else in the
    grid is what makes the hierarchy legible at a glance rather than on reading. */
 .xn-feat--accent .xn-feat__icon {
-  border-color: transparent;
+  border-color: oklch(0.72 0.17 250 / 0.22);
   background: oklch(0.72 0.17 250 / 0.14);
+  color: var(--xn-accent-strong);
+}
+
+.xn-feat--accent:hover .xn-feat__icon {
   color: var(--xn-accent-strong);
 }
 
@@ -528,7 +928,7 @@
 }
 
 .xn-feat--lead .xn-feat__title {
-  font-size: clamp(19px, 1.9vw, 22px);
+  font-size: clamp(19px, 1.9vw, 23px);
 }
 
 .xn-feat__body {
@@ -542,7 +942,7 @@
    height even though their paragraphs do not run to the same length. */
 .xn-feat__note {
   margin-top: auto;
-  padding-top: 16px;
+  padding-top: var(--s-4);
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--text-3);
@@ -552,7 +952,145 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 16px;
+  margin-top: var(--s-4);
+}
+
+/* ── The library ──
+   Copy on the left, a wall of sleeves on the right. The panel is the one place
+   on this page with more than one hue in it, and it is allowed to be because
+   album art is the thing being depicted. */
+.ld-music {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr);
+  gap: clamp(28px, 4vw, 56px);
+  align-items: start;
+}
+
+.ld-music__lede {
+  font-family: var(--xn-display);
+  font-size: clamp(16px, 1.6vw, 19px);
+  font-weight: 500;
+  line-height: 1.52;
+  letter-spacing: -0.018em;
+  color: var(--text);
+  text-wrap: pretty;
+}
+
+.ld-music__lede em {
+  font-style: italic;
+  color: var(--text);
+}
+
+.ld-music__points {
+  margin-top: var(--s-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  list-style: none;
+}
+
+.ld-music__point {
+  display: flex;
+  gap: var(--s-3);
+}
+
+.ld-music__point-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--xn-hairline);
+  border-radius: var(--r-2);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: var(--sheen);
+  color: var(--text-2);
+}
+
+.ld-music__point-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.ld-music__point-body {
+  margin-top: 5px;
+  font-size: 13.3px;
+  line-height: 1.6;
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+
+.ld-music__note {
+  margin-top: var(--s-6);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--divider-line);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+  text-wrap: pretty;
+}
+
+.ld-shelf {
+  padding: var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-5);
+  background: linear-gradient(180deg, #131418 0%, var(--xn-panel) 100%);
+  box-shadow: var(--sheen), var(--lift-3);
+}
+
+.ld-shelf__tabs {
+  display: flex;
+  gap: var(--s-1);
+  padding-bottom: var(--s-3);
+  margin-bottom: var(--s-3);
+  border-bottom: 1px solid var(--xn-hairline);
+}
+
+.ld-shelf__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-4);
+}
+
+.ld-shelf__tab--on {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: var(--sheen);
+  color: var(--text);
+}
+
+.ld-shelf__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--s-2);
+}
+
+/* One sleeve. The hue is derived from its index rather than written down: a
+   list of twelve colours is a list somebody has to keep in order, and this is
+   a picture of a wall, not a palette anyone will match against.
+
+   Squared off at 1:1, edge-lit, and darker at the bottom, which is what a
+   printed sleeve does under a light above it. */
+.ld-sleeve {
+  --h: calc(196 + var(--i) * 27);
+  aspect-ratio: 1;
+  border-radius: 5px;
+  background:
+    linear-gradient(
+      152deg,
+      oklch(0.52 0.09 var(--h)) 0%,
+      oklch(0.33 0.07 calc(var(--h) + 26)) 48%,
+      oklch(0.17 0.035 calc(var(--h) + 52)) 100%
+    );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.28), var(--lift-1);
 }
 
 /* ── Keyboard legend ──
@@ -562,7 +1100,7 @@
 .xn-keys {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--s-2);
 }
 
 .xn-keys__row {
@@ -573,17 +1111,19 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--xn-panel);
-  transition: border-color 160ms ease;
+  box-shadow: var(--sheen);
+  transition: border-color var(--t-1) var(--ease), background var(--t-1) var(--ease);
 }
 
 .xn-keys__row:hover {
   border-color: var(--border-2);
+  background: #131418;
 }
 
 .xn-keys__caps {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--s-1);
 }
 
 /* A keycap reads as one because of the heavier bottom edge, which is the trick a
@@ -598,7 +1138,8 @@
   border: 1px solid var(--border-2);
   border-bottom-width: 2px;
   border-radius: 6px;
-  background: #17181d;
+  background: linear-gradient(180deg, #1c1d23 0%, #17181d 100%);
+  box-shadow: var(--sheen);
   font-family: inherit;
   font-size: 11px;
   font-weight: 500;
@@ -623,7 +1164,7 @@
 .xn-caps {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
-  gap: 0 28px;
+  gap: 0 var(--s-6);
   list-style: none;
 }
 
@@ -652,19 +1193,24 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
   gap: 1px;
-  margin-top: 26px;
   /* One shared hairline: the gap shows the background through, so the grid
      draws its own rules without a border on every cell. */
   background: var(--divider-line);
   border: 1px solid var(--divider-line);
-  border-radius: 14px;
+  border-radius: var(--r-4);
   overflow: hidden;
+  box-shadow: var(--lift-2);
   list-style: none;
 }
 
 .ld-claim {
-  padding: 26px 24px 28px;
+  padding: 26px var(--s-5) 28px;
   background: var(--bg);
+  transition: background var(--t-2) var(--ease);
+}
+
+.ld-claim:hover {
+  background: #0d0e11;
 }
 
 .ld-claim__icon {
@@ -675,11 +1221,12 @@
   height: 32px;
   border-radius: 9px;
   background: var(--surface-2);
+  box-shadow: var(--sheen);
   color: var(--text-2);
 }
 
 .ld-claim__title {
-  margin-top: 16px;
+  margin-top: var(--s-4);
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.015em;
@@ -699,7 +1246,7 @@
   text-decoration: none;
   border-bottom: 1px solid var(--border-2);
   padding-bottom: 1px;
-  transition: color 140ms ease, border-color 140ms ease;
+  transition: color var(--t-1) var(--ease), border-color var(--t-1) var(--ease);
 }
 
 .ld-inline-link:hover {
@@ -707,29 +1254,83 @@
   border-color: var(--text-3);
 }
 
-/* ── Closing ── */
+/* ── Closing ──
+
+   A band the full width of the measure, not a box in the middle of it. It used
+   to be neither on purpose: the column centres its children, this section never
+   claimed a width, and so it shrank to fit its own longest line and drew its
+   rule-off a third of the way across the page. */
 .ld-close {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  margin-top: clamp(64px, 11vh, 128px);
-  padding-top: clamp(48px, 7vh, 80px);
-  border-top: 1px solid var(--divider-line);
+  margin-top: var(--s-section);
+  padding: clamp(64px, 9vh, 104px) var(--s-5) clamp(56px, 8vh, 88px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-6);
+  background: linear-gradient(180deg, #101116 0%, #0a0b0e 100%);
+  box-shadow: var(--sheen-strong), var(--lift-3);
+  overflow: hidden;
+}
+
+/* The page's second and last piece of coloured light, gathered above the
+   heading so the finale is lit the way the hero was. Inside the panel and
+   clipped by it, so it is light *in* the band rather than a halo around it. */
+.ld-close__glow {
+  position: absolute;
+  z-index: -1;
+  top: -58%;
+  left: 50%;
+  width: 128%;
+  height: 150%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: radial-gradient(
+    42% 42% at 50% 50%,
+    oklch(0.72 0.17 250 / 0.13) 0%,
+    oklch(0.72 0.17 250 / 0.05) 44%,
+    transparent 72%
+  );
 }
 
 .ld-close__title {
   font-family: var(--xn-display);
   font-weight: 600;
-  font-size: clamp(24px, 3.1vw, 36px);
-  letter-spacing: -0.03em;
+  font-size: clamp(27px, 4vw, 46px);
+  line-height: 1.06;
+  letter-spacing: -0.036em;
   color: var(--text);
-  margin-bottom: 26px;
+  text-wrap: balance;
+}
+
+.ld-close__sub {
+  margin-top: var(--s-4);
+  max-width: 44ch;
+  font-size: clamp(14px, 1.3vw, 16px);
+  line-height: 1.6;
+  color: var(--text-2);
+  text-wrap: pretty;
 }
 
 .ld-close__meta {
-  margin-top: 18px;
+  margin-top: var(--s-4);
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.ld-close .ld-cta {
+  margin-top: var(--s-7);
+}
+
+.ld-close__aside {
+  margin-top: var(--s-6);
+  padding-top: var(--s-5);
   max-width: 46ch;
+  border-top: 1px solid var(--divider-line);
   font-size: 12.5px;
   line-height: 1.6;
   color: var(--text-3);
@@ -737,7 +1338,7 @@
 }
 
 /* ── Footer ──
-   Full bleed on purpose: the rest of the page lives in a 1080px column, and
+   Full bleed on purpose: the rest of the page lives in a 1120px column, and
    the footer breaking out of it is what makes the wordmark read as a sign-off
    rather than as one more section. */
 .xn-footer {
@@ -752,21 +1353,141 @@
   overflow: hidden;
 }
 
-/* The word inside sets its own size, so this one is only the line's: the
-   paragraph's own strut is taller than the descenders of the word it holds, and
-   it is what puts the last few pixels of air under the sign-off. */
+/* The credit at one end, the links at the other, and a wide minimum between
+   them. The gap matters more than it looks: both groups are small grey text at
+   the same size, so anything less than a clear span of nothing between them and
+   "Built by ∧∪∨∧" reads as the first item of the same list. */
+.xn-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4) var(--s-9);
+  padding-bottom: clamp(28px, 5vh, 56px);
+}
+
+/* "Built by ∧∪∨∧": two words and a logotype, and only the logotype is a link.
+
+   Set in the same grey as everything else down here rather than in Auva's blue:
+   this is a footer credit, and a saturated mark in it would be the brightest
+   thing on the quietest part of the page. The mark takes `currentColor`, so one
+   declaration colours it. */
+/* The gap is a word space, not a margin. "Built by ∧∪∨∧" is one phrase and has
+   to read as one: at 12px the mark drifted far enough from the words to look
+   like a separate item sitting beside them. A logotype wants a little more air
+   than the 3.5px space this font would set between two words, so 6px, and the
+   link itself carries no horizontal padding, because padding on it is gap the
+   eye still sees. */
+.xn-footer__credit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.xn-footer__auva {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 0;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: color var(--t-1) var(--ease);
+}
+
+.xn-footer__auva:hover {
+  color: var(--text);
+}
+
+/* Sized against the words beside it rather than left at the mark's own default.
+   The logotype is four strokes that all run cap-height, so it reads as the
+   right size when it matches the cap height of the text next to it: a mark set
+   to the full line height sits noticeably tall. `0.78em` of this is ~11px
+   against a 12.5px label. */
+.xn-footer__auva-mark {
+  font-size: 13px;
+}
+
+.xn-footer__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--s-5);
+}
+
+.xn-footer__link {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-2);
+  font-size: 12.5px;
+  color: var(--text-3);
+  text-decoration: none;
+  transition: color var(--t-1) var(--ease);
+}
+
+.xn-footer__link:hover {
+  color: var(--text);
+}
+
+/* The word inside sets its own size, so this one is only the line's.
+   `line-height: 0.78` is what crops the empty band Agbalumo carries above its
+   caps: without it the sign-off sits in a pool of its own leading.
+
+   That crop is also what was slicing the bottom off the word. Measured from the
+   font: "Cadence" in Agbalumo inks from 0.72em above the baseline to 0.01em
+   below it, and the face declares an ascent of 1.20em and a descent of 0.28em.
+   A 0.78em line box against a 1.48em content box gives −0.35em of half-leading,
+   which puts the baseline 0.85em below the top of the line and the last of the
+   ink at 0.86em, 0.08em *below* the line box, and outside anything measured
+   from it.
+
+   The footer clips (`overflow: hidden`), so that 0.08em was being cut off. It
+   went unnoticed because the compensation underneath was 28 flat pixels while
+   the overflow scales with the word: at 500px of container it is 10px and fits,
+   at 1700px it is 36px and does not. Hence a container-query unit rather than a
+   pixel: 0.08em of a word set at `100cqw / 3.838` is 2.09cqw, rounded up for
+   the rounding. */
+/* Inert, in both senses.
+
+   The sign-off is a picture of the name, not text anybody reads twice. It is
+   already `aria-hidden` for that reason. But it was still a live text node, and
+   at this size that is a problem the eye cannot see: the tight `line-height`
+   gives the word −0.35em of half-leading, so its *content* box reaches about a
+   third of the word's height above the line box even though the ink starts well
+   below it. That invisible band sits directly over the footer's links. Nothing
+   overlapped them visually, and a click near them still landed in a text
+   selection that swallowed it.
+
+   So the sign takes no pointer and holds no selection. There is nothing here to
+   click and nothing worth copying: the word is in the navigation, the title
+   and the `<title>` already. */
 .xn-footer__wordmark {
   display: block;
   font-size: 22cqw;
   line-height: 0.78;
+  /* Air under the sign-off, in the same unit as the word so it stays
+     proportional. The word contains its own ink (see below), so this is spacing,
+     not a fix. */
+  padding-bottom: 1.2cqw;
   text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
 }
 
 /* The name at the size of a sign, sized without a measurement pass.
    3.838 is the width of "Cadence" in Agbalumo expressed in em, measured once.
    Dividing the container width by it is what makes the word fill the line.
    The player solves for this at runtime, because its name is in a variable;
-   here the word is fixed, so the ratio can be too. See Footer.tsx. */
+   here the word is fixed, so the ratio can be too. See Footer.tsx.
+
+   Faded from the top down rather than set in one grey: at this size a flat fill
+   is a slab, and the falloff is the same light the rest of the page is lit by.
+
+   Gently, though. The first version of this ran to #2c2e35 at the baseline,
+   which against a near-black page is close enough to the background that the
+   bottom of every letter dissolved into it. A word whose lower edge fades out
+   does not read as lit; it reads as cut off.
+   clearly lighter than anything behind it, so the whole word stays a word. */
 .xn-footer__word {
   display: inline-block;
   font-family: var(--xn-brand);
@@ -776,14 +1497,130 @@
      would collide its round terminals. */
   letter-spacing: 0;
   line-height: inherit;
-  color: #e3e5ea;
   white-space: nowrap;
+
+  /* This is what was cutting the bottom off the word, and it is not `overflow`.
+
+     The fill is a gradient clipped to the glyphs, which means the letters are
+     painted by the element's *background*, and a background only exists inside
+     the background box. `line-height: 0.78` makes that box 0.78em tall while the
+     ink runs to 0.86em below its top. Measured from the font, Agbalumo declares
+     a 1.20em ascent and a 0.28em descent, so a 0.78em line box carries −0.35em
+     of half-leading and drops the baseline to 0.85em. The last 0.08em of every
+     letter therefore had no gradient to clip to and was painted `transparent`,
+     which looks exactly like a clean horizontal cut.
+
+     Padding fixes it because `background-origin` is the padding box by default,
+     so this puts the whole glyph back inside the paintable area. No amount of
+     room *under* the paragraph could have helped: the ink was not being
+     clipped; it was never being drawn.
+
+     0.14em against a 0.08em overflow, rather than the 0.09em that would just
+     clear it. The spare 0.06em is for antialiasing, for hinting that rounds a
+     glyph edge down a pixel, and for the next face this word is set in: it is
+     invisible space under a sign-off, and it is the cheapest possible insurance
+     against a bug whose only symptom is that the logo looks wrong. */
+  padding-bottom: 0.14em;
+  background: linear-gradient(180deg, #eef0f4 0%, #c3c7d0 58%, #9aa0ac 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-/* ── Mid viewports ──
-   Below the point where a 7/5 row still has room to breathe, the two lead cards
-   go full width and the trio pairs off. The odd one out takes the full row
-   rather than sitting half-width beside a gap. */
+/* ── Arrival ──
+
+   Sections lift into place as they come into view. Driven by the scroll
+   position rather than by an observer, which is the only reason this page can
+   have it: it ships no JavaScript, and none of this is worth starting.
+
+   The initial state lives *inside* the support query on purpose. Declared
+   outside it, a browser that cannot run the animation would keep the `from`
+   keyframe forever and the page would be a column of invisible sections. Here
+   the only way to be hidden is for something to be able to bring it back. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rise {
+      animation: rise var(--ease) both;
+      animation-timeline: view();
+      /* Finishes well before the element reaches the middle of the screen.
+         Anything still arriving once it is centred reads as lag rather than as
+         motion. */
+      animation-range: entry 2% cover 24%;
+      /* The transform is animated and the element is a paint target for the
+         whole range, so promoting it once is cheaper than letting the compositor
+         work it out per frame. */
+      will-change: transform, opacity;
+    }
+
+    /* Eased rather than linear, which is the difference between this and a
+       parallax effect. A scroll-linked animation on a linear curve is welded to
+       the scrollbar and feels like dragging; on a strong ease-out most of the
+       travel is spent in the first fraction of the range, so the element reads
+       as arriving under its own weight and settling, which is the thing
+       JavaScript motion libraries are usually brought in to do. */
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.986);
+      }
+    }
+
+    /* Cards on the same row cross the same line at the same moment, so without
+       this they would all arrive on the same frame, which reads as one slab
+       moving, not as several things. Staggering the *range* rather than adding
+       a delay is what a scroll timeline wants: there is no clock to delay
+       against, only distance. */
+    .xn-bento > .rise:nth-child(2),
+    .ld-claims > .rise:nth-child(2),
+    .ld-music__points > .rise:nth-child(2) {
+      animation-range: entry 6% cover 28%;
+    }
+
+    .xn-bento > .rise:nth-child(3),
+    .ld-claims > .rise:nth-child(3),
+    .ld-music__points > .rise:nth-child(3) {
+      animation-range: entry 10% cover 32%;
+    }
+
+    .xn-bento > .rise:nth-child(4),
+    .ld-claims > .rise:nth-child(4) {
+      animation-range: entry 14% cover 36%;
+    }
+
+    .xn-bento > .rise:nth-child(5) {
+      animation-range: entry 18% cover 40%;
+    }
+
+    /* The sleeve wall comes in a beat after the copy beside it, so the eye is
+       given the sentence first and the picture second. */
+    .ld-shelf {
+      animation-range: entry 8% cover 32%;
+    }
+
+    /* The finale is a single object and gets a longer, later arrival than the
+       sections above it: it is the last thing on the page and has room to take
+       its time. */
+    .ld-close {
+      animation: rise var(--ease) both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 34%;
+    }
+  }
+}
+
+/* ── Mid viewports ── */
+@media (max-width: 1080px) {
+  /* The bar cannot hold three groups at this width without the middle one
+     colliding with the brand. The anchors it holds all point at sections the
+     page scrolls past anyway. */
+  .navbar__links {
+    display: none;
+  }
+}
+
+/* ── Below the point where a 7/5 row still has room to breathe ──
+   The two lead cards go full width and the trio pairs off. The odd one out
+   takes the full row rather than sitting half-width beside a gap. */
 @media (max-width: 980px) {
   .xn-feat--lead,
   .xn-feat--wide {
@@ -797,6 +1634,24 @@
   .xn-feat--third:last-child {
     grid-column: span 12;
   }
+
+  /* The sleeve wall stops being a column beside the copy and becomes the thing
+     under it, which is the only arrangement that leaves both of them a
+     readable width. */
+  .ld-music {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ld-shelf__grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  /* The window's search field is centred on the window, and below this width
+     the tabs reach it. The real bar hides it at 720px for the same reason;
+     this drawing is narrower than the window it depicts, so it goes sooner. */
+  .ld-window__search {
+    display: none;
+  }
 }
 
 /* ── Narrow viewports ── */
@@ -806,7 +1661,7 @@
   }
 
   .ld-hero {
-    padding-top: 44px;
+    padding-top: 40px;
   }
 
   .ld-hero__actions {
@@ -820,6 +1675,17 @@
   .ld-cta,
   .ld-ghost {
     justify-content: center;
+  }
+
+  /* A drawn window is a picture, and at this width the only part of it worth
+     the space is what it is a picture of. The bar keeps the two sections and
+     the controls; the history arrows are the first thing that can go. */
+  .ld-window__history {
+    display: none;
+  }
+
+  .ld-window__nav {
+    margin-left: var(--s-2);
   }
 
   .xn-drop__target {
@@ -839,7 +1705,24 @@
     grid-column: span 12;
   }
 
+  .ld-shelf__grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
   .xn-caps {
     gap: 0 18px;
+  }
+
+  .ld-close {
+    border-radius: var(--r-5);
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .xn-footer__links {
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--s-5);
+    text-align: center;
   }
 }

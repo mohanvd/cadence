@@ -1,4 +1,4 @@
-import { Download } from 'lucide-react';
+import { ArrowRight, Download } from 'lucide-react';
 import GithubMark from './GithubMark';
 import { RELEASES_URL, INSTALLER_URL } from '../links';
 
@@ -16,15 +16,26 @@ import { RELEASES_URL, INSTALLER_URL } from '../links';
 export default function Hero({ installerSize }: { installerSize: string }) {
   return (
     <section className="ld-hero">
+      {/* A link rather than a badge, because a pill announcing a feature and
+          then not going to it is an advert. It carried a small pulsing accent
+          dot and does not any more: a coloured dot throbbing beside the words
+          "now" is the house style of every product announcement of the last two
+          years, and it made a true sentence read like a generated one. */}
+      <a className="ld-pill" href="#music">
+        Now plays your music library
+        <ArrowRight size={13} strokeWidth={2.2} aria-hidden />
+      </a>
+
       <h1 className="ld-hero__title">
-        A real video player
+        A real media player
         <br />
         for the files that refuse to open
       </h1>
 
       <p className="ld-hero__sub">
-        Cadence opens what other players hand back, from a native window, with
-        every control one key away.
+        Cadence carries its own decoder, so the MKV that stalls everywhere else
+        simply plays. Your music lives in the same window, and every control is
+        one key away.
       </p>
 
       <div className="ld-hero__actions">
