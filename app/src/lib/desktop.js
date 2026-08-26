@@ -351,6 +351,24 @@ export async function fileIsThere(path) {
  *
  * @param {NowPlaying} playing
  */
+/**
+ * Tell the shell how much of what is playing may reach Discord.
+ *
+ * Two switches rather than one: showing a record and showing a film are
+ * different decisions, and the second is the one people regret.
+ *
+ * @param {{ enabled: boolean, videoTitles: boolean }} settings
+ */
+export async function setDiscordPresence(settings) {
+  if (!isDesktop()) return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    await invoke('discord_presence', { settings });
+  } catch {
+    // Discord is optional, and a player that cannot reach it still plays.
+  }
+}
+
 export async function setNowPlaying(playing) {
   if (!isDesktop()) return;
   const { invoke } = await import('@tauri-apps/api/core');

@@ -5,6 +5,8 @@ use std::sync::Mutex;
 #[cfg(desktop)]
 use tauri::{Emitter, Manager};
 
+#[cfg(desktop)]
+mod discord;
 mod fonts;
 mod media;
 mod music;
@@ -816,9 +818,36 @@ fn name_this_program() {
 #[tauri::command]
 fn now_playing(
     state: tauri::State<'_, nowplaying::NowPlaying>,
+    #[cfg(desktop)] presence: tauri::State<'_, discord::Presence>,
     playing: nowplaying::Playing,
 ) -> Result<(), String> {
+    /* Discord hears the same report, because it is the same question asked by
+    somebody else. What it does with the ones in between is its own business:
+    the page sends this every second, and the thread behind `show` keeps only
+    the last one and speaks when there is something worth saying. */
+    #[cfg(desktop)]
+    presence.show(discord::Snapshot {
+        title: playing.title.clone(),
+        subtitle: playing.subtitle.clone(),
+        album: playing.album.clone(),
+        music: playing.music,
+        playing: playing.playing,
+        duration: playing.duration,
+        position: playing.position,
+    });
+
     state.update(&playing)
+}
+
+/// How much of what is playing may be shown on Discord.
+///
+/// Pushed from the page, which owns the settings, rather than read from a file
+/// here. Called once when the player starts and again whenever either switch
+/// moves.
+#[cfg(desktop)]
+#[tauri::command]
+fn discord_presence(state: tauri::State<'_, discord::Presence>, settings: discord::Settings) {
+    state.configure(settings);
 }
 
 pub fn run() {
@@ -860,6 +889,9 @@ pub fn run() {
     #[cfg(windows)]
     let builder = builder.manage(nowplaying::NowPlaying::idle());
 
+    #[cfg(desktop)]
+    let builder = builder.manage(discord::Presence::start());
+
     builder
         .invoke_handler(tauri::generate_handler![
             take_launch_file,
@@ -890,7 +922,9 @@ pub fn run() {
             pick_playlist,
             pick_playlist_target,
             #[cfg(windows)]
-            now_playing
+            now_playing,
+            #[cfg(desktop)]
+            discord_presence
         ])
         .setup(|app| {
             /* The library, read back from where it was last written. Managed

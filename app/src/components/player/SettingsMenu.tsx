@@ -12,6 +12,7 @@ import {
   useExclusiveMenu,
 } from '@/components/ui/popover';
 import { Tooltip } from '@/components/ui/tooltip';
+import { useDiscordStore } from '@/store/discordStore';
 import { cn } from '@/lib/utils';
 import type { PlayerFeatures } from '@/features/usePlayerFeatures';
 import type { MusicModeApi } from '@/features/playback/useMusicMode';
@@ -25,7 +26,7 @@ import {
   useAppearanceStore,
 } from '@/store/appearanceStore';
 
-type Panel = 'root' | 'video' | 'audio' | 'timer' | 'zoom' | 'appearance';
+type Panel = 'root' | 'video' | 'audio' | 'timer' | 'zoom' | 'appearance' | 'discord';
 
 /**
  * The settings popover.
@@ -57,6 +58,7 @@ export interface SettingsMenuProps {
 export function SettingsMenu({ features, ambient, musicMode, fit, music }: SettingsMenuProps) {
   const { open, onOpenChange } = useExclusiveMenu('settings');
   const [panel, setPanel] = React.useState<Panel>('root');
+  const discord = useDiscordStore();
   const { canProcessAudio } = useAudioProcessing();
 
   // Always reopen at the top level; resuming in a nested panel is disorienting.
@@ -128,6 +130,12 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
               Sleep timer
             </MenuItem>
             <MenuItem onSelect={() => setPanel('appearance')}>Appearance</MenuItem>
+            <MenuItem
+              onSelect={() => setPanel('discord')}
+              trailing={<span>{discord.enabled ? 'On' : 'Off'}</span>}
+            >
+              Discord
+            </MenuItem>
 
             <MenuSeparator />
 
@@ -314,6 +322,32 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
             <MenuItem onSelect={zoomPan.resetZoom} disabled={zoomPan.zoom <= 1}>
               Reset zoom
             </MenuItem>
+          </PanelFrame>
+        )}
+
+        {panel === 'discord' && (
+          <PanelFrame title="Discord" onBack={() => setPanel('root')}>
+            <div className="px-2.5 pb-2 text-[12px] text-fg-muted">
+              Shows what you are playing on your profile. Everyone who can see
+              your profile can see it.
+            </div>
+            <MenuItem
+              active={discord.enabled}
+              trailing={<span>{discord.enabled ? 'On' : 'Off'}</span>}
+              onSelect={() => discord.setEnabled(!discord.enabled)}
+            >
+              Show what I am playing
+            </MenuItem>
+            <MenuItem
+              active={discord.videoTitles}
+              trailing={<span>{discord.videoTitles ? 'On' : 'Off'}</span>}
+              onSelect={() => discord.setVideoTitles(!discord.videoTitles)}
+            >
+              Include film titles
+            </MenuItem>
+            <div className="px-2.5 pb-2 pt-1 text-[12px] text-fg-subtle">
+              With this off, films show as “Watching something”.
+            </div>
           </PanelFrame>
         )}
 

@@ -14,6 +14,7 @@ import { TooltipProvider } from './components/ui/tooltip';
 import { closeMenus } from './components/ui/popover';
 import { MusicSearch } from './components/music/MusicSearch';
 import { isSoundOnly } from './lib/media';
+import { useDiscordStore } from './store/discordStore';
 import { useMouseNavigation, useView, useViewStore } from './store/viewStore';
 import { useNoBrowserMenu } from './components/music/TrackMenu';
 import TitleBar from './components/TitleBar';
@@ -68,6 +69,13 @@ export default function App() {
   useNoBrowserMenu();
   // The two extra buttons on a mouse, which every other application answers.
   useMouseNavigation();
+
+  /* The shell starts with the presence off and has no way to read the setting
+     itself: it lives in the page's storage, like every other preference. One
+     push at startup is what makes a switch left on last week still on today. */
+  useEffect(() => {
+    useDiscordStore.getState().sync();
+  }, []);
 
   /* A `File` with no path behind it, which only the browser dev server
      produces. The recent entry it leaves is a record that the file was
