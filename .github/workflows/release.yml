@@ -80,7 +80,21 @@ jobs:
             exit 1
           fi
 
-          echo "RELEASES_TOKEN can write to $RELEASE_REPO. Building."
+          # A release has to hang off a commit. GitHub attaches one to the
+          # default branch unless told otherwise, so a repository with no
+          # commits in it cannot take a release at all — not even a draft,
+          # which is the surprising part, and the reason this is worth a check
+          # rather than a comment. A freshly created repository is empty, and
+          # the repository record still names a default branch that does not
+          # exist yet, so nothing about it looks wrong until the release is
+          # attempted at the very end of the build.
+          branch=$(printf '%s' "$response" | jq -r '.default_branch')
+          if ! gh api "repos/$RELEASE_REPO/branches/$branch" >/dev/null 2>&1; then
+            echo "::error::$RELEASE_REPO has no commits, so its default branch ($branch) does not exist and no release can be attached to it. Push anything to it — a README is enough."
+            exit 1
+          fi
+
+          echo "RELEASES_TOKEN can write to $RELEASE_REPO, and $branch exists. Building."
 
       - uses: actions/checkout@v4
         with:
