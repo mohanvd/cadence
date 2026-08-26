@@ -106,7 +106,7 @@ enum Message {
 /// trying to work out why their profile is blank: a switch that is on, a
 /// Discord that is closed and a card that was refused all look identical from
 /// the outside. This is the difference.
-#[derive(Clone, Copy, Default, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Status {
     /// The switch is off.
@@ -638,5 +638,53 @@ mod tests {
         let _ = client.clear_activity();
         let _ = client.close();
         println!("cleared");
+    }
+
+    /// Drive the whole shell-side path the way the player does, and say where
+    /// it stops.
+    ///
+    /// `Presence::start`, a `configure`, a `show`, and then the thread on its
+    /// own. If this reaches `Showing`, everything below the page is working and
+    /// a blank profile is the page not asking. If it stops earlier, it stops
+    /// somewhere this prints.
+    ///
+    ///     cargo test the_presence_thread_reaches_discord -- --ignored --nocapture
+    #[test]
+    #[ignore = "publishes a real activity"]
+    fn the_presence_thread_reaches_discord() {
+        let presence = Presence::start();
+        println!("start:     {:?}", presence.status());
+
+        presence.configure(Settings {
+            enabled: true,
+            video_titles: false,
+        });
+        presence.show(Snapshot {
+            title: "First Light".to_owned(),
+            subtitle: "Auva".to_owned(),
+            album: "Ascent".to_owned(),
+            music: true,
+            playing: true,
+            duration: 225.0,
+            position: 30.0,
+            artwork: String::new(),
+        });
+
+        let mut last = presence.status();
+        for _ in 0..40 {
+            std::thread::sleep(Duration::from_millis(250));
+            let now = presence.status();
+            if now != last {
+                println!("became:    {now:?}");
+                last = now;
+            }
+            if now == Status::Showing {
+                break;
+            }
+        }
+
+        println!("finished:  {last:?}");
+        std::thread::sleep(Duration::from_secs(15));
+        assert_eq!(last, Status::Showing, "the presence never reached Discord");
     }
 }
