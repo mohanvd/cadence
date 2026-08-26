@@ -151,6 +151,22 @@ jobs:
           # here. The tag itself stays private with the source.
           owner: ${{ github.repository_owner }}
           repo: cadence-releases
+          # The commit the release hangs off, named explicitly because the
+          # default is wrong for a cross-repository release and wrong in a way
+          # that costs a full build to discover.
+          #
+          # Left alone, the action sends `context.sha`: the commit being built,
+          # which lives in *this* repository. GitHub validates that value
+          # against the repository the release is being created in, where that
+          # SHA has never existed, and rejects it as an invalid
+          # `target_commitish` after the installer has already been built and
+          # signed.
+          #
+          # `main` is a branch of the release repository, so it resolves. What
+          # it points at does not matter: the release carries its own assets
+          # and that repository holds no source for a commit to be meaningful
+          # about.
+          releaseCommitish: main
           tagName: ${{ inputs.tag || github.ref_name }}
           releaseName: 'Cadence ${{ inputs.tag || github.ref_name }}'
           releaseBody: |
