@@ -851,6 +851,19 @@ fn discord_presence(state: tauri::State<'_, discord::Presence>, settings: discor
     state.configure(settings);
 }
 
+/// What the presence is doing, so the settings panel can say.
+///
+/// The module fails quietly on purpose, because a player must not stop for
+/// Discord. That leaves a switch that is on, a Discord that is closed and a
+/// card that was refused looking identical from the outside, which is fine
+/// during a film and useless to somebody working out why their profile is
+/// blank.
+#[cfg(desktop)]
+#[tauri::command]
+fn discord_status(state: tauri::State<'_, discord::Presence>) -> discord::Status {
+    state.status()
+}
+
 pub fn run() {
     #[cfg(windows)]
     name_this_program();
@@ -925,7 +938,9 @@ pub fn run() {
             #[cfg(windows)]
             now_playing,
             #[cfg(desktop)]
-            discord_presence
+            discord_presence,
+            #[cfg(desktop)]
+            discord_status
         ])
         .setup(|app| {
             /* The library, read back from where it was last written. Managed

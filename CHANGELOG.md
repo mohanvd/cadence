@@ -5,6 +5,19 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-08-26
+
+### Added
+
+- **The Discord panel says what the presence is doing.** Off, waiting for
+  something to play, unable to find Discord, showing, or refused.
+
+  Everything in that module fails quietly, because a player must not stop for
+  Discord. That is the right trade while a film is running and the wrong one at
+  the moment somebody is working out why their profile is blank: a switch that
+  is on, a Discord that is closed and a card that was rejected all looked
+  identical from the outside. Now they do not.
+
 ## [0.8.0] - 2026-08-26
 
 ### Added
@@ -737,6 +750,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   installed program, which is no longer a problem worth solving.
 - A router, for an application with one screen.
 
+[0.8.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.1
 [0.8.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.0
 [0.7.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.7.0
 [0.6.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.6.0

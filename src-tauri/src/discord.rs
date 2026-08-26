@@ -11,11 +11,12 @@
 //! position. It must never wait on any of this.
 
 use std::sync::mpsc::{Receiver, RecvTimeoutError, SyncSender};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use discord_rich_presence::activity::{Activity, ActivityType, Assets, Button, Timestamps};
 use discord_rich_presence::{DiscordIpc, DiscordIpcClient};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// The Discord application whose name and icon the card carries.
 ///
@@ -98,31 +99,68 @@ enum Message {
     Configure(Settings),
 }
 
+/// What the presence is doing, for the settings panel to say out loud.
+///
+/// Everything in this module fails quietly, because a player must not stop for
+/// Discord. That is right while a film is running and useless while somebody is
+/// trying to work out why their profile is blank: a switch that is on, a
+/// Discord that is closed and a card that was refused all look identical from
+/// the outside. This is the difference.
+#[derive(Clone, Copy, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Status {
+    /// The switch is off.
+    #[default]
+    Off,
+    /// On, but nothing is playing.
+    Idle,
+    /// On, something is playing, and Discord cannot be reached. Almost always
+    /// means Discord is not running.
+    Waiting,
+    /// On your profile now.
+    Showing,
+    /// Discord took the connection and rejected the card.
+    Refused,
+}
+
 /// The handle the rest of the program holds.
-pub struct Presence(Option<SyncSender<Message>>);
+pub struct Presence {
+    send: Option<SyncSender<Message>>,
+    status: Arc<Mutex<Status>>,
+}
 
 impl Presence {
     /// Start the thread that owns the connection.
     pub fn start() -> Self {
         let (send, receive) = std::sync::mpsc::sync_channel(8);
+        let status = Arc::new(Mutex::new(Status::Off));
+        let reported = Arc::clone(&status);
         let spawned = std::thread::Builder::new()
             .name("discord-presence".to_owned())
-            .spawn(move || serve(receive))
+            .spawn(move || serve(receive, reported))
             .is_ok();
-        Self(spawned.then_some(send))
+        Self {
+            send: spawned.then_some(send),
+            status,
+        }
+    }
+
+    /// What it is doing right now.
+    pub fn status(&self) -> Status {
+        self.status.lock().map(|held| *held).unwrap_or_default()
     }
 
     /// Report what is playing. Never blocks and never fails: a full channel
     /// means the thread is busy with a pipe, and the next report supersedes
     /// this one anyway.
     pub fn show(&self, snapshot: Snapshot) {
-        if let Some(send) = &self.0 {
+        if let Some(send) = &self.send {
             let _ = send.try_send(Message::Show(snapshot));
         }
     }
 
     pub fn configure(&self, settings: Settings) {
-        if let Some(send) = &self.0 {
+        if let Some(send) = &self.send {
             let _ = send.try_send(Message::Configure(settings));
         }
     }
@@ -285,7 +323,13 @@ impl Shown {
     }
 }
 
-fn serve(receive: Receiver<Message>) {
+fn serve(receive: Receiver<Message>, status: Arc<Mutex<Status>>) {
+    let report = |next: Status| {
+        if let Ok(mut held) = status.lock() {
+            *held = next;
+        }
+    };
+
     let mut client = DiscordIpcClient::new(APPLICATION);
     let mut connected = false;
     let mut tried: Option<Instant> = None;
@@ -321,6 +365,11 @@ fn serve(receive: Receiver<Message>) {
                 connected = false;
             }
             shown = None;
+            report(if settings.enabled {
+                Status::Idle
+            } else {
+                Status::Off
+            });
             continue;
         };
 
@@ -336,6 +385,9 @@ fn serve(receive: Receiver<Message>) {
             }
             tried = Some(Instant::now());
             if client.connect().is_err() {
+                // Almost always means Discord is not running. It is not an
+                // error worth showing as one, but it is worth being able to see.
+                report(Status::Waiting);
                 continue;
             }
             connected = true;
@@ -344,7 +396,13 @@ fn serve(receive: Receiver<Message>) {
             here only because every path out of this loop body sets it. */
         }
 
+        if !connected {
+            report(Status::Waiting);
+            continue;
+        }
+
         if client.set_activity(build(&wanted)).is_err() {
+            report(Status::Refused);
             // Discord quit, or restarted and handed us a dead pipe. Drop it and
             // let the retry above pick it up.
             let _ = client.close();
@@ -353,6 +411,7 @@ fn serve(receive: Receiver<Message>) {
             continue;
         }
 
+        report(Status::Showing);
         shown = Some(Shown {
             details: wanted.details,
             state: wanted.state,

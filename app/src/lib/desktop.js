@@ -369,6 +369,23 @@ export async function setDiscordPresence(settings) {
   }
 }
 
+/**
+ * What the Discord presence is doing: off, idle, waiting, showing, refused.
+ *
+ * @returns {Promise<string>}
+ */
+export async function discordStatus() {
+  if (!isDesktop()) return 'off';
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    return await invoke('discord_status');
+  } catch {
+    // An older shell with no such command. It has no presence either, so off
+    // is the honest answer rather than a failure.
+    return 'off';
+  }
+}
+
 export async function setNowPlaying(playing) {
   if (!isDesktop()) return;
   const { invoke } = await import('@tauri-apps/api/core');

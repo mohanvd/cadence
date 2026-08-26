@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/popover';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useDiscordStore } from '@/store/discordStore';
+import { discordStatus } from '@/lib/desktop';
 import { cn } from '@/lib/utils';
 import type { PlayerFeatures } from '@/features/usePlayerFeatures';
 import type { MusicModeApi } from '@/features/playback/useMusicMode';
@@ -331,6 +332,7 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
               Shows what you are playing on your profile. Everyone who can see
               your profile can see it.
             </div>
+            <DiscordStatusLine />
             <MenuItem
               active={discord.enabled}
               trailing={<span>{discord.enabled ? 'On' : 'Off'}</span>}
@@ -391,6 +393,48 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
         )}
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * What the presence is actually doing.
+ *
+ * Every failure in the presence is silent, because a player must not stop for
+ * Discord. That is the right trade during a film and the wrong one at the
+ * moment somebody is trying to work out why their profile is blank: a switch
+ * that is on, a Discord that is closed and a card that was refused all look
+ * the same from here. This asks, while the panel is open and not otherwise.
+ */
+function DiscordStatusLine() {
+  const [status, setStatus] = React.useState('off');
+
+  React.useEffect(() => {
+    let live = true;
+    const ask = () => {
+      void discordStatus().then((next) => {
+        if (live) setStatus(next);
+      });
+    };
+    ask();
+    const timer = window.setInterval(ask, 2000);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const said: Record<string, string> = {
+    off: 'Not showing anything',
+    idle: 'On, waiting for something to play',
+    waiting: 'Discord is not running',
+    showing: 'On your profile now',
+    refused: 'Discord refused the card',
+  };
+
+  return (
+    <div className="px-2.5 pb-1.5 text-[12px] text-fg-subtle">
+      {said[status] ?? said.off}
+    </div>
   );
 }
 
