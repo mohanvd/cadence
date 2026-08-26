@@ -70,6 +70,11 @@ fn activity_type(code: i32) -> ActivityType {
 pub struct Settings {
     pub enabled: bool,
     pub video_titles: bool,
+    /* There is no `album_art` here on purpose. The page decides whether to look
+    a cover up, because the page is the side that can reach the internet, and
+    this side only ever receives a URL or an empty string. Serde ignores the
+    field the page sends, which is the right amount of coupling: one end holds
+    the setting, the other holds the result. */
 }
 
 /// What is playing, as much of it as this module needs.
@@ -82,6 +87,10 @@ pub struct Snapshot {
     pub playing: bool,
     pub duration: f64,
     pub position: f64,
+    /// A picture Discord can fetch, or empty for the fixed logo. Never a path:
+    /// Discord loads this from its own servers, and nothing on this disk is
+    /// reachable from there.
+    pub artwork: String,
 }
 
 enum Message {
@@ -122,9 +131,15 @@ impl Presence {
 /// The two lines Discord draws, and the clock under them.
 struct Card {
     kind: i32,
+    /// The first line, and the biggest.
     details: String,
+    /// The second.
     state: String,
+    /// The third, and the tooltip on the picture. Discord draws it as a line
+    /// of its own under the other two, which is the room a record needs: a
+    /// title, who made it, and what it came from, each said once.
     hover: String,
+    artwork: String,
     /// Unix seconds. Discord animates the bar from these by itself, which is
     /// why a position that is merely advancing needs no update at all.
     start: Option<i64>,
@@ -138,60 +153,67 @@ fn now() -> i64 {
         .unwrap_or(0)
 }
 
-/// Join the parts of a line, skipping the ones this file did not carry.
-fn join(parts: [&str; 2]) -> String {
-    parts
-        .iter()
-        .filter(|part| !part.trim().is_empty())
-        .copied()
-        .collect::<Vec<_>>()
-        .join(" \u{b7} ")
-}
-
 fn card(playing: &Snapshot, settings: &Settings) -> Card {
-    let (kind, details, state) = if playing.music {
-        (
-            LISTENING,
-            playing.title.clone(),
-            join([&playing.subtitle, &playing.album]),
-        )
+    let (kind, details, state, mut hover) = if playing.music {
+        /* Artist on the second line and record on the third, rather than both
+        joined on the second. They were joined while the third line was thought
+        to be a tooltip nobody reads; it is drawn, so the record had been
+        printed twice. */
+        let artist = playing.subtitle.trim();
+        let album = playing.album.trim();
+        let (state, hover) = if artist.is_empty() {
+            (album.to_owned(), String::new())
+        } else {
+            (artist.to_owned(), album.to_owned())
+        };
+        (LISTENING, playing.title.clone(), state, hover)
     } else if settings.video_titles {
-        (WATCHING, playing.title.clone(), playing.subtitle.clone())
+        (
+            WATCHING,
+            playing.title.clone(),
+            playing.subtitle.clone(),
+            String::new(),
+        )
     } else {
         // The switch is off, so the card says that something is playing and
         // refuses to say what. Still worth showing: it is the difference
         // between "here, and busy" and nothing at all.
-        (WATCHING, "Watching something".to_owned(), String::new())
+        (
+            WATCHING,
+            "Watching something".to_owned(),
+            String::new(),
+            String::new(),
+        )
     };
 
     // A paused film has no clock to draw. Dropping the timestamps stops the
     // bar rather than leaving it running over a picture that is not moving,
     // and the word goes on the line underneath so the stop is legible.
-    let (start, end, state) = if playing.playing {
+    let (start, end) = if playing.playing {
         let start = now() - playing.position.max(0.0) as i64;
         let end = (playing.duration.is_finite() && playing.duration > 0.0)
             .then(|| start + playing.duration as i64);
-        (Some(start), end, state)
+        (Some(start), end)
     } else {
-        let state = if state.is_empty() {
-            "Paused".to_owned()
-        } else {
-            format!("{state} (paused)")
-        };
-        (None, None, state)
+        /* Discord has no way to draw a stopped bar: a bar with timestamps
+        advances, and one without has no bar at all. So a pause drops them and
+        says the word instead, on the third line, which leaves the title and
+        the artist where they were rather than rewriting the line somebody is
+        reading. */
+        hover = "Paused".to_owned();
+        (None, None)
     };
 
-    let hover = if playing.album.trim().is_empty() {
-        "Cadence".to_owned()
-    } else {
-        playing.album.clone()
-    };
+    if hover.is_empty() {
+        hover = "Cadence".to_owned();
+    }
 
     Card {
         kind,
         details,
         state,
         hover,
+        artwork: playing.artwork.clone(),
         start,
         end,
     }
@@ -201,6 +223,8 @@ fn card(playing: &Snapshot, settings: &Settings) -> Card {
 struct Shown {
     details: String,
     state: String,
+    hover: String,
+    artwork: String,
     kind: i32,
     start: Option<i64>,
     at: Instant,
@@ -210,7 +234,12 @@ impl Shown {
     /// Whether the card in hand differs from this one by anything a viewer
     /// could see.
     fn differs_from(&self, card: &Card) -> bool {
-        if self.details != card.details || self.state != card.state || self.kind != card.kind {
+        if self.details != card.details
+            || self.state != card.state
+            || self.hover != card.hover
+            || self.artwork != card.artwork
+            || self.kind != card.kind
+        {
             return true;
         }
         match (self.start, card.start) {
@@ -279,10 +308,20 @@ fn serve(receive: Receiver<Message>) {
             here only because every path out of this loop body sets it. */
         }
 
+        let cover = !wanted.artwork.is_empty();
+        let large = if cover { &wanted.artwork } else { ARTWORK };
+        let mut assets = Assets::new().large_image(large).large_text(&wanted.hover);
+        if cover {
+            // The logo steps aside for the record and comes back as the badge,
+            // which is the only place it is still doing any work: saying which
+            // player this is.
+            assets = assets.small_image(ARTWORK).small_text("Cadence");
+        }
+
         let mut activity = Activity::new()
             .activity_type(activity_type(wanted.kind))
             .details(&wanted.details)
-            .assets(Assets::new().large_image(ARTWORK).large_text(&wanted.hover))
+            .assets(assets)
             .buttons(vec![Button::new("Get Cadence", SITE)]);
 
         if !wanted.state.is_empty() {
@@ -309,6 +348,8 @@ fn serve(receive: Receiver<Message>) {
         shown = Some(Shown {
             details: wanted.details,
             state: wanted.state,
+            hover: wanted.hover,
+            artwork: wanted.artwork,
             kind: wanted.kind,
             start: wanted.start,
             at: Instant::now(),
@@ -329,17 +370,30 @@ mod tests {
             playing,
             duration: 225.0,
             position: 107.0,
+            artwork: String::new(),
         }
     }
 
-    /// Artist and album share the second line, because Discord draws two lines
-    /// and a record has three things worth naming.
+    /// Three lines, each saying one thing. They were two, with the record
+    /// glued to the artist, until a card in the wild showed the third line
+    /// being drawn and the record appearing twice.
     #[test]
-    fn a_track_names_itself_over_two_lines() {
+    fn a_track_names_itself_once_per_line() {
         let card = card(&track(true), &Settings::default());
         assert_eq!(card.details, "First Light");
-        assert_eq!(card.state, "Auva \u{b7} Ascent");
+        assert_eq!(card.state, "Auva");
+        assert_eq!(card.hover, "Ascent");
         assert_eq!(card.kind, LISTENING);
+    }
+
+    /// A track with no artist tag still has somewhere to put the record.
+    #[test]
+    fn an_untagged_artist_does_not_leave_a_blank_line() {
+        let mut anonymous = track(true);
+        anonymous.subtitle = String::new();
+        let card = card(&anonymous, &Settings::default());
+        assert_eq!(card.state, "Ascent");
+        assert_eq!(card.hover, "Cadence");
     }
 
     /// The bar is drawn from the timestamps, so they have to describe a track
@@ -360,7 +414,31 @@ mod tests {
         let card = card(&track(false), &Settings::default());
         assert_eq!(card.start, None);
         assert_eq!(card.end, None);
-        assert!(card.state.ends_with("(paused)"));
+        // The title and the artist stay put. Only the third line changes, so
+        // the two lines somebody is reading do not rewrite themselves.
+        assert_eq!(card.details, "First Light");
+        assert_eq!(card.state, "Auva");
+        assert_eq!(card.hover, "Paused");
+    }
+
+    /// A cover arriving a moment after the track it belongs to has to count as
+    /// a change, or it would be found and then never shown.
+    #[test]
+    fn a_cover_that_arrives_late_still_counts() {
+        let bare = card(&track(true), &Settings::default());
+        let showing = Shown {
+            details: bare.details.clone(),
+            state: bare.state.clone(),
+            hover: bare.hover.clone(),
+            artwork: bare.artwork.clone(),
+            kind: bare.kind,
+            start: bare.start,
+            at: Instant::now(),
+        };
+
+        let mut dressed = track(true);
+        dressed.artwork = "https://example.invalid/sleeve.jpg".to_owned();
+        assert!(showing.differs_from(&card(&dressed, &Settings::default())));
     }
 
     /// The default answer for video is that something is playing, without
@@ -398,6 +476,8 @@ mod tests {
         let showing = Shown {
             details: base.details.clone(),
             state: base.state.clone(),
+            hover: base.hover.clone(),
+            artwork: base.artwork.clone(),
             kind: base.kind,
             start: base.start,
             at: Instant::now(),
@@ -430,5 +510,51 @@ mod tests {
             .clear_activity()
             .expect("the connection carries commands");
         client.close().expect("the pipe closed cleanly");
+    }
+
+    /// Put a real card up for twenty seconds, so a human can look at it.
+    ///
+    /// This one does publish. It exists because every failure in this module is
+    /// deliberately silent (a player must not stop for Discord), and silence is
+    /// indistinguishable from a card nobody enabled. Run by hand:
+    ///
+    ///     cargo test a_card_a_person_can_look_at -- --ignored --nocapture
+    #[test]
+    #[ignore = "publishes a real activity for twenty seconds"]
+    fn a_card_a_person_can_look_at() {
+        let mut client = DiscordIpcClient::new(APPLICATION);
+        client.connect().expect("connected");
+
+        let start = now() - 107;
+        let large = std::env::var("CADENCE_DISCORD_LARGE").unwrap_or(ARTWORK.to_owned());
+        let small = std::env::var("CADENCE_DISCORD_SMALL").unwrap_or_default();
+        let activity = Activity::new()
+            .activity_type(ActivityType::Listening)
+            .details("First Light")
+            .state("Auva \u{b7} Ascent")
+            .assets({
+                let mut assets = Assets::new().large_image(&large).large_text("Ascent");
+                if !small.is_empty() {
+                    assets = assets.small_image(&small).small_text("Cadence");
+                }
+                assets
+            })
+            .buttons(vec![Button::new("Get Cadence", SITE)])
+            .timestamps(Timestamps::new().start(start).end(start + 225));
+
+        match client.set_activity(activity) {
+            Ok(()) => println!("SET OK. Look at your profile now."),
+            Err(err) => panic!("Discord refused the activity: {err}"),
+        }
+
+        let hold: u64 = std::env::var("CADENCE_DISCORD_HOLD")
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(20);
+        println!("holding for {hold}s");
+        std::thread::sleep(Duration::from_secs(hold));
+        let _ = client.clear_activity();
+        let _ = client.close();
+        println!("cleared");
     }
 }

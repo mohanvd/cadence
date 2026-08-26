@@ -59,6 +59,12 @@ pub struct Playing {
     pub position: f64,
     pub has_next: bool,
     pub has_previous: bool,
+    /// A picture of the record on somebody else's server, for the places that
+    /// can only show one from a URL. Empty unless the page went looking, which
+    /// it does only when asked to. Windows has the file itself and reads the
+    /// sleeve out of it, so nothing here uses this.
+    #[serde(default)]
+    pub artwork: String,
 }
 
 /// The controls for this window, once taken.

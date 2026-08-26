@@ -345,8 +345,17 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
             >
               Include film titles
             </MenuItem>
+            <MenuItem
+              active={discord.albumArt}
+              trailing={<span>{discord.albumArt ? 'On' : 'Off'}</span>}
+              onSelect={() => discord.setAlbumArt(!discord.albumArt)}
+            >
+              Show album art
+            </MenuItem>
             <div className="px-2.5 pb-2 pt-1 text-[12px] text-fg-subtle">
-              With this off, films show as “Watching something”.
+              Films show as “Watching something” unless titles are on. Album art
+              is looked up online by artist and album; your files are never
+              uploaded.
             </div>
           </PanelFrame>
         )}

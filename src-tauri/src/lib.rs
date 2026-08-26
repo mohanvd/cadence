@@ -834,6 +834,7 @@ fn now_playing(
         playing: playing.playing,
         duration: playing.duration,
         position: playing.position,
+        artwork: playing.artwork.clone(),
     });
 
     state.update(&playing)

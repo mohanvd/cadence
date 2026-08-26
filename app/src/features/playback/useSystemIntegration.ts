@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useCoverArt } from './useCoverArt';
 import { usePlayerStore } from '@/store/playerStore';
 import { isDesktop, onNowPlaying, setNowPlaying } from '@/lib/desktop';
 
@@ -149,6 +150,11 @@ function useShellNowPlaying(
   const next = !!handlers.next;
   const previous = !!handlers.previous;
 
+  /* Empty until a cover has been found, and empty forever unless the setting
+     asking for one is on. The card goes up either way; a picture that arrives
+     late replaces the logo rather than delaying the card. */
+  const artwork = useCoverArt(subtitle, album, music);
+
   React.useEffect(() => {
     if (!isDesktop()) return undefined;
 
@@ -174,6 +180,7 @@ function useShellNowPlaying(
         position: state.currentTime,
         hasNext: next,
         hasPrevious: previous,
+        artwork,
       });
     };
 
@@ -199,9 +206,10 @@ function useShellNowPlaying(
         position: 0,
         hasNext: false,
         hasPrevious: false,
+        artwork: '',
       });
     };
-  }, [title, subtitle, album, music, next, previous]);
+  }, [title, subtitle, album, music, next, previous, artwork]);
 }
 
 type WakeLock = { release: () => Promise<void>; released: boolean };

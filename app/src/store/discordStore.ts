@@ -24,11 +24,13 @@ const KEY = 'cadence:discord';
 export interface DiscordSettings {
   enabled: boolean;
   videoTitles: boolean;
+  albumArt: boolean;
 }
 
 const DEFAULTS: DiscordSettings = {
   enabled: false,
   videoTitles: false,
+  albumArt: false,
 };
 
 function read(): DiscordSettings {
@@ -39,6 +41,7 @@ function read(): DiscordSettings {
     return {
       enabled: parsed.enabled === true,
       videoTitles: parsed.videoTitles === true,
+      albumArt: parsed.albumArt === true,
     };
   } catch {
     // A settings file that will not parse is a settings file that has never
@@ -58,11 +61,17 @@ function write(settings: DiscordSettings): void {
 interface DiscordStore extends DiscordSettings {
   setEnabled: (enabled: boolean) => void;
   setVideoTitles: (videoTitles: boolean) => void;
+  setAlbumArt: (albumArt: boolean) => void;
   /** Hand the current settings to the shell. Called once at startup. */
   sync: () => void;
 }
 
 export const useDiscordStore = create<DiscordStore>((set, get) => {
+  const current = (): DiscordSettings => {
+    const { enabled, videoTitles, albumArt } = get();
+    return { enabled, videoTitles, albumArt };
+  };
+
   const push = (next: DiscordSettings) => {
     write(next);
     void setDiscordPresence(next);
@@ -72,7 +81,7 @@ export const useDiscordStore = create<DiscordStore>((set, get) => {
     ...read(),
 
     setEnabled: (enabled) => {
-      const next = { enabled, videoTitles: get().videoTitles };
+      const next = { ...current(), enabled };
       set(next);
       push(next);
     },
@@ -81,14 +90,21 @@ export const useDiscordStore = create<DiscordStore>((set, get) => {
     // silently does nothing until a second switch is found is a switch that
     // reads as broken.
     setVideoTitles: (videoTitles) => {
-      const next = { enabled: get().enabled || videoTitles, videoTitles };
+      const next = { ...current(), videoTitles, enabled: get().enabled || videoTitles };
+      set(next);
+      push(next);
+    },
+
+    // Same reasoning: a switch that quietly waits for another switch reads as
+    // broken, so asking for covers asks for the presence too.
+    setAlbumArt: (albumArt) => {
+      const next = { ...current(), albumArt, enabled: get().enabled || albumArt };
       set(next);
       push(next);
     },
 
     sync: () => {
-      const { enabled, videoTitles } = get();
-      void setDiscordPresence({ enabled, videoTitles });
+      void setDiscordPresence(current());
     },
   };
 });
