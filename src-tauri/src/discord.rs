@@ -191,6 +191,21 @@ fn now() -> i64 {
         .unwrap_or(0)
 }
 
+/// Whether this is anything to put on a profile.
+///
+/// A paused track is not, and that is not a style choice. Discord draws the
+/// clock from the timestamps it is given, and given none it draws its own,
+/// counting up from the moment the card went up. So a pause that dropped the
+/// timestamps did not stop the clock, it started a second one from zero, which
+/// reads as a track that just began. There is no third option: the card either
+/// carries a running clock or grows one.
+///
+/// So the card comes down. It covers the end of a track and the end of a queue
+/// with the same rule, because both arrive here as playback that stopped.
+fn worth_showing(playing: &Snapshot, settings: &Settings) -> bool {
+    settings.enabled && playing.playing && !playing.title.trim().is_empty()
+}
+
 fn card(playing: &Snapshot, settings: &Settings) -> Card {
     let (kind, details, state, mut hover) = if playing.music {
         /* Artist on the second line and record on the third, rather than both
@@ -227,20 +242,13 @@ fn card(playing: &Snapshot, settings: &Settings) -> Card {
     // A paused film has no clock to draw. Dropping the timestamps stops the
     // bar rather than leaving it running over a picture that is not moving,
     // and the word goes on the line underneath so the stop is legible.
-    let (start, end) = if playing.playing {
-        let start = now() - playing.position.max(0.0) as i64;
-        let end = (playing.duration.is_finite() && playing.duration > 0.0)
-            .then(|| start + playing.duration as i64);
-        (Some(start), end)
-    } else {
-        /* Discord has no way to draw a stopped bar: a bar with timestamps
-        advances, and one without has no bar at all. So a pause drops them and
-        says the word instead, on the third line, which leaves the title and
-        the artist where they were rather than rewriting the line somebody is
-        reading. */
-        hover = "Paused".to_owned();
-        (None, None)
-    };
+    /* Only ever reached for something that is playing: see `worth_showing`.
+    The clock is the track's own, so Discord animates the bar from here and
+    needs nothing further until the track changes. */
+    let start = now() - playing.position.max(0.0) as i64;
+    let end = (playing.duration.is_finite() && playing.duration > 0.0)
+        .then(|| start + playing.duration as i64);
+    let (start, end) = (Some(start), end);
 
     if hover.is_empty() {
         hover = "Cadence".to_owned();
@@ -351,8 +359,7 @@ fn serve(receive: Receiver<Message>, status: Arc<Mutex<Status>>) {
 
         let wanted = latest
             .as_ref()
-            .filter(|_| settings.enabled)
-            .filter(|snapshot| !snapshot.title.trim().is_empty())
+            .filter(|snapshot| worth_showing(snapshot, &settings))
             .map(|snapshot| card(snapshot, &settings));
 
         // Nothing to say. Let go of the pipe rather than sitting on it: a
@@ -474,18 +481,40 @@ mod tests {
         assert!(start <= now() && start >= now() - 108);
     }
 
-    /// A paused track has no clock. Leaving one would draw a bar advancing
-    /// across a track that is not moving.
+    /// A pause takes the card down rather than trying to draw a stopped one.
+    ///
+    /// Discord draws its own clock when given no timestamps, counting up from
+    /// the moment the card went up, so a pause that merely dropped them started
+    /// a second clock at zero and read as a track that had just begun.
     #[test]
-    fn pausing_stops_the_clock_and_says_so() {
-        let card = card(&track(false), &Settings::default());
-        assert_eq!(card.start, None);
-        assert_eq!(card.end, None);
-        // The title and the artist stay put. Only the third line changes, so
-        // the two lines somebody is reading do not rewrite themselves.
-        assert_eq!(card.details, "First Light");
-        assert_eq!(card.state, "Auva");
-        assert_eq!(card.hover, "Paused");
+    fn a_pause_is_not_something_to_show() {
+        let on = Settings {
+            enabled: true,
+            video_titles: false,
+        };
+        assert!(worth_showing(&track(true), &on));
+        assert!(!worth_showing(&track(false), &on));
+    }
+
+    /// The end of a track and the end of a queue arrive here as the same thing:
+    /// playback that stopped, or a title that is gone.
+    #[test]
+    fn nothing_playing_is_nothing_to_show() {
+        let on = Settings {
+            enabled: true,
+            video_titles: false,
+        };
+        assert!(!worth_showing(&Snapshot::default(), &on));
+
+        let mut untitled = track(true);
+        untitled.title = "   ".to_owned();
+        assert!(!worth_showing(&untitled, &on));
+    }
+
+    /// The switch still governs everything above it.
+    #[test]
+    fn the_switch_still_decides_first() {
+        assert!(!worth_showing(&track(true), &Settings::default()));
     }
 
     /// A cover arriving a moment after the track it belongs to has to count as
@@ -683,8 +712,32 @@ mod tests {
             }
         }
 
-        println!("finished:  {last:?}");
-        std::thread::sleep(Duration::from_secs(15));
         assert_eq!(last, Status::Showing, "the presence never reached Discord");
+        println!("playing:   {last:?}");
+        std::thread::sleep(Duration::from_secs(5));
+
+        /* And the other half: a pause has to take the card down. Leaving it up
+        without timestamps does not stop the clock, it makes Discord start one
+        of its own from zero, which is what a paused track was reading as. */
+        presence.show(Snapshot {
+            title: "First Light".to_owned(),
+            subtitle: "Auva".to_owned(),
+            album: "Ascent".to_owned(),
+            music: true,
+            playing: false,
+            duration: 225.0,
+            position: 35.0,
+            artwork: String::new(),
+        });
+
+        for _ in 0..40 {
+            std::thread::sleep(Duration::from_millis(250));
+            last = presence.status();
+            if last != Status::Showing {
+                break;
+            }
+        }
+        println!("paused:    {last:?}");
+        assert_eq!(last, Status::Idle, "a paused track stayed on the profile");
     }
 }

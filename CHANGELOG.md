@@ -5,6 +5,21 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.3] - 2026-08-26
+
+### Fixed
+
+- **A paused track comes off your profile instead of restarting a clock.**
+
+  Discord draws the elapsed time itself when it is given none, counting up from
+  the moment the card went up. So dropping the timestamps on a pause did not
+  stop the clock, it started a second one at zero, and a paused track read as
+  one that had just begun. There is no third option: the card either carries a
+  running clock or grows one, so it comes down.
+
+  The end of a track and the end of a queue take the same path, because both
+  arrive as playback that stopped.
+
 ## [0.8.2] - 2026-08-26
 
 ### Fixed
@@ -761,6 +776,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   installed program, which is no longer a problem worth solving.
 - A router, for an application with one screen.
 
+[0.8.3]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.3
 [0.8.2]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.2
 [0.8.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.1
 [0.8.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.0
