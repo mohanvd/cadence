@@ -1,8 +1,10 @@
 use std::sync::Mutex;
 
-// Both are only reached from the desktop-only single-instance handler, and an
-// unconditional import would be an unused-import error in a mobile build.
-#[cfg(desktop)]
+/* These were once reached only from the desktop-only single-instance handler,
+and were gated to match. They are not any more: `manage`, `try_state` and
+`path` are how the library and the playlists are set up, on every platform, and
+the gate turned the first Android build into eight errors about methods that
+exist. */
 use tauri::{Emitter, Manager};
 
 #[cfg(desktop)]

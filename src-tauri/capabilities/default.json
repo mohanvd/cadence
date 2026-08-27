@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the main Cadence window is allowed to ask the Rust side to do.",
+  "description": "What the main Cadence window is allowed to ask the Rust side to do, on every platform it runs on.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -12,8 +12,6 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-set-title",
-    "dialog:default",
-    "process:default",
-    "updater:default"
+    "dialog:default"
   ]
 }

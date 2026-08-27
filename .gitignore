@@ -22,6 +22,22 @@ dist-ssr
 src-tauri/target/
 src-tauri/gen/schemas/
 
+# The Android project is committed: it holds the manifest, the Kotlin entry
+# point and, before long, the playback plugin, all of which are ours to edit.
+# What Gradle makes from it is not.
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/build/
+src-tauri/gen/android/app/build/
+src-tauri/gen/android/app/.cxx/
+src-tauri/gen/android/local.properties
+src-tauri/gen/apple/
+
+# Android signing. The upload key is what proves a release came from us, and a
+# leaked one cannot be replaced without Google's help.
+*.jks
+*.keystore
+keystore.properties
+
 # FFmpeg, fetched by `npm run fetch:ffmpeg` rather than committed. It is 138MB
 # of somebody else's build output, and a checked-in copy goes stale the moment
 # upstream fixes a decoder. The build needs it present; CI fetches it too.

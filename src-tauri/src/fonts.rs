@@ -40,10 +40,15 @@ pub fn names() -> Vec<&'static str> {
 /// Strip what Windows adds to a font's name in the registry, and split the
 /// collections.
 ///
+/// Windows only, because the registry it reads is. Its tests are not: the
+/// splitting is ordinary string work and worth checking wherever the suite
+/// runs, which is why the gate below admits them too.
+///
 /// The value is a display name rather than a family name: `Arial (TrueType)`,
 /// or for a file holding several faces `MS Gothic & MS PGothic (TrueType)`. A
 /// script asks for `Arial`, so the decoration comes off and the collection
 /// comes apart.
+#[cfg(any(windows, test))]
 fn names_from(entry: &str) -> Vec<String> {
     let bare = match entry.rfind(" (") {
         Some(at) if entry.ends_with(')') => &entry[..at],

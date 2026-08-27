@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "The parts that only exist away from a phone: restarting the program after an update, and the updater itself. Neither plugin is compiled for Android or iOS, where the store owns installation, so asking for their permissions there is asking for something that does not exist.",
+  "platforms": ["windows", "linux", "macOS"],
+  "windows": ["main"],
+  "permissions": ["process:default", "updater:default"]
+}
