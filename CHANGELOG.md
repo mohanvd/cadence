@@ -5,6 +5,20 @@ All notable changes to Cadence are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The source is public again, and the releases live beside it.** For a while
+  the source was private and the installers sat in a second repository that
+  held nothing else. They are one repository again, at
+  [mohanvd/cadence](https://github.com/mohanvd/cadence). The licence has not
+  changed: Cadence is still proprietary, and free to use.
+
+  Nothing an installed copy does is different. Downloads and updates are
+  addressed through cadence.auva.dev, so moving the files was one redirect and
+  no new build, which is what that indirection was put there for.
+
 ## [0.8.3] - 2026-08-26
 
 ### Fixed
@@ -776,20 +790,21 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   installed program, which is no longer a problem worth solving.
 - A router, for an application with one screen.
 
-[0.8.3]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.3
-[0.8.2]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.2
-[0.8.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.1
-[0.8.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.8.0
-[0.7.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.7.0
-[0.6.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.6.0
-[0.5.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.5.1
-[0.5.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.5.0
-[0.4.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.4.1
-[0.4.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.4.0
-[0.3.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.3.1
-[0.3.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.3.0
-[0.2.2]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.2.2
-[0.2.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.2.1
-[0.2.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.2.0
-[0.1.1]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.1.1
-[0.1.0]: https://github.com/mohanvd/cadence-releases/releases/tag/v0.1.0
+[Unreleased]: https://github.com/mohanvd/cadence/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/mohanvd/cadence/releases/tag/v0.8.3
+[0.8.2]: https://github.com/mohanvd/cadence/releases/tag/v0.8.2
+[0.8.1]: https://github.com/mohanvd/cadence/releases/tag/v0.8.1
+[0.8.0]: https://github.com/mohanvd/cadence/releases/tag/v0.8.0
+[0.7.0]: https://github.com/mohanvd/cadence/releases/tag/v0.7.0
+[0.6.0]: https://github.com/mohanvd/cadence/releases/tag/v0.6.0
+[0.5.1]: https://github.com/mohanvd/cadence/releases/tag/v0.5.1
+[0.5.0]: https://github.com/mohanvd/cadence/releases/tag/v0.5.0
+[0.4.1]: https://github.com/mohanvd/cadence/releases/tag/v0.4.1
+[0.4.0]: https://github.com/mohanvd/cadence/releases/tag/v0.4.0
+[0.3.1]: https://github.com/mohanvd/cadence/releases/tag/v0.3.1
+[0.3.0]: https://github.com/mohanvd/cadence/releases/tag/v0.3.0
+[0.2.2]: https://github.com/mohanvd/cadence/releases/tag/v0.2.2
+[0.2.1]: https://github.com/mohanvd/cadence/releases/tag/v0.2.1
+[0.2.0]: https://github.com/mohanvd/cadence/releases/tag/v0.2.0
+[0.1.1]: https://github.com/mohanvd/cadence/releases/tag/v0.1.1
+[0.1.0]: https://github.com/mohanvd/cadence/releases/tag/v0.1.0

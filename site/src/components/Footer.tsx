@@ -39,7 +39,7 @@ export default function Footer() {
           <a className="xn-footer__link" href={CONTACT_URL}>
             Contact
           </a>
-          <a className="xn-footer__link" href={REPO_URL} aria-label="Cadence releases on GitHub">
+          <a className="xn-footer__link" href={REPO_URL} aria-label="Cadence on GitHub">
             <GithubMark size={15} />
           </a>
         </nav>

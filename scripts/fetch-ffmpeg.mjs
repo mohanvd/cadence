@@ -104,8 +104,8 @@ async function main() {
      covers.
 
      This is not tidiness. The LGPL asks that a copy of its terms accompany the
-     work it is distributed with, and until the repository went private the
-     public source tree was doing that job by accident. It cannot now, so the
+     work it is distributed with. A public source tree does that job only by
+     accident, and not at all for somebody who only has the installer, so the
      text has to travel with the install itself. `resources` already globs this
      directory, so a file dropped here is a file that lands beside the
      libraries on every machine Cadence is installed on.

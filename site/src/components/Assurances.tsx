@@ -7,12 +7,11 @@ import { BadgeCheck, KeyRound, RefreshCw, WifiOff } from 'lucide-react';
  * objections that stop an install: where the files go, what it talks to, what
  * it costs, and what happens the next time it changes.
  *
- * This section used to say the opposite of two of them. It promised MIT and
- * "every line that ships is on GitHub", both of which stopped being true at
- * 0.7.0 when the source went private. See the note in `links.ts` for what that
- * move broke and why the download now goes through this domain. A trust section
- * that is out of date is worse than no trust section: it is the page being
- * wrong about the one subject it exists to be trusted on.
+ * This section used to promise MIT, which stopped being true at 0.7.0. The
+ * source is public again and the licence is still not an open-source one, so
+ * the last claim says proprietary and means it. A trust section that is out of
+ * date is worse than no trust section: it is the page being wrong about the
+ * one subject it exists to be trusted on.
  *
  * Everything below is checkable against `LICENSE` and the updater, and none of
  * it should be edited without checking there first.

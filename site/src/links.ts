@@ -1,15 +1,12 @@
 /**
- * The public release channel, not the source repository, which is private.
+ * The repository: the source, and the releases the installers are attached to.
  *
- * These are two different repositories on purpose. The source moved private
- * when Cadence stopped being open source, and everything addressed through it
- * went with it: the download button and the updater endpoint both started
- * returning 404 to every visitor and every installed copy on the same
- * afternoon. This repository holds no source, only the built installers, and
- * exists so that shipping a private product does not mean nobody can download
- * it.
+ * For a while these were two repositories, a private one for the source and a
+ * public one that held nothing but the built files. They are one again. The
+ * download and the updater never noticed, because neither is addressed here:
+ * see `INSTALLER_URL` below.
  */
-const REPO_PATH = 'mohanvd/cadence-releases';
+const REPO_PATH = 'mohanvd/cadence';
 const REPO = `https://github.com/${REPO_PATH}`;
 
 export const REPO_URL = REPO;
@@ -30,9 +27,9 @@ const INSTALLER_ASSET = 'Cadence-Setup.exe';
  *
  * `/download` is a redirect defined in `vercel.json`, and the indirection is
  * the point. A link that names its host is a link that dies when the host
- * changes, which is precisely what happened to the previous one: it pointed
- * into the source repository, the repository went private, and the button
- * broke. Pointing at our own domain means the next move needs one line of
+ * changes, which is precisely what happened to the first one: it pointed
+ * into this repository, the repository went private for a while, and the
+ * button broke. Pointing at our own domain means a move needs one line of
  * `vercel.json` changed and nothing else, no page rebuilt, no link reissued.
  *
  * Addressed through `releases/latest` at the other end rather than by version,

@@ -3,12 +3,12 @@
   "redirects": [
     {
       "source": "/latest.json",
-      "destination": "https://github.com/mohanvd/cadence-releases/releases/latest/download/latest.json",
+      "destination": "https://github.com/mohanvd/cadence/releases/latest/download/latest.json",
       "permanent": false
     },
     {
       "source": "/download",
-      "destination": "https://github.com/mohanvd/cadence-releases/releases/latest/download/Cadence-Setup.exe",
+      "destination": "https://github.com/mohanvd/cadence/releases/latest/download/Cadence-Setup.exe",
       "permanent": false
     }
   ],

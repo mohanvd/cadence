@@ -1,8 +1,8 @@
 # Building Cadence
 
-Notes for working on Cadence itself. The repository is private and there are no
-outside contributors; this is here so that a machine set up from scratch, or a
-decision made a year ago, does not have to be reconstructed from memory.
+Notes for working on Cadence itself, here so that a machine set up from
+scratch, or a decision made a year ago, does not have to be reconstructed from
+memory.
 
 ## Getting set up
 

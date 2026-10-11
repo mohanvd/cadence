@@ -34,8 +34,8 @@ nothing may be added.
   shipped byte-for-byte. Modifying it would mean publishing the modifications.
 - **The licence text must accompany the binaries.** `FFmpeg-LICENSE.txt` is
   extracted from the upstream archive and installed alongside the DLLs.
-  Until this repository went private, being public satisfied this by accident;
-  it does not any more, which is why the fetch script now fails outright if the
+  A public source tree satisfies this only by accident, and only for as long
+  as it stays public, which is why the fetch script fails outright if the
   archive carries no licence file.
 - **Reverse engineering for debugging modifications to FFmpeg must stay
   permitted.** Cadence's licence carves this out of its own restrictions.

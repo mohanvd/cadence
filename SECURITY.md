@@ -2,12 +2,9 @@
 
 ## Reporting a vulnerability
 
-Email **cadence@auva.dev**.
-
-The repository this is built from is private, so there is no issue tracker or
-advisory form to reach, which also means a report has nowhere public to leak
-to before it is fixed. Please include the file that triggers it if there is
-one.
+Email **cadence@auva.dev**, not the issue tracker: an issue is public from the
+moment it is opened, and a report should not be before it is fixed. Please
+include the file that triggers it if there is one.
 
 Expect an acknowledgement within a few days.
 

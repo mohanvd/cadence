@@ -145,13 +145,10 @@ git push --follow-tags
 
 ### Where the files go
 
-This repository is private and the installers cannot live in it. A release
-asset in a private repository is a 404 to everyone who is not signed in with
-access to it, which is everyone Cadence is for. So the tag is pushed here and
-the release is created in **`mohanvd/cadence-releases`**, a public repository
-that holds no source, only the built files.
+The release is created in this repository, on the tag that was pushed, and the
+installers are attached to it.
 
-Nothing outside points at either repository directly. Both public addresses go
+Nothing outside points at GitHub directly, though. Both public addresses go
 through the site:
 
 | Address | Redirects to | Who asks for it |
@@ -160,11 +157,11 @@ through the site:
 | `cadence.auva.dev/latest.json` | the update manifest on the latest release | every installed copy |
 
 Both are ordinary redirects in `site/vercel.json`. This indirection is not
-decoration; it is the fix for how the last move broke. `latest.json`'s address
-is compiled into every binary ever shipped and can never be changed
-retroactively, so it has to name something we will own for as long as Cadence
-exists. Moving the files somewhere else later is one line of `vercel.json`; it
-must never again be a new build.
+decoration. `latest.json`'s address is compiled into every binary ever shipped
+and can never be changed retroactively, so it has to name something we will own
+for as long as Cadence exists. The files have moved twice already, out of this
+repository and back into it, and the second move was one line of `vercel.json`
+because of this; it must never again be a new build.
 
 The workflow uploads the installer twice: once under the bundler's own name,
 `Cadence_<version>_x64-setup.exe`, which is what the update manifest points at,
@@ -174,28 +171,19 @@ release.
 
 ### Secrets
 
-Three, on this repository. Without any one of them the release is useless:
+One, on this repository, and a second if the key has a password:
 
 | Secret | Without it |
 |---|---|
 | `TAURI_SIGNING_PRIVATE_KEY` | the installer is unsigned and the updater rejects it |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | the signing key cannot be opened |
-| `RELEASES_TOKEN` | the release cannot be created, because the automatic token cannot write to another repository |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | a key that has a password cannot be opened |
 
-`RELEASES_TOKEN` is a fine-grained personal access token with
-`Contents: read and write` on `cadence-releases` and no other permission
-anywhere.
-
-**It expires.** That is the price of a token scoped this narrowly, and the
-failure it produces is a confusing one: the build succeeds, takes its ten
-minutes, and then fails at the last step with a 403 on a repository that
-obviously exists. If a release ever fails that way and nothing about the
-release changed, the token is the first thing to check. Mint a new one the
-same way and replace the secret. Nothing else needs touching.
+Creating the release needs no secret: the workflow's own token does it.
 
 ## Licence
 
-Cadence is proprietary. See [LICENSE](LICENSE).
+Cadence is proprietary. The source is here to be read, and the licence is not
+an open-source one: see [LICENSE](LICENSE) for what it does and does not grant.
 
 It is built on components that are not, and two of them, FFmpeg and JASSUB,
 are LGPL and place real conditions on how it is shipped. Those conditions are

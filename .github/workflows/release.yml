@@ -18,22 +18,13 @@ on:
         description: 'Tag to build and release, e.g. v0.7.0'
         required: true
 
-# Where the installers go. Not this repository: this one is private, and a
-# release asset in a private repository is a 404 to everybody who is not signed
-# in with access to it, which is everybody who wants to download Cadence. The
-# public repository below holds no source, only the built files.
-#
-# Changing this name means changing `site/vercel.json` in the same commit, and
-# nothing else: every address the outside world knows goes through the site.
-env:
-  RELEASE_REPO: mohanvd/cadence-releases
-
 jobs:
   build:
-    # No `contents: write` here. The release is created in another repository,
-    # which the automatic GITHUB_TOKEN cannot reach however it is scoped, so
-    # the steps below authenticate with RELEASES_TOKEN instead. This job writes
-    # nothing back to this repository at all.
+    # The release is created in this repository, so the automatic token is
+    # enough, given the one permission that lets it create a release and
+    # upload to it.
+    permissions:
+      contents: write
 
     strategy:
       fail-fast: false
@@ -45,57 +36,6 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      # Ask the question that decides the run, before paying for the run.
-      #
-      # Everything below this is about ten minutes of Windows runner: Rust,
-      # FFmpeg, NSIS. Creating the release is the very last thing that happens,
-      # so a token that cannot write to the release repository used to be
-      # discovered only after the whole build had been bought and paid for,
-      # ten minutes to be told about a permission checkbox. This asks first,
-      # and fails in about a second.
-      #
-      # `permissions.push` is the repository's own answer to "can the bearer of
-      # this token write here", which is exactly the question, rather than a
-      # guess assembled from what the token claims about itself.
-      - name: Check the release token
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
-        run: |
-          set -uo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::error::RELEASES_TOKEN is not set on this repository. Add it under Settings → Secrets and variables → Actions."
-            exit 1
-          fi
-
-          if ! response=$(gh api "repos/$RELEASE_REPO" 2>&1); then
-            echo "::error::RELEASES_TOKEN cannot see $RELEASE_REPO at all. Either the repository is not in the token's selected repositories, or the token has expired."
-            echo "$response"
-            exit 1
-          fi
-
-          push=$(printf '%s' "$response" | jq -r '.permissions.push // false')
-          if [ "$push" != "true" ]; then
-            echo "::error::RELEASES_TOKEN can read $RELEASE_REPO but cannot write to it. Give the token 'Contents: Read and write', read-only is not enough to create a release."
-            exit 1
-          fi
-
-          # A release has to hang off a commit. GitHub attaches one to the
-          # default branch unless told otherwise, so a repository with no
-          # commits in it cannot take a release at all, not even a draft,
-          # which is the surprising part, and the reason this is worth a check
-          # rather than a comment. A freshly created repository is empty, and
-          # the repository record still names a default branch that does not
-          # exist yet, so nothing about it looks wrong until the release is
-          # attempted at the very end of the build.
-          branch=$(printf '%s' "$response" | jq -r '.default_branch')
-          if ! gh api "repos/$RELEASE_REPO/branches/$branch" >/dev/null 2>&1; then
-            echo "::error::$RELEASE_REPO has no commits, so its default branch ($branch) does not exist and no release can be attached to it. Push anything to it, a README is enough."
-            exit 1
-          fi
-
-          echo "RELEASES_TOKEN can write to $RELEASE_REPO, and $branch exists. Building."
-
       - uses: actions/checkout@v4
         with:
           # On a tag push this is already what is checked out; on a manual run
@@ -137,36 +77,13 @@ jobs:
       - id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
-          # A fine-grained personal access token with `Contents: read and write`
-          # on RELEASE_REPO and nothing else. The built-in GITHUB_TOKEN is
-          # scoped to this repository and cannot create a release in another.
-          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Without these the build still produces an installer, but an unsigned
           # one, and the updater refuses anything it cannot verify, so every
           # client would silently stop updating.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          # The release is cut in the public repository, from the tag pushed
-          # here. The tag itself stays private with the source.
-          owner: ${{ github.repository_owner }}
-          repo: cadence-releases
-          # The commit the release hangs off, named explicitly because the
-          # default is wrong for a cross-repository release and wrong in a way
-          # that costs a full build to discover.
-          #
-          # Left alone, the action sends `context.sha`: the commit being built,
-          # which lives in *this* repository. GitHub validates that value
-          # against the repository the release is being created in, where that
-          # SHA has never existed, and rejects it as an invalid
-          # `target_commitish` after the installer has already been built and
-          # signed.
-          #
-          # `main` is a branch of the release repository, so it resolves. What
-          # it points at does not matter: the release carries its own assets
-          # and that repository holds no source for a commit to be meaningful
-          # about.
-          releaseCommitish: main
           tagName: ${{ inputs.tag || github.ref_name }}
           releaseName: 'Cadence ${{ inputs.tag || github.ref_name }}'
           releaseBody: |
@@ -180,9 +97,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           # Generates and uploads `latest.json`, which is the file every
-          # installed copy of Cadence polls to discover this release. The
-          # download URLs inside it are addressed to whichever repository the
-          # release was created in, so this follows `owner`/`repo` above.
+          # installed copy of Cadence polls to discover this release.
           #
           # `includeUpdaterJson`, not `uploadUpdaterJson`: the input was renamed
           # upstream after the `v0` tag this workflow pins. An input this action
@@ -203,11 +118,11 @@ jobs:
       - name: Publish the installer under a stable name
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           original=$(ls src-tauri/target/release/bundle/nsis/Cadence_*_x64-setup.exe)
           cp "$original" "Cadence-Setup.exe"
           gh release upload "${{ inputs.tag || github.ref_name }}" "Cadence-Setup.exe" \
-            --repo "$RELEASE_REPO" --clobber
-          echo "uploaded Cadence-Setup.exe (copy of $(basename "$original")) to $RELEASE_REPO"
+            --repo "$GITHUB_REPOSITORY" --clobber
+          echo "uploaded Cadence-Setup.exe (copy of $(basename "$original"))"

@@ -68,3 +68,6 @@ src-tauri/.ffmpeg-download/
 site/dist/
 site/.astro/
 site/node_modules/
+
+# Local tooling for whoever is working on this, not part of the project.
+.claude/
