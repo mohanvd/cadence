@@ -276,7 +276,10 @@ export async function folderPlaylist(path) {
   if (!isDesktop()) return [];
   const { invoke } = await import('@tauri-apps/api/core');
   try {
-    return await invoke('folder_playlist', { path });
+    const list = await invoke('folder_playlist', { path });
+    // A list or nothing. The queue is read with indexOf during render, and
+    // anything else here takes the whole window down with it.
+    return Array.isArray(list) ? list : [];
   } catch {
     return [];
   }
