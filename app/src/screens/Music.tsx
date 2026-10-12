@@ -460,7 +460,7 @@ function Empty({
           : 'Choose the folder your music lives in. Cadence reads the tags once and remembers them, so this happens now rather than every time you open it.'}
       </p>
       <div className="mt-6 flex gap-2">
-        <Button onClick={onPick}>
+        <Button variant="accent" onClick={onPick}>
           <Icon name="folder" size={15} />
           Choose a folder
         </Button>

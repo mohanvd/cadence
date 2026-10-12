@@ -21,46 +21,51 @@
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
+/* The brand's tokens, copied in from brand/tokens/tokens.css by `npm run brand`.
+   Everything below names them rather than repeating their values. */
+@import './brand-tokens.css' layer(base);
 /* The faces, the tokens and the older screens' styling, kept separable from
    the Tailwind above rather than folded into it. See tokens.css. */
 @import './tokens.css' layer(legacy);
 
 @theme {
-  --font-sans:
-    'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
-    sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+  --font-sans: var(--cd-font-text);
+  --font-display: var(--cd-font-display);
+  --font-mono: var(--cd-font-mono);
 
-  /* Surface ramp: near-black through to the raised menu surface. */
-  --color-base: oklch(0.145 0 0);
-  --color-surface-1: oklch(0.178 0.002 285);
-  --color-surface-2: oklch(0.216 0.003 285);
-  --color-surface-3: oklch(0.262 0.004 285);
+  /* Surface ramp: the ground through to the raised menu surface. These are the
+     defaults; the appearance store rewrites them at runtime for the other two
+     themes, at the same warm hue. */
+  --color-base: var(--cd-bg);
+  --color-surface-1: var(--cd-surface-1);
+  --color-surface-2: var(--cd-surface-2);
+  --color-surface-3: var(--cd-surface-3);
 
-  --color-line: oklch(0.28 0.004 285);
-  --color-line-strong: oklch(0.35 0.005 285);
+  --color-line: var(--cd-line);
+  --color-line-strong: var(--cd-line-strong);
 
-  --color-fg: oklch(0.985 0 0);
-  --color-fg-muted: oklch(0.72 0.005 285);
-  --color-fg-subtle: oklch(0.55 0.006 285);
+  --color-fg: var(--cd-text);
+  --color-fg-muted: var(--cd-text-muted);
+  --color-fg-subtle: var(--cd-text-subtle);
 
-  /* The single saturated hue: playhead, active toggles, focus rings. */
-  --color-accent: oklch(0.72 0.17 250);
-  --color-accent-hover: oklch(0.78 0.16 250);
-  --color-accent-fg: oklch(0.145 0 0);
+  /* The single saturated hue: playhead, active toggles, focus rings, and the
+     one primary action on a screen. Ember unless the viewer picks another. */
+  --color-accent: var(--cd-accent);
+  --color-accent-hover: var(--cd-accent-hover);
+  --color-accent-fg: var(--cd-accent-ink);
 
-  --color-danger: oklch(0.63 0.21 25);
-  --color-warning: oklch(0.78 0.15 75);
-  --color-success: oklch(0.72 0.16 155);
+  --color-danger: var(--cd-danger);
+  --color-warning: var(--cd-warning);
+  --color-success: var(--cd-success);
 
-  --radius-control: 0.5rem;
+  --radius-control: var(--cd-radius-md);
   --radius-panel: 0.875rem;
 
   /* Player chrome sits over video, so its shadows must read on any content. */
   --shadow-panel: 0 16px 48px -12px oklch(0 0 0 / 0.75);
   --shadow-control: 0 2px 8px oklch(0 0 0 / 0.5);
 
-  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-quint: var(--cd-ease);
 }
 
 @layer base {
@@ -94,6 +99,15 @@
     -moz-osx-font-smoothing: grayscale;
     /* Tabular figures keep timecodes from shifting width as they count up. */
     font-variant-numeric: tabular-nums;
+  }
+
+  /* But not in display type. Schibsted Grotesk's tabular set widens the
+     comma, the colon and the full stop to the width of a figure, which in a
+     heading reads as a space typed before each of them. */
+  h1,
+  h2,
+  h3 {
+    font-variant-numeric: proportional-nums;
   }
 
   /* Only show focus rings for keyboard users: a player is mouse-heavy and

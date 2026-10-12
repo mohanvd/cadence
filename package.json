@@ -14,9 +14,11 @@
     "tauri": "tauri",
     "site:dev": "npm --prefix site run dev",
     "site:build": "npm --prefix site run build",
-    "fetch:ffmpeg": "node scripts/fetch-ffmpeg.mjs"
+    "fetch:ffmpeg": "node scripts/fetch-ffmpeg.mjs",
+    "brand": "node scripts/brand.mjs"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^26.2.0",

@@ -35,6 +35,78 @@ ${StrLoc}
 !include "{{installer_hooks}}"
 {{/if}}
 
+; ---- Cadence: file associations ----
+;
+; Replaces Tauri's APP_ASSOCIATE, which the Install section below used to call
+; once per extension. That macro does three things that broke "Open with":
+;
+; - It names the class after `fileAssociations[].name`, which Cadence set to
+;   the bare words "Video" and "Audio". Any other program that uses the same
+;   word overwrites the class, and every extension pointing at it then opens
+;   in that program instead.
+; - It writes the open command with the executable path unquoted, so on a
+;   machine whose user folder has a space in it Windows has to guess where the
+;   path ends.
+; - It overwrites the extension's default class every time it runs, including
+;   on every update, and keeps one backup slot that the second run fills with
+;   its own name.
+;
+; What is written instead is what Windows documents for a media player: a
+; class of its own, listed under each extension's OpenWithProgids so it
+; appears under "Open with" whatever the default is, an Applications entry,
+; and Capabilities registered under RegisteredApplications so it appears in
+; Settings > Default apps. The default class is only claimed when nothing
+; else has it, or when what has it no longer exists. Since Windows 8 a program
+; may not make itself the default anyway; the person does, from "Open with".
+!macro CADENCE_ASSOCIATE EXT FILECLASS DESCRIPTION
+  WriteRegStr SHCTX "Software\Classes\${FILECLASS}" "" `${DESCRIPTION}`
+  WriteRegStr SHCTX "Software\Classes\${FILECLASS}" "FriendlyTypeName" `${DESCRIPTION}`
+  WriteRegStr SHCTX "Software\Classes\${FILECLASS}\DefaultIcon" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\",0"
+  WriteRegStr SHCTX "Software\Classes\${FILECLASS}\shell" "" "open"
+  WriteRegStr SHCTX "Software\Classes\${FILECLASS}\shell\open" "" "Open with ${PRODUCTNAME}"
+  WriteRegStr SHCTX "Software\Classes\${FILECLASS}\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
+
+  WriteRegStr SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "${FILECLASS}" ""
+  WriteRegStr SHCTX "Software\Classes\Applications\${MAINBINARYNAME}.exe\SupportedTypes" ".${EXT}" ""
+  WriteRegStr SHCTX "${MANUPRODUCTKEY}\Capabilities\FileAssociations" ".${EXT}" "${FILECLASS}"
+
+  ReadRegStr $R0 SHCTX "Software\Classes\.${EXT}" ""
+  ${If} $R0 == ""
+    WriteRegStr SHCTX "Software\Classes\.${EXT}" "" "${FILECLASS}"
+  ${ElseIf} $R0 != "${FILECLASS}"
+    ; A default naming a class that is not there opens nothing at all.
+    ClearErrors
+    EnumRegKey $R1 SHCTX "Software\Classes\$R0" 0
+    ${If} ${Errors}
+      WriteRegStr SHCTX "Software\Classes\.${EXT}" "" "${FILECLASS}"
+    ${EndIf}
+  ${EndIf}
+
+  ; Left by APP_ASSOCIATE in 0.8.3 and earlier.
+  DeleteRegValue SHCTX "Software\Classes\.${EXT}" "Video_backup"
+  DeleteRegValue SHCTX "Software\Classes\.${EXT}" "Audio_backup"
+!macroend
+
+!macro CADENCE_UNASSOCIATE EXT FILECLASS
+  ReadRegStr $R0 SHCTX "Software\Classes\.${EXT}" ""
+  ${If} $R0 == "${FILECLASS}"
+    DeleteRegValue SHCTX "Software\Classes\.${EXT}" ""
+  ${EndIf}
+  DeleteRegValue SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "${FILECLASS}"
+  DeleteRegKey SHCTX "Software\Classes\${FILECLASS}"
+!macroend
+
+; The class names 0.8.3 and earlier registered under. Removed only when the
+; command in them is still Cadence's, because another program may have taken
+; the name since, which is exactly what went wrong with it.
+!macro CADENCE_RETIRE_CLASS FILECLASS
+  ReadRegStr $R0 SHCTX "Software\Classes\${FILECLASS}\shell\open\command" ""
+  ${If} $R0 == "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+  ${OrIf} $R0 == "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
+    DeleteRegKey SHCTX "Software\Classes\${FILECLASS}"
+  ${EndIf}
+!macroend
+
 !define WEBVIEW2APPGUID "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 !define MANUFACTURER "{{manufacturer}}"
@@ -674,11 +746,28 @@ Section Install
   {{/each}}
 
   ; Create file associations
+  ;
+  ; ---- Cadence ----
+  ; CADENCE_ASSOCIATE rather than APP_ASSOCIATE: see the macro for why. Runs on
+  ; every update too, which is how a copy installed by 0.8.3 or earlier is moved
+  ; onto the new class names without being reinstalled.
+  !insertmacro CADENCE_RETIRE_CLASS "Video"
+  !insertmacro CADENCE_RETIRE_CLASS "Audio"
   {{#each file_associations as |association| ~}}
     {{#each association.ext as |ext| ~}}
-       !insertmacro APP_ASSOCIATE "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+       !insertmacro CADENCE_ASSOCIATE "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}"
     {{/each}}
   {{/each}}
+  WriteRegStr SHCTX "Software\Classes\Applications\${MAINBINARYNAME}.exe" "FriendlyAppName" "${PRODUCTNAME}"
+  WriteRegStr SHCTX "Software\Classes\Applications\${MAINBINARYNAME}.exe\DefaultIcon" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\",0"
+  WriteRegStr SHCTX "Software\Classes\Applications\${MAINBINARYNAME}.exe\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
+  WriteRegStr SHCTX "${MANUPRODUCTKEY}\Capabilities" "ApplicationName" "${PRODUCTNAME}"
+  WriteRegStr SHCTX "${MANUPRODUCTKEY}\Capabilities" "ApplicationDescription" "A keyboard-first media player for Windows."
+  WriteRegStr SHCTX "${MANUPRODUCTKEY}\Capabilities" "ApplicationIcon" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\",0"
+  WriteRegStr SHCTX "Software\RegisteredApplications" "${PRODUCTNAME}" "${MANUPRODUCTKEY}\Capabilities"
+  ; SHCNE_ASSOCCHANGED, so Explorer reads the above now rather than at the next
+  ; sign-in.
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 
   ; Register deep links
   {{#each deep_link_protocols as |protocol| ~}}
@@ -826,9 +915,13 @@ Section Uninstall
   ; Delete app associations
   {{#each file_associations as |association| ~}}
     {{#each association.ext as |ext| ~}}
-      !insertmacro APP_UNASSOCIATE "{{ext}}" "{{or association.name ext}}"
+      !insertmacro CADENCE_UNASSOCIATE "{{ext}}" "{{or association.name ext}}"
     {{/each}}
   {{/each}}
+  DeleteRegKey SHCTX "Software\Classes\Applications\${MAINBINARYNAME}.exe"
+  DeleteRegKey SHCTX "${MANUPRODUCTKEY}\Capabilities"
+  DeleteRegValue SHCTX "Software\RegisteredApplications" "${PRODUCTNAME}"
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 
   ; Delete deep links
   {{#each deep_link_protocols as |protocol| ~}}

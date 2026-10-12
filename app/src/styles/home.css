@@ -15,19 +15,16 @@
  */
 
 .xn-home {
-  /* Cadence light: the one saturated hue on an otherwise achromatic page.
-     Matches --color-accent in theme.css. */
-  --xn-accent: oklch(0.72 0.17 250);
-  --xn-accent-strong: oklch(0.81 0.15 250);
-  --xn-accent-ink: oklch(0.16 0.025 255);
-  --xn-panel: #0f1013;
-  --xn-hairline: #1d1f24;
-  /* Two display faces with different jobs. The brand face is worn only by the
-     name itself, in the navbar and the footer sign-off; headings use the
-     grotesque, which stays out of the way of what it is labelling. Letting the
-     brand face leak into headings is what made the page read as a toy earlier. */
-  --xn-brand: 'Agbalumo', 'Schibsted Grotesk', 'Inter', system-ui, sans-serif;
-  --xn-display: 'Schibsted Grotesk', 'Inter', system-ui, sans-serif;
+  /* The accent, whichever one the viewer chose: the one saturated hue on an
+     otherwise achromatic screen. */
+  --xn-accent: var(--color-accent);
+  --xn-accent-strong: var(--color-accent-hover);
+  --xn-accent-ink: var(--color-accent-fg);
+  /* A shade off the ground rather than a step up from it, and the hairline
+     drawn inside it. Mixed from the theme so they follow it. */
+  --xn-panel: color-mix(in oklab, var(--color-base) 55%, var(--color-surface-1));
+  --xn-hairline: color-mix(in oklab, var(--color-line) 62%, var(--color-base));
+  --xn-display: var(--cd-font-display);
 
   position: fixed;
   inset: 0;
@@ -104,7 +101,7 @@
   max-width: 56ch;
   font-size: clamp(14.5px, 1.35vw, 16.5px);
   line-height: 1.66;
-  color: #90959f;
+  color: var(--text-2);
 }
 
 /* ── Drop card ── */
@@ -140,19 +137,34 @@
 }
 
 .xn-drop__target:hover {
-  border-color: #4a4d55;
+  border-color: var(--color-line-strong);
   background: rgba(255, 255, 255, 0.028);
 }
 
 .xn-drop--active .xn-drop__target {
   border-color: var(--xn-accent);
-  background: oklch(0.72 0.17 250 / 0.07);
+  background: color-mix(in oklab, var(--color-accent) 7%, transparent);
 }
 
 .xn-drop__icon {
   display: grid;
   place-items: center;
-  color: var(--text-2);
+  width: 64px;
+  height: 64px;
+  border-radius: var(--cd-radius-xl);
+  background: color-mix(in oklab, var(--color-surface-2) 70%, transparent);
+  box-shadow: var(--cd-sheen-strong), var(--cd-lift-2);
+  transition:
+    transform var(--cd-duration-2) var(--cd-ease),
+    box-shadow var(--cd-duration-2) var(--cd-ease);
+}
+
+/* The card answers the pointer and the drag the same way: the mark comes
+   forward and takes the system's one glow. */
+.xn-drop__target:hover .xn-drop__icon,
+.xn-drop--active .xn-drop__icon {
+  transform: translateY(-2px);
+  box-shadow: var(--cd-sheen-strong), var(--cd-glow);
 }
 
 .xn-drop__title {
@@ -238,7 +250,7 @@
   padding: 0 48px 0 36px;
   border: 1px solid var(--border);
   border-radius: 11px;
-  background: #0a0b0d;
+  background: color-mix(in oklab, var(--color-base) 80%, black);
   color: var(--text);
   font-family: inherit;
   font-size: 13.5px;
@@ -251,8 +263,8 @@
 }
 
 .xn-url__input:focus {
-  border-color: #3f434b;
-  background: #0d0e11;
+  border-color: var(--color-line-strong);
+  background: var(--color-base);
 }
 
 .xn-url:focus-within .xn-url__icon {
@@ -290,7 +302,7 @@
 .xn-drop__error {
   margin: 12px 6px 2px;
   font-size: 12.5px;
-  color: #f87171;
+  color: var(--color-danger);
 }
 
 /* ── Section scaffolding ── */
@@ -344,7 +356,7 @@
 
 .xn-card:hover {
   border-color: var(--border-2);
-  background: #16171b;
+  background: var(--color-surface-1);
 }
 
 .xn-card__thumb {
@@ -353,7 +365,7 @@
   place-items: center;
   aspect-ratio: 16 / 10;
   border-bottom: 1px solid var(--border);
-  background: #0d0e11;
+  background: var(--color-base);
   overflow: hidden;
 }
 
@@ -457,7 +469,7 @@
 
 .xn-feat:hover {
   border-color: var(--border-2);
-  background: #131418;
+  background: var(--color-surface-1);
 }
 
 .xn-feat--lead {
@@ -487,7 +499,7 @@
    grid is what makes the hierarchy legible at a glance rather than on reading. */
 .xn-feat--accent .xn-feat__icon {
   border-color: transparent;
-  background: oklch(0.72 0.17 250 / 0.14);
+  background: color-mix(in oklab, var(--color-accent) 14%, transparent);
   color: var(--xn-accent-strong);
 }
 
@@ -581,7 +593,7 @@
   border: 1px solid var(--border-2);
   border-bottom-width: 2px;
   border-radius: 6px;
-  background: #17181d;
+  background: var(--color-surface-2);
   font-family: inherit;
   font-size: 11px;
   font-weight: 500;
@@ -674,14 +686,16 @@
 
 .xn-footer__word {
   display: inline-block;
-  font-family: var(--xn-brand);
+  font-family: var(--cd-font-display);
+  font-weight: 700;
+  letter-spacing: -0.035em;
   font-weight: 400;
   font-size: inherit;
   /* The brand face is already tightly fitted; grotesque-style negative tracking
      would collide its round terminals. */
   letter-spacing: 0;
   line-height: inherit;
-  color: #e3e5ea;
+  color: var(--text);
   white-space: nowrap;
 }
 
@@ -695,7 +709,7 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(6, 7, 9, 0.86);
+  background: var(--cd-veil);
   animation: fade-in 140ms ease-out;
 }
 
@@ -728,7 +742,7 @@
 /* ── Navbar refinements (override index.css) ── */
 .navbar {
   height: calc(56px + env(safe-area-inset-top));
-  background: rgba(9, 10, 12, 0.78);
+  background: color-mix(in oklab, var(--color-base) 78%, transparent);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -741,11 +755,11 @@
 
 /* The wordmark is the whole logo, so it carries the display face. */
 .navbar__brand-bold {
-  font-family: 'Agbalumo', 'Schibsted Grotesk', 'Inter', system-ui, sans-serif;
-  font-weight: 400;
+  font-family: var(--cd-font-display);
+  font-weight: 700;
   font-size: 19px;
   line-height: 1;
-  letter-spacing: 0;
+  letter-spacing: -0.025em;
   color: var(--text);
 }
 
@@ -815,5 +829,5 @@
    exactly like a working one is how an application quietly stops being
    maintained on someone's machine. */
 .xn-appversion__fault {
-  color: #a1544e;
+  color: color-mix(in oklab, var(--color-danger) 70%, var(--text-3));
 }

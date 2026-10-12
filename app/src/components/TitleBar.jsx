@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CHROME_STROKE, Icon } from './ui/icons';
+import { Mark } from './ui/mark';
 import { isDesktop } from '../lib/desktop';
 import { useHistory } from '../store/viewStore';
 
@@ -59,6 +60,12 @@ export default function TitleBar({ screen, onScreen, search }) {
 
   return (
     <header className="titlebar" data-tauri-drag-region>
+      {/* Where a native window puts its icon, and for the same reason: it is
+          how a window says whose it is. Part of the drag region, as the icon
+          in a native title bar is. */}
+      <span className="titlebar__mark" data-tauri-drag-region aria-hidden>
+        <Mark size={18} cut="small" data-tauri-drag-region />
+      </span>
       {/* Back and forward, once, for the whole window.
           
           The alternative was a back button on every panel that can be opened,

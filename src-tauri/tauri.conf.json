@@ -71,7 +71,7 @@
           "3gp",
           "ogv"
         ],
-        "name": "Video",
+        "name": "Cadence.Video",
         "description": "Video file",
         "role": "Viewer"
       },
@@ -93,7 +93,7 @@
           "wv",
           "mka"
         ],
-        "name": "Audio",
+        "name": "Cadence.Audio",
         "description": "Audio file",
         "role": "Viewer"
       }

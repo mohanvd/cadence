@@ -1,4 +1,5 @@
 import { Icon } from '../ui/icons';
+import { Mark } from '../ui/mark';
 import { HEADLINE_TYPES } from '../../hooks/useVideoIntake';
 
 /* Four, not the fifteen Cadence actually opens. The row is there to say "your
@@ -23,8 +24,10 @@ export default function DropCard({
   return (
     <div className={`xn-drop${active ? ' xn-drop--active' : ''}`}>
       <button type="button" className="xn-drop__target" onClick={onOpenPicker}>
+        {/* The mark rather than a generic play icon: this card is the front
+            door, and the one place on the screen the brand is the subject. */}
         <span className="xn-drop__icon">
-          <Icon name="dropTarget" size={34} />
+          <Mark size={44} cut="full" />
         </span>
         <span className="xn-drop__title">Drop something to play</span>
         <span className="xn-drop__hint">
