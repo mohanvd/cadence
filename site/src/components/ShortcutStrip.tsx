@@ -48,6 +48,7 @@ export default function ShortcutStrip() {
   return (
     <section className="xn-section" id="keyboard">
       <header className="xn-section__head rise">
+        <p className="xn-section__eyebrow">Keyboard</p>
         <h2 className="xn-section__title">
           Every control is one key away, and none of them leaves the home row for
           long

@@ -55,6 +55,7 @@ export default function CapabilityList() {
   return (
     <section className="xn-section">
       <header className="xn-section__head rise">
+        <p className="xn-section__eyebrow">And the rest</p>
         <h2 className="xn-section__title">
           Also included: {CAPABILITIES.length} more, none of which needed a
           paragraph

@@ -43,6 +43,7 @@ export default function Assurances() {
   return (
     <section className="xn-section">
       <header className="xn-section__head rise">
+        <p className="xn-section__eyebrow">The deal</p>
         <h2 className="xn-section__title">No catch, and here is what that means</h2>
       </header>
 

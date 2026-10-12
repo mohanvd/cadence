@@ -1,5 +1,6 @@
 import { Download } from 'lucide-react';
 import { INSTALLER_URL } from '../links';
+import Mark from './Mark';
 
 /**
  * The second and last offer of the download.
@@ -20,6 +21,10 @@ export default function Closing({ installerSize }: { installerSize: string }) {
     <section className="ld-close">
       <div className="ld-close__glow" aria-hidden />
 
+      <span className="ld-close__mark" aria-hidden>
+        <Mark size={56} cut="full" />
+      </span>
+
       <h2 className="ld-close__title">Open a file and it plays</h2>
 
       <p className="ld-close__sub">
@@ -27,13 +32,13 @@ export default function Closing({ installerSize }: { installerSize: string }) {
         first thing you drop on it works.
       </p>
 
-      <a className="ld-cta ld-cta--lg" href={INSTALLER_URL}>
+      <a className="button button--primary button--lg" href={INSTALLER_URL}>
         <Download size={17} strokeWidth={2.2} aria-hidden />
         Download for Windows
       </a>
 
       <p className="ld-close__meta">
-        Windows 10 and 11 · 64-bit · {installerSize}
+        Free · Windows 10 and 11 · 64-bit · {installerSize}
       </p>
 
       <p className="ld-close__aside">

@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { Disc3, FolderInput, ListMusic, Radio, Search, Waves } from 'lucide-react';
+import { Disc3, FolderInput, ListMusic, Pause, Radio, Search, Waves } from 'lucide-react';
 
 /**
  * The half of Cadence the page used to leave out entirely.
@@ -51,6 +51,7 @@ export default function MusicLibrary() {
   return (
     <section className="xn-section" id="music">
       <header className="xn-section__head rise">
+        <p className="xn-section__eyebrow">Music</p>
         <h2 className="xn-section__title">Your music: a library, not a folder of files</h2>
       </header>
 
@@ -87,7 +88,7 @@ export default function MusicLibrary() {
         <div
           className="ld-shelf rise"
           role="img"
-          aria-label="The library, showing albums as a wall of sleeves."
+          aria-label="The library, showing albums as a wall of sleeves, with a record playing in the bar along the bottom."
         >
           <div className="ld-shelf__tabs">
             {TABS.map(({ id, label, icon: Icon, active }) => (
@@ -109,6 +110,20 @@ export default function MusicLibrary() {
                 style={{ '--i': index } as CSSProperties}
               />
             ))}
+          </div>
+
+          {/* The bar that keeps a record playing while you look for the next
+              one, which is the difference between a library and a file list. */}
+          <div className="ld-shelf__now">
+            <span className="ld-sleeve ld-shelf__now-sleeve" />
+            <div className="ld-shelf__now-text">
+              <p className="ld-shelf__now-title">Lantern Hours</p>
+              <p className="ld-shelf__now-artist">The Quiet Arcade · Low Tide</p>
+              <div className="ld-shelf__now-bar" />
+            </div>
+            <span className="ld-shelf__now-play">
+              <Pause size={14} strokeWidth={2} fill="currentColor" aria-hidden />
+            </span>
           </div>
         </div>
       </div>
