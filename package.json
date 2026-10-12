@@ -1,7 +1,7 @@
 {
   "name": "cadence",
   "private": true,
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "Everything plays. A keyboard-first media player for Windows: films and music in one quiet window.",
   "type": "module",
   "scripts": {
