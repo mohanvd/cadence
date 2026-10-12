@@ -23,8 +23,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of its own, lists itself under "Open with" for every type it plays, and
   appears in Settings > Default apps, where Windows expects the choice to be
   made. The command it registers also quotes its own path, which a user folder
-  with a space in its name needs. An installed copy moves to the new names on
-  its next update.
+  with a space in its name needs. An installed copy picks this up on its next
+  update, and a file type already set to always open in Cadence stays that
+  way.
 
 ### Changed
 
