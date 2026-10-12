@@ -1,0 +1,186 @@
+/* Generated from brand/tokens/tokens.css by `npm run brand`. Edit that file,
+   not this one: this one is overwritten. */
+
+/**
+ * Cadence design tokens.
+ *
+ * The one place a colour, a size, a duration or a typeface is written down.
+ * `npm run brand` copies this file, unchanged, into the player and the site,
+ * which each carry their own copy because neither is allowed to read a file
+ * out of the other's directory (see the README). The copies are generated, so
+ * they cannot drift: edit this file, run the script, commit both.
+ *
+ * Two tiers. Primitives say what a value is (`--cd-ink-800`, `--cd-ember-500`)
+ * and are never used by a component directly. Roles say what a value is for
+ * (`--cd-surface-2`, `--cd-text-muted`) and are the only thing components
+ * read. A redesign changes which primitive a role points at; nothing that
+ * draws needs to know.
+ *
+ * Colour is authored in OKLCH, where equal steps in lightness look like equal
+ * steps, so the ramp below reads as even rather than bunching up in the dark
+ * end the way an sRGB ramp does. Every value is inside sRGB, so nothing is
+ * clipped on an ordinary display. The hex beside each is what the icons, the
+ * installer and anything that cannot read OKLCH are given.
+ *
+ * There is one theme, and it is dark. Cadence is used in a dark room in front
+ * of a bright picture, and chrome that is lighter than the film is chrome you
+ * are looking at instead of it.
+ */
+
+:root {
+  /* ── Ink: the neutral ramp ──
+     Achromatic with a trace of warmth (hue 60, chroma 0.004), so the grey
+     beside the ember accent reads as its shadow rather than as steel. */
+  --cd-ink-950: oklch(0.145 0.003 60); /* #0B0A09  the ground */
+  --cd-ink-900: oklch(0.178 0.004 60); /* #12110F  raised once */
+  --cd-ink-850: oklch(0.216 0.004 60); /* #1B1918  raised twice */
+  --cd-ink-800: oklch(0.262 0.004 60); /* #262423  menus, the top of the stack */
+  --cd-ink-750: oklch(0.300 0.004 60); /* #2F2D2C  hairlines */
+  --cd-ink-700: oklch(0.370 0.004 60); /* #413F3E  hairlines that must be seen */
+  --cd-ink-600: oklch(0.470 0.004 60); /* #5D5A59  disabled */
+  --cd-ink-500: oklch(0.580 0.004 60); /* #7C7A78  4.6:1, the faintest text allowed */
+  --cd-ink-400: oklch(0.720 0.003 60); /* #A6A4A3  8.0:1 */
+  --cd-ink-300: oklch(0.820 0.003 60); /* #C5C4C2 */
+  --cd-ink-200: oklch(0.900 0.003 60); /* #DFDDDC */
+  --cd-ink-100: oklch(0.960 0.003 60); /* #F3F1F0  19:1, text */
+  --cd-ink-50: oklch(0.985 0 0); /* #FAFAFA */
+
+  /* ── Ember: the one hue ──
+     Warm on purpose. A player is used with the lights off, and warm light is
+     the light the eye forgives at night; the blue every other player wears is
+     the colour a screen is told to stop emitting after dark. */
+  --cd-ember-200: oklch(0.900 0.060 55); /* #FED4B9 */
+  --cd-ember-300: oklch(0.840 0.100 55); /* #FEB98B */
+  --cd-ember-400: oklch(0.780 0.140 50); /* #FE9B61  accent text on the ground */
+  --cd-ember-500: oklch(0.720 0.170 45); /* #F97C3D  the accent, 7.5:1 */
+  --cd-ember-600: oklch(0.640 0.180 40); /* #E25C26  pressed */
+  --cd-ember-700: oklch(0.550 0.160 37); /* #BC4621 */
+  --cd-ember-800: oklch(0.420 0.120 35); /* #812E19 */
+
+  /* The two ends of the signal gradient, which is worn only by the mark. */
+  --cd-amber: oklch(0.830 0.145 75); /* #FEB84D */
+  --cd-flame: oklch(0.630 0.205 32); /* #EB472C */
+
+  /* ── State ──
+     Each at the accent's lightness, so none of them shouts over another. */
+  --cd-green-500: oklch(0.740 0.150 155);
+  --cd-yellow-500: oklch(0.820 0.140 85);
+  --cd-red-500: oklch(0.660 0.200 25);
+  --cd-blue-500: oklch(0.720 0.120 245);
+
+  /* ── Roles: surfaces ── */
+  --cd-bg: var(--cd-ink-950);
+  --cd-surface-1: var(--cd-ink-900);
+  --cd-surface-2: var(--cd-ink-850);
+  --cd-surface-3: var(--cd-ink-800);
+  --cd-line: var(--cd-ink-750);
+  --cd-line-strong: var(--cd-ink-700);
+  /* Over a film the chrome cannot assume what is behind it, so it is drawn
+     on black at an opacity rather than on a surface. */
+  --cd-scrim: oklch(0 0 0 / 0.72);
+  --cd-veil: oklch(0.145 0.003 60 / 0.86);
+
+  /* ── Roles: text ── */
+  --cd-text: var(--cd-ink-100);
+  --cd-text-muted: var(--cd-ink-400);
+  --cd-text-subtle: var(--cd-ink-500);
+  --cd-text-disabled: var(--cd-ink-600);
+
+  /* ── Roles: accent ── */
+  --cd-accent: var(--cd-ember-500);
+  --cd-accent-hover: var(--cd-ember-400);
+  --cd-accent-pressed: var(--cd-ember-600);
+  --cd-accent-text: var(--cd-ember-400); /* accent as ink, on the ground */
+  --cd-accent-ink: var(--cd-ink-950); /* ink on the accent, 7.4:1 */
+  --cd-accent-soft: oklch(0.720 0.170 45 / 0.14); /* a tint behind a selection */
+  --cd-accent-ring: oklch(0.720 0.170 45 / 0.45);
+  --cd-signal: linear-gradient(135deg, var(--cd-amber) 0%, var(--cd-ember-500) 55%, var(--cd-flame) 100%);
+
+  --cd-success: var(--cd-green-500);
+  --cd-warning: var(--cd-yellow-500);
+  --cd-danger: var(--cd-red-500);
+  --cd-info: var(--cd-blue-500);
+
+  /* ── Type ──
+     Two families with two jobs. Schibsted Grotesk sets the name and the
+     headings, and nothing smaller than 18px. Inter sets everything a person
+     reads or operates. A third, monospace, is for keys and timecodes. */
+  --cd-font-display: 'Schibsted Grotesk', 'Inter', system-ui, sans-serif;
+  --cd-font-text: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --cd-font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
+
+  /* A 1.2 scale from 14px, rounded to whole pixels. */
+  --cd-text-2xs: 11px;
+  --cd-text-xs: 12px;
+  --cd-text-sm: 13px;
+  --cd-text-md: 14px; /* the body size */
+  --cd-text-lg: 16px;
+  --cd-text-xl: 18px;
+  --cd-text-2xl: 21px;
+  --cd-text-3xl: 26px;
+  --cd-text-4xl: 33px;
+  --cd-text-5xl: 42px;
+  --cd-text-6xl: 56px;
+  --cd-text-display: clamp(44px, 7.2vw, 88px);
+
+  /* Display type is tightened as it grows; text type is left as drawn. */
+  --cd-tracking-display: -0.035em;
+  --cd-tracking-heading: -0.02em;
+  --cd-tracking-caps: 0.08em;
+  --cd-leading-tight: 1.05;
+  --cd-leading-heading: 1.15;
+  --cd-leading-text: 1.55;
+
+  /* ── Space ──
+     A 4px grid. Nothing is spaced by a number that is not on it. */
+  --cd-space-1: 4px;
+  --cd-space-2: 8px;
+  --cd-space-3: 12px;
+  --cd-space-4: 16px;
+  --cd-space-5: 24px;
+  --cd-space-6: 32px;
+  --cd-space-7: 48px;
+  --cd-space-8: 64px;
+  --cd-space-9: 96px;
+  --cd-space-10: 128px;
+
+  /* ── Shape ──
+     Corners grow with the thing they belong to: a key is barely rounded, a
+     window is rounded like a window. The pill is for things that toggle. */
+  --cd-radius-xs: 4px;
+  --cd-radius-sm: 6px;
+  --cd-radius-md: 8px; /* controls */
+  --cd-radius-lg: 12px;
+  --cd-radius-xl: 16px; /* panels */
+  --cd-radius-2xl: 22px; /* cards on the site, the window */
+  --cd-radius-pill: 999px;
+
+  /* ── Light ──
+     Everything raised is lit from above: a hairline of light on its top
+     edge, and a long soft shadow under it. On a near-black ground a tight
+     shadow is invisible; what lifts a card is the absence of light beneath it. */
+  --cd-sheen: inset 0 1px 0 oklch(1 0 0 / 0.045);
+  --cd-sheen-strong: inset 0 1px 0 oklch(1 0 0 / 0.08);
+  --cd-lift-1: 0 1px 2px oklch(0 0 0 / 0.4);
+  --cd-lift-2: 0 4px 16px -4px oklch(0 0 0 / 0.5);
+  --cd-lift-3: 0 18px 50px -12px oklch(0 0 0 / 0.7);
+  --cd-lift-4: 0 40px 120px -24px oklch(0 0 0 / 0.85);
+  /* The only glow in the system, and only behind the mark or the one primary
+     action on a screen. Two glows on a screen is none. */
+  --cd-glow: 0 0 0 1px oklch(0.720 0.170 45 / 0.35), 0 8px 32px -6px oklch(0.720 0.170 45 / 0.45);
+
+  /* ── Motion ──
+     One curve: spends its travel early and settles. Durations are short,
+     because a player that animates is a player that is late. */
+  --cd-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --cd-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --cd-duration-1: 120ms; /* hover, press */
+  --cd-duration-2: 200ms; /* menus, toggles */
+  --cd-duration-3: 360ms; /* panels, the player */
+  --cd-duration-4: 620ms; /* reveals on the site, never in the player */
+
+  /* ── Layout ── */
+  --cd-measure: 1120px;
+  --cd-prose: 64ch;
+  --cd-titlebar: 46px;
+}
