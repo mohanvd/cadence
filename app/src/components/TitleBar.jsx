@@ -104,7 +104,7 @@ export default function TitleBar({ screen, onScreen, search }) {
           wants to go back to the library and pick the next record without
           stopping the one they are listening to. */}
       {onScreen && (
-        <nav className="titlebar__nav" data-tauri-drag-region>
+        <nav className="titlebar__nav" aria-label="Sections" data-tauri-drag-region>
           {[
             { id: 'home', label: 'Files', icon: 'dropTarget' },
             { id: 'music', label: 'Music', icon: 'music' },
