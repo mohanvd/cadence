@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
+import { settings } from '@/store/settingsStore';
 
 /**
  * Where you are, and the one step above it.
@@ -51,26 +52,38 @@ export interface View {
   /**
    * Whether the player is filling the window.
    *
-   * The topmost thing that can be open, so the first thing back closes.
+   * Over a record or a playlist, so back closes it before either of them.
    */
   player: boolean;
+  /**
+   * Whether Settings is open.
+   *
+   * Over everything, the player included, so a subtitle size can be changed
+   * with the film paused behind it, and the first thing back closes.
+   */
+  settings: boolean;
 }
 
+/* Where the window opens. The tab is the viewer's choice, from Settings; the
+   rest is always the same, nothing open on top of it. */
 const START: View = {
-  screen: 'home',
+  screen: settings().startScreen,
   tab: 'albums',
   album: null,
   playlist: null,
   player: false,
+  settings: false,
 };
 
 /**
  * What closing the topmost open thing looks like, or null at the top level.
  *
- * The order is the order things stack: the player sits over a record, a record
- * sits over the library. Nothing here ever changes `screen`.
+ * The order is the order things stack: Settings sits over everything, the
+ * player over a record, a record over the library. Nothing here ever changes
+ * `screen`.
  */
 function upFrom(view: View): Partial<View> | null {
+  if (view.settings) return { settings: false };
   if (view.player) return { player: false };
   if (view.album !== null) return { album: null };
   if (view.playlist !== null) return { playlist: null };
@@ -102,7 +115,8 @@ export const useViewStore = create<ViewState>((set, get) => ({
       next.tab === view.tab &&
       next.album === view.album &&
       next.playlist === view.playlist &&
-      next.player === view.player
+      next.player === view.player &&
+      next.settings === view.settings
     ) {
       return;
     }
@@ -124,6 +138,15 @@ export const useViewStore = create<ViewState>((set, get) => ({
     set({ view: undone, undone: null });
   },
 }));
+
+/**
+ * Whether Settings is open, for listeners bound once.
+ *
+ * The player's shortcuts, and every panel that closes on Escape, ask this
+ * first: a key pressed in Settings belongs to Settings, and a Space that
+ * toggles a switch must not also pause the film behind it.
+ */
+export const settingsOpen = (): boolean => useViewStore.getState().view.settings;
 
 /** Where you are now. */
 export const useView = (): View => useViewStore((s) => s.view);

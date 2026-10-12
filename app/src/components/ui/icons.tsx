@@ -12,6 +12,8 @@ import {
   Disc3,
   Folder,
   Gauge,
+  Info,
+  Keyboard,
   Link2,
   ListMusic,
   Loader2,
@@ -20,9 +22,11 @@ import {
   Minus,
   Moon,
   Music,
+  Palette,
   Pause,
   Play,
   Plus,
+  RefreshCw,
   Repeat,
   Repeat1,
   RotateCcw,
@@ -81,6 +85,10 @@ export const ICON_STROKE = 1.75;
 export const CHROME_STROKE = 1.25;
 
 export const Icons = {
+  keyboard: Keyboard,
+  palette: Palette,
+  info: Info,
+  refresh: RefreshCw,
   back: ArrowLeft,
   forwardArrow: ArrowRight,
   play: Play,

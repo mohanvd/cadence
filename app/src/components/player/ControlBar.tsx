@@ -9,6 +9,8 @@ import type { MusicModeApi } from '@/features/playback/useMusicMode';
 import type { VideoFitApi } from '@/features/playback/useVideoFit';
 import { useIsPaused, usePlayerActions } from '@/store/playerStore';
 import { useQueueControls } from '@/store/queueStore';
+import { useSettings } from '@/store/settingsStore';
+import { BINDINGS, hintOf } from '@/features/keyboard/useKeyboardShortcuts';
 import { BookmarkMenu } from './BookmarkMenu';
 import { SettingsMenu } from './SettingsMenu';
 import { SpeedMenu } from './SpeedMenu';
@@ -126,6 +128,13 @@ export function ControlBar({
   music,
 }: ControlBarProps) {
   const { seekBy } = usePlayerActions();
+  // How far a skip goes, and which key does it, both as set in Settings.
+  const seekShort = useSettings((s) => s.seekShort);
+  const keys = useSettings((s) => s.keys);
+  const shortcut = (id: string) => {
+    const binding = BINDINGS.find((b) => b.id === id);
+    return binding ? hintOf(binding, keys) : undefined;
+  };
 
   /**
    * Publish how tall the bar's controls are, for the subtitles to clear.
@@ -211,22 +220,22 @@ export function ControlBar({
 
           {music && <QueueControls />}
 
-          <Tooltip label="Back 10 seconds" shortcut="←">
+          <Tooltip label={`Back ${seekShort} seconds`} shortcut={shortcut('back-short')}>
             <Button
               variant="chrome"
               size="icon"
-              onClick={() => seekBy(-10)}
-              aria-label="Back 10 seconds"
+              onClick={() => seekBy(-seekShort)}
+              aria-label={`Back ${seekShort} seconds`}
             >
               <Icon name="rewind" />
             </Button>
           </Tooltip>
-          <Tooltip label="Forward 10 seconds" shortcut="→">
+          <Tooltip label={`Forward ${seekShort} seconds`} shortcut={shortcut('forward-short')}>
             <Button
               variant="chrome"
               size="icon"
-              onClick={() => seekBy(10)}
-              aria-label="Forward 10 seconds"
+              onClick={() => seekBy(seekShort)}
+              aria-label={`Forward ${seekShort} seconds`}
             >
               <Icon name="forward" />
             </Button>

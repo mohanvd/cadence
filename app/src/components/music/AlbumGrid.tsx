@@ -6,6 +6,7 @@ import { Artwork } from './Artwork';
 import { ListActions } from './ListActions';
 import { SongRows } from './SongRows';
 import { TrackMenu } from './TrackMenu';
+import { settingsOpen } from '@/store/viewStore';
 
 /**
  * Albums as sleeves.
@@ -102,7 +103,7 @@ export function AlbumSheet({
      is the clutter that argues for. */
   React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape' && !settingsOpen()) onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

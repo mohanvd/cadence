@@ -740,3 +740,108 @@ video::cue {
 .music-screen--playing {
   bottom: 78px;
 }
+
+/* ── Settings ──
+   Over everything but the title bar: above the player (100) and the docked
+   music bar (150), so it can be opened from either and closed back to it, and
+   below the bar (200), whose back arrow and window controls have to stay where
+   they always are. */
+.settings-screen {
+  position: fixed;
+  inset: var(--titlebar-h, 0px) 0 0 0;
+  z-index: 160;
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  background: var(--color-base);
+  animation: settings-in var(--cd-duration-2) var(--cd-ease) both;
+}
+
+@keyframes settings-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.settings-screen__nav {
+  padding: 20px 14px;
+  border-right: 1px solid var(--color-line);
+  background: color-mix(in oklab, var(--color-base) 70%, var(--color-surface-1));
+  overflow-y: auto;
+}
+
+.settings-screen__body {
+  overflow-y: auto;
+}
+
+.settings-screen__inner {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px 32px 64px;
+}
+
+.settings-screen__title {
+  margin: 0 0 18px 4px;
+  font-family: var(--cd-font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--color-fg);
+}
+
+.settings-screen__section + .settings-screen__section {
+  margin-top: 36px;
+}
+
+.settings-screen__empty {
+  padding: 48px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-fg-subtle);
+}
+
+/* While a search runs, a group, and then a section, with no matching row left
+   in it is not drawn at all; and the "nothing matches" line only when there is
+   no row left anywhere. Counted by the stylesheet, so no component has to. */
+.settings-screen__inner .settings-group:not(:has([data-setting-row])),
+.settings-screen__section:not(:has([data-setting-row])) {
+  display: none;
+}
+
+.settings-screen__inner:has([data-setting-row]) .settings-screen__empty {
+  display: none;
+}
+
+/* Narrow windows: the sections become a row along the top. */
+@media (max-width: 760px) {
+  .settings-screen {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .settings-screen__nav {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-line);
+    padding: 12px;
+  }
+
+  .settings-screen__nav nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .settings-screen__inner {
+    padding: 20px 16px 48px;
+  }
+}
+
+/* The Settings button sits with the window's controls, a little apart from
+   them, and lit in the accent while Settings is open. */
+.titlebar__settings {
+  margin-right: 6px;
+}
+
+.titlebar__settings[data-active] {
+  color: var(--color-accent);
+  background: var(--icon-hover-bg);
+}

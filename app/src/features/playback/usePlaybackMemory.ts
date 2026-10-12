@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { usePlayerStore } from '@/store/playerStore';
+import { settings } from '@/store/settingsStore';
 import {
   loadPosition,
   loadSpeed,
@@ -11,8 +12,6 @@ import {
   saveVolume,
 } from '@/utils/storage';
 
-/** Don't offer to resume a file that barely started. */
-const MIN_RESUME_SECONDS = 15;
 /** Treat the last few seconds as "finished" and start it over instead. */
 const END_MARGIN_SECONDS = 20;
 /** How often the playhead is written to storage. */
@@ -107,8 +106,12 @@ export function usePlaybackMemory(fileKey: string): ResumeInfo | null {
 
       const saved = loadPosition(fileKey);
       const position = saved?.position ?? 0;
+      /* Whether to resume at all, and how far in a file has to be before it
+         counts, are the viewer's: see Settings, Playback. A file that barely
+         started is not worth resuming, and the default line is 15 seconds. */
+      const { resume: resumes, resumeAfter } = settings();
       const worthResuming =
-        position > MIN_RESUME_SECONDS && position < state.duration - END_MARGIN_SECONDS;
+        resumes && position > resumeAfter && position < state.duration - END_MARGIN_SECONDS;
 
       if (!worthResuming) {
         setResume(null);

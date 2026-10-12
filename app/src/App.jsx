@@ -8,8 +8,10 @@ import { isDesktop, onOpenFile, takeLaunchFile, basename } from './lib/desktop';
 import { useFolderQueue, useQueueControls as useFolderControls } from './features/playback/useFolderQueue';
 import { usePlayerStore } from './store/playerStore';
 import { useQueueStore } from './store/queueStore';
+import { useSettings } from './store/settingsStore';
 import Home from './screens/Home';
 import Music from './screens/Music';
+import SettingsScreen from './screens/Settings';
 import { TooltipProvider } from './components/ui/tooltip';
 import { closeMenus } from './components/ui/popover';
 import { MusicSearch } from './components/music/MusicSearch';
@@ -61,6 +63,22 @@ export default function App() {
 
   useEffect(() => {
     clearBookmarkStorage();
+  }, []);
+
+  /* Ctrl+comma opens Settings and closes it again, which is where every other
+     Windows program that has a settings window puts it. Bound here, once, so
+     it works from every screen, the player included. */
+  React.useEffect(() => {
+    const onKey = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === ',') {
+        event.preventDefault();
+        closeMenus();
+        const { view, go } = useViewStore.getState();
+        go({ settings: !view.settings });
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   /* No Back, Refresh, Save as, Print or Inspect. That menu is WebView2
@@ -144,6 +162,8 @@ export default function App() {
    * Playing something from the library puts this in charge, and it stays in
    * charge until a file is opened from outside it. */
   const chosen = useQueueStore((s) => s.items.length > 0);
+  // Whether the rest of a folder plays by itself. A chosen queue always does.
+  const autoAdvance = useSettings((s) => s.autoAdvance);
   const startQueue = useQueueStore((s) => s.start);
   const advance = useQueueStore((s) => s.advance);
   const retreat = useQueueStore((s) => s.retreat);
@@ -289,7 +309,8 @@ export default function App() {
      while a record is on, which is the one moment somebody most wants it. */
   const goToScreen = useCallback(
     (next) => {
-      setScreen({ screen: next });
+      // Picking a tab is leaving Settings, if it was open.
+      setScreen({ screen: next, settings: false });
       closeMenus();
       /* Music is put away and keeps playing; a film is closed. Nobody browses
          a music library while watching one in the same window, and leaving it
@@ -377,7 +398,20 @@ export default function App() {
           onMinimise={minimiseToMusic}
           onNext={nextHandler}
           onPrevious={previousHandler}
+          advanceOnEnd={chosen || autoAdvance}
           position={position}
+        />
+      )}
+
+      {view.settings && (
+        <SettingsScreen
+          updates={{
+            status: updateStatus,
+            version: updateVersion,
+            progress: updateProgress,
+            error: updateError,
+            onInstall: installAndRestart,
+          }}
         />
       )}
 

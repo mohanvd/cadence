@@ -1,7 +1,9 @@
 import * as React from 'react';
 import { Icon } from '@/components/ui/icons';
 import { Button } from '@/components/ui/button';
-import { BINDINGS, type Binding } from '@/features/keyboard/useKeyboardShortcuts';
+import { BINDINGS, hintOf, labelOf, type Binding } from '@/features/keyboard/useKeyboardShortcuts';
+import { useSettings } from '@/store/settingsStore';
+import { settingsOpen } from '@/store/viewStore';
 
 const GROUP_TITLES: Record<Binding['group'], string> = {
   playback: 'Playback',
@@ -27,23 +29,32 @@ const EXTRA: Array<{ label: string; hint: string; group: Binding['group'] }> = [
 export function ShortcutsSheet({ onClose }: { onClose: () => void }) {
   React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (settingsOpen()) return;
       if (event.key === 'Escape' || event.key === '?') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // The keys as they are now, rebound or not, and the seek distances as set.
+  const keys = useSettings((s) => s.keys);
+  const seekShort = useSettings((s) => s.seekShort);
+  const seekLong = useSettings((s) => s.seekLong);
+
   const grouped = React.useMemo(() => {
     const map = new Map<Binding['group'], Array<{ label: string; hint: string }>>();
     for (const group of GROUP_ORDER) map.set(group, []);
     for (const binding of BINDINGS) {
-      map.get(binding.group)?.push({ label: binding.label, hint: binding.hint });
+      map.get(binding.group)?.push({
+        label: labelOf(binding, { seekShort, seekLong }),
+        hint: hintOf(binding, keys),
+      });
     }
     for (const extra of EXTRA) {
       map.get(extra.group)?.push({ label: extra.label, hint: extra.hint });
     }
     return map;
-  }, []);
+  }, [keys, seekShort, seekLong]);
 
   return (
     <div

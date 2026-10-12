@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { decodeSubtitle, loadSubtitleFile } from '../utils/subtitles';
+import { DEFAULT_SUBTITLE_STYLE as DEFAULT_STYLE, SUBTITLE_OPTIONS } from '../lib/subtitleStyle';
+import { useSettings } from '../store/settingsStore';
 import {
   subtitleTrack,
   scriptSubtitleTrack,
@@ -7,88 +9,11 @@ import {
   installedFonts,
 } from '../lib/desktop';
 
-const STORAGE_KEY = 'cadence-subtitle-style';
-
-/**
- * How the cues are drawn.
- *
- * Stored as plain numbers and names rather than as finished CSS, so that the
- * menu has something to put a tick beside. A colour kept as
- * `rgba(0, 0, 0, 0.75)` can be applied and cannot be answered questions about:
- * "is the backdrop black" becomes string comparison, and "is it 75%" becomes a
- * regular expression, which is what the backdrop control used to be.
- */
-const DEFAULT_STYLE = {
-  family: 'sans',
-  /** Percent of the player's own base size, the way YouTube counts it. */
-  size: 100,
-  color: '#ffffff',
-  opacity: 100,
-  backgroundColor: '#000000',
-  backgroundOpacity: 75,
-  edge: 'shadow',
-};
-
-/** The values each setting is allowed to take, and the menu's list of them. */
-export const SUBTITLE_OPTIONS = {
-  family: [
-    { value: 'sans', label: 'Sans-serif' },
-    { value: 'serif', label: 'Serif' },
-    { value: 'mono', label: 'Monospace' },
-    { value: 'rounded', label: 'Rounded' },
-  ],
-  size: [50, 75, 100, 150, 200, 300].map((value) => ({ value, label: `${value}%` })),
-  color: [
-    { value: '#ffffff', label: 'White' },
-    { value: '#ffff00', label: 'Yellow' },
-    { value: '#00ff00', label: 'Green' },
-    { value: '#00ffff', label: 'Cyan' },
-    { value: '#ff0000', label: 'Red' },
-    { value: '#000000', label: 'Black' },
-  ],
-  opacity: [25, 50, 75, 100].map((value) => ({ value, label: `${value}%` })),
-  backgroundColor: [
-    { value: '#000000', label: 'Black' },
-    { value: '#ffffff', label: 'White' },
-    { value: '#ff0000', label: 'Red' },
-    { value: '#0000ff', label: 'Blue' },
-    { value: '#ffff00', label: 'Yellow' },
-  ],
-  backgroundOpacity: [0, 25, 50, 75, 100].map((value) => ({ value, label: `${value}%` })),
-  edge: [
-    { value: 'none', label: 'None' },
-    { value: 'shadow', label: 'Drop shadow' },
-    { value: 'outline', label: 'Outline' },
-    { value: 'raised', label: 'Raised' },
-  ],
-};
-
-/**
- * Read the saved appearance, keeping only values that are still offered.
- *
- * What is on disk was written by an older version of this file, and the shape
- * has already changed once: the size used to be the string `'18px'` and the
- * backdrop a whole `rgba()` expression. Merging that over the defaults would
- * put a string where the menu now expects a number and leave the text
- * undrawable. Anything unrecognised is dropped rather than repaired.
- */
-function loadStyle() {
-  const style = { ...DEFAULT_STYLE };
-  let saved;
-  try {
-    saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
-  } catch {
-    return style;
-  }
-  if (!saved || typeof saved !== 'object') return style;
-
-  for (const key of Object.keys(DEFAULT_STYLE)) {
-    if (SUBTITLE_OPTIONS[key].some((option) => option.value === saved[key])) {
-      style[key] = saved[key];
-    }
-  }
-  return style;
-}
+/* The style lives in the settings store, so the one the Settings screen shows
+   and the one on screen over a film are the same style. The values it may take
+   are in lib/subtitleStyle, and are re-exported here for the menus that have
+   always read them from this module. */
+export { SUBTITLE_OPTIONS };
 
 /**
  * @param {{ current: HTMLVideoElement|null }} videoRef
@@ -101,7 +26,7 @@ export function useSubtitles(videoRef, videoEl = null) {
   const [label, setLabel] = useState('Subtitles');
   const [enabled, setEnabled] = useState(false);
   const [offset, setOffset] = useState(0); // in seconds
-  const [style, setStyle] = useState(loadStyle);
+  const style = useSettings((s) => s.subtitleStyle);
   /**
    * Where the showing cues came from: `'file'` for one opened from disk, or a
    * demuxer stream index for one lifted out of the video itself. Null when
@@ -487,20 +412,12 @@ export function useSubtitles(videoRef, videoEl = null) {
   }, []);
 
   const changeStyle = useCallback((key, value) => {
-    setStyle((prev) => {
-      const next = { ...prev, [key]: value };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch { /* ignore */ }
-      return next;
-    });
+    const { subtitleStyle, set } = useSettings.getState();
+    set({ subtitleStyle: { ...subtitleStyle, [key]: value } });
   }, []);
 
   const resetStyle = useCallback(() => {
-    setStyle({ ...DEFAULT_STYLE });
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch { /* ignore */ }
+    useSettings.getState().set({ subtitleStyle: { ...DEFAULT_STYLE } });
   }, []);
 
   const toggle = useCallback(() => {

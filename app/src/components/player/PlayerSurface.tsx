@@ -16,6 +16,8 @@ import {
 import { useMusicMode } from '@/features/playback/useMusicMode';
 import { useNowPlaying } from '@/features/playback/useNowPlaying';
 import { useVideoFit } from '@/features/playback/useVideoFit';
+import { useSettings } from '@/store/settingsStore';
+import { settingsOpen } from '@/store/viewStore';
 import { MusicStage } from './MusicStage';
 import { Toaster, useToaster } from '@/components/ui/toaster';
 import { PortalContainerProvider } from '@/components/ui/portal-container';
@@ -75,6 +77,14 @@ export interface PlayerSurfaceProps {
   onMinimise?: (() => void) | undefined;
   onNext?: (() => void) | undefined;
   onPrevious?: (() => void) | undefined;
+  /**
+   * Whether the end of this file starts the next one.
+   *
+   * Always, for a queue somebody chose in the library: that is what a queue
+   * is. For the rest of a folder it is a setting, because the next episode
+   * starting by itself at two in the morning is not what everyone wants.
+   */
+  advanceOnEnd?: boolean;
   /** Where this file sits in its folder, when there is more than one. */
   position?: { index: number; total: number } | undefined;
 }
@@ -96,6 +106,7 @@ export function PlayerSurface({
   onExpand,
   onNext,
   onPrevious,
+  advanceOnEnd = true,
   position,
 }: PlayerSurfaceProps) {
   const shellRef = React.useRef<HTMLDivElement>(null);
@@ -118,9 +129,7 @@ export function PlayerSurface({
   const [chromeVisible, setChromeVisible] = React.useState(true);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
-  const [ambient, setAmbient] = React.useState(
-    () => localStorage.getItem('cadence-ambient') === 'true',
-  );
+  const ambient = useSettings((s) => s.ambient);
   const feedbackRef = React.useRef<GestureFeedbackHandle>(null);
 
   const { toasts, show: showToast } = useToaster();
@@ -140,11 +149,11 @@ export function PlayerSurface({
    */
   const looping = features.loop;
   React.useEffect(() => {
-    if (!onNext || looping) return undefined;
+    if (!onNext || looping || !advanceOnEnd) return undefined;
     return usePlayerStore.subscribe((state, previous) => {
       if (state.ended && !previous.ended) onNext();
     });
-  }, [onNext, looping]);
+  }, [onNext, looping, advanceOnEnd]);
 
   // Volume, speed and playhead survive reloads and file switches.
   const resume = usePlaybackMemory(source.name);
@@ -272,10 +281,8 @@ export function PlayerSurface({
   }, []);
 
   const toggleAmbient = React.useCallback(() => {
-    setAmbient((prev) => {
-      localStorage.setItem('cadence-ambient', String(!prev));
-      return !prev;
-    });
+    const { ambient: on, set } = useSettings.getState();
+    set({ ambient: !on });
   }, []);
 
   // The gesture hook is untyped JS, so the payload arrives as `unknown` and is
@@ -405,7 +412,9 @@ export function PlayerSurface({
   // Any shortcut that changes playback should also bring the chrome back, so
   // the user sees the result of what they just pressed.
   React.useEffect(() => {
-    const onKey = () => revealChrome();
+    const onKey = () => {
+      if (!settingsOpen()) revealChrome();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [revealChrome]);

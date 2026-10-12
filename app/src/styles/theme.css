@@ -174,12 +174,23 @@
     );
   }
 
+  /* Motion follows Windows unless Settings says otherwise: `data-motion` on the
+     root is written by the settings store, `reduce` to turn it off whatever
+     Windows says, `full` to keep it on whatever Windows says, and absent to
+     let Windows decide. */
   @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
+    :root:not([data-motion='full']) *,
+    :root:not([data-motion='full']) *::before,
+    :root:not([data-motion='full']) *::after {
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
+  }
+
+  :root[data-motion='reduce'] *,
+  :root[data-motion='reduce'] *::before,
+  :root[data-motion='reduce'] *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

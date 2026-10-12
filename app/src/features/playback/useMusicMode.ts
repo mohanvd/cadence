@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { usePlayerStore } from '@/store/playerStore';
 import { isSoundOnly } from '@/lib/media';
+import { useSettings } from '@/store/settingsStore';
 
 /**
  * Music mode: playback with the picture switched off.
@@ -16,8 +17,6 @@ import { isSoundOnly } from '@/lib/media';
  * alternative is a black rectangle the user has to be told is working.
  */
 
-const STORAGE_KEY = 'cadence-music-mode';
-
 export interface MusicModeApi {
   enabled: boolean;
   /** True when the file has no playable video track, so this is the only sane view. */
@@ -25,19 +24,12 @@ export interface MusicModeApi {
   toggle: () => void;
 }
 
-function loadPreference(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
 export function useMusicMode(onToast?: (message: string) => void): MusicModeApi {
   const tracks = usePlayerStore((s) => s.tracks);
   const source = usePlayerStore((s) => s.source);
 
-  const [preference, setPreference] = React.useState(loadPreference);
+  // The viewer's choice, kept with the rest of the settings.
+  const preference = useSettings((s) => s.musicMode);
 
   /**
    * Whether this source can show a picture at all.
@@ -71,15 +63,8 @@ export function useMusicMode(onToast?: (message: string) => void): MusicModeApi 
   }, [forced, source, onToast]);
 
   const toggle = React.useCallback(() => {
-    setPreference((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(STORAGE_KEY, String(next));
-      } catch {
-        /* Private browsing; the preference just won't outlive the session. */
-      }
-      return next;
-    });
+    const { musicMode, set } = useSettings.getState();
+    set({ musicMode: !musicMode });
   }, []);
 
   return { enabled: forced || preference, forced, toggle };

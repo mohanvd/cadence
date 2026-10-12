@@ -16,6 +16,7 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { useDiscordStore } from '@/store/discordStore';
 import { discordStatus } from '@/lib/desktop';
 import { cn } from '@/lib/utils';
+import { useViewStore } from '@/store/viewStore';
 import type { PlayerFeatures } from '@/features/usePlayerFeatures';
 import type { MusicModeApi } from '@/features/playback/useMusicMode';
 import type { VideoFitApi } from '@/features/playback/useVideoFit';
@@ -28,7 +29,7 @@ import {
   useAppearanceStore,
 } from '@/store/appearanceStore';
 
-type Panel = 'root' | 'video' | 'audio' | 'timer' | 'zoom' | 'appearance' | 'discord' | 'about';
+type Panel = 'root' | 'video' | 'audio' | 'timer' | 'zoom' | 'appearance' | 'discord';
 
 /**
  * The settings popover.
@@ -189,8 +190,15 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
             )}
 
             <MenuSeparator />
-            <MenuItem onSelect={() => setPanel('about')} trailing={<span>{__APP_VERSION__}</span>}>
-              About Cadence
+            {/* Everything else, and everything above, in full. */}
+            <MenuItem
+              onSelect={() => {
+                onOpenChange(false);
+                useViewStore.getState().go({ settings: true });
+              }}
+              trailing={<span>Ctrl+,</span>}
+            >
+              All settings
             </MenuItem>
 
           </>
@@ -368,12 +376,6 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
           </PanelFrame>
         )}
 
-        {panel === 'about' && (
-          <PanelFrame title="About Cadence" onBack={() => setPanel('root')}>
-            <AboutPanel />
-          </PanelFrame>
-        )}
-
         {panel === 'appearance' && (
           <PanelFrame title="Appearance" onBack={() => setPanel('root')}>
             <AppearancePanel />
@@ -417,7 +419,7 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
  * that is on, a Discord that is closed and a card that was refused all look
  * the same from here. This asks, while the panel is open and not otherwise.
  */
-function DiscordStatusLine() {
+export function DiscordStatusLine() {
   const [status, setStatus] = React.useState('off');
 
   React.useEffect(() => {
@@ -493,7 +495,7 @@ const COMPONENTS = [
  * text rather than links: this window cannot open a browser, and a link that
  * does nothing when pressed is worse than an address that can be read.
  */
-function AboutPanel() {
+export function AboutPanel() {
   const [copied, setCopied] = React.useState(false);
 
   const copyVersion = React.useCallback(async () => {

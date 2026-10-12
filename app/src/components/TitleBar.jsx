@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { CHROME_STROKE, Icon } from './ui/icons';
 import { Mark } from './ui/mark';
 import { isDesktop } from '../lib/desktop';
-import { useHistory } from '../store/viewStore';
+import { useHistory, useView, useViewStore } from '../store/viewStore';
+import { closeMenus } from './ui/popover';
 
 /**
  * The window's own title bar, drawn by the application.
@@ -22,6 +23,7 @@ import { useHistory } from '../store/viewStore';
 export default function TitleBar({ screen, onScreen, search }) {
   const [maximized, setMaximized] = useState(false);
   const history = useHistory();
+  const settingsOpen = useView().settings;
 
   useEffect(() => {
     if (!isDesktop()) return undefined;
@@ -128,6 +130,25 @@ export default function TitleBar({ screen, onScreen, search }) {
           page in a frame: a title bar, and then another bar under it doing the
           same job. One bar carries the window, the sections and the search. */}
       {search && <div className="titlebar__search">{search}</div>}
+
+      {/* Settings, beside the window's own controls, where a settings button
+          sits in every Windows program that has one. Ctrl+comma does the same. */}
+      {onScreen && (
+        <button
+          type="button"
+          className="titlebar__arrow titlebar__settings"
+          data-active={settingsOpen ? '' : undefined}
+          onClick={() => {
+            closeMenus();
+            useViewStore.getState().go({ settings: !settingsOpen });
+          }}
+          aria-label="Settings"
+          aria-pressed={settingsOpen}
+          title="Settings (Ctrl+,)"
+        >
+          <Icon name="settings" size={15} stroke={CHROME_STROKE} />
+        </button>
+      )}
 
       <div className="titlebar__controls">
         <button

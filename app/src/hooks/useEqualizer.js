@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { EQ_BANDS, audioChain } from '../engine/audioChain';
+import { DEFAULT_EQ_GAINS, useSettings } from '../store/settingsStore';
 
 /**
  * Bass, voice clarity and the rest, as bands on the shared audio graph.
@@ -13,11 +14,7 @@ import { EQ_BANDS, audioChain } from '../engine/audioChain';
  * chain now sees it.
  */
 
-const STORAGE_KEY = 'cadence-audio-eq';
-
 const BANDS = EQ_BANDS;
-
-const DEFAULT_GAINS = [0, 0, 0, 0, 0];
 
 export const EQ_PRESETS = [
   { name: 'Flat', gains: [0, 0, 0, 0, 0] },
@@ -29,27 +26,16 @@ export const EQ_PRESETS = [
   { name: 'Loudness', gains: [6, 3, -1, 3, 6] },
 ];
 
-function loadEQ() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed.gains) && parsed.gains.length === 5) return parsed;
-    }
-  } catch { /* ignore */ }
-  return { gains: [...DEFAULT_GAINS], preset: 'Flat' };
-}
-
-function saveEQ(gains, preset) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ gains, preset }));
-  } catch { /* ignore */ }
-}
-
+/*
+ * The curve is kept in the settings store rather than here, so that the one
+ * the Settings screen shows is the one the player applies. Whether the
+ * equalizer is on is not: switching it on routes the audio through Web Audio,
+ * which is a step taken per film, from the player.
+ */
 export function useEqualizer(videoRef) {
-  const saved = useMemo(() => loadEQ(), []);
-  const [gains, setGains] = useState(saved.gains);
-  const [activePreset, setActivePreset] = useState(saved.preset);
+  const gains = useSettings((s) => s.eqGains);
+  const activePreset = useSettings((s) => s.eqPreset);
+  const set = useSettings((s) => s.set);
   const [isEnabled, setIsEnabled] = useState(false);
 
   const isFlat = useMemo(() => gains.every((g) => g === 0), [gains]);
@@ -61,35 +47,33 @@ export function useEqualizer(videoRef) {
     setIsEnabled(true);
   }, [gains]);
 
-  // Update filter gains in real-time
-  const updateGain = useCallback((index, value) => {
-    const clamped = Math.max(-12, Math.min(12, value));
-    setGains((prev) => {
-      const next = [...prev];
+  /* The curve is applied wherever it was changed from, this menu or the
+     Settings screen, for as long as the equalizer is on. Off, the bands stay
+     flat whatever the curve says. */
+  useEffect(() => {
+    if (!isEnabled) return;
+    gains.forEach((g, i) => audioChain.setEqGain(i, g));
+  }, [gains, isEnabled]);
+
+  const updateGain = useCallback(
+    (index, value) => {
+      const clamped = Math.max(-12, Math.min(12, value));
+      const next = [...useSettings.getState().eqGains];
       next[index] = clamped;
-      saveEQ(next, null);
+      set({ eqGains: next, eqPreset: null });
+    },
+    [set],
+  );
 
-      audioChain.setEqGain(index, clamped);
-      return next;
-    });
-    setActivePreset(null);
-  }, []);
+  const applyPreset = useCallback(
+    (preset) => set({ eqGains: [...preset.gains], eqPreset: preset.name }),
+    [set],
+  );
 
-  const applyPreset = useCallback((preset) => {
-    setGains([...preset.gains]);
-    setActivePreset(preset.name);
-    saveEQ(preset.gains, preset.name);
-
-    preset.gains.forEach((g, i) => audioChain.setEqGain(i, g));
-  }, []);
-
-  const resetEQ = useCallback(() => {
-    setGains([...DEFAULT_GAINS]);
-    setActivePreset('Flat');
-    saveEQ(DEFAULT_GAINS, 'Flat');
-
-    DEFAULT_GAINS.forEach((g, i) => audioChain.setEqGain(i, g));
-  }, []);
+  const resetEQ = useCallback(
+    () => set({ eqGains: [...DEFAULT_EQ_GAINS], eqPreset: 'Flat' }),
+    [set],
+  );
 
   // Toggle EQ on/off
   const toggleEQ = useCallback(() => {

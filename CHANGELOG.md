@@ -7,6 +7,37 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Settings, in a place of its own.** The gear in the window's bar, or
+  Ctrl+comma, opens every setting Cadence has, whether or not anything is
+  playing: appearance, playback, the picture, sound, subtitles, the music
+  library, the keyboard, Discord, and About. It sits over whatever is open, so
+  a subtitle size can be chosen with the film paused behind it, and a search
+  box finds any setting by name. Each one can be put back on its own, or all
+  of them at once.
+
+  Most of what was there before could only be changed by using it, from the
+  player's menu while a film was on. The player's menu stays, as the quick way
+  to change the file that is playing now; both change the same settings.
+
+- **Shortcuts can be changed.** Any of them, to any single key, with Shift if
+  you like. Giving a key to one shortcut takes it from whichever had it, and
+  says so.
+
+- **New choices.** How far the arrow keys and J and L skip; whether to resume
+  where you stopped, and how far into a file that starts to apply; whether the
+  next file in a folder plays by itself; which tab Cadence opens on; and
+  whether the interface animates, independently of Windows.
+
+### Fixed
+
+- **? opens the list of shortcuts.** It never did: only / worked, because the
+  shortcut asked for Shift to be up, and a question mark cannot be typed
+  without it.
+
+Choices made before this version are carried over the first time it runs.
+
 ## [0.9.0] - 2026-10-12
 
 ### Added

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useSettings, type FitMode } from '@/store/settingsStore';
 
 /**
  * Letterbox or fill.
@@ -14,17 +15,7 @@ import * as React from 'react';
  * watched on rather than about the file being watched.
  */
 
-export type FitMode = 'contain' | 'cover';
-
-const STORAGE_KEY = 'cadence-video-fit';
-
-function load(): FitMode {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'cover' ? 'cover' : 'contain';
-  } catch {
-    return 'contain';
-  }
-}
+export type { FitMode };
 
 export interface VideoFitApi {
   mode: FitMode;
@@ -34,18 +25,11 @@ export interface VideoFitApi {
 }
 
 export function useVideoFit(): VideoFitApi {
-  const [mode, setMode] = React.useState<FitMode>(load);
+  const mode = useSettings((s) => s.fit);
 
   const toggle = React.useCallback(() => {
-    setMode((prev) => {
-      const next: FitMode = prev === 'contain' ? 'cover' : 'contain';
-      try {
-        localStorage.setItem(STORAGE_KEY, next);
-      } catch {
-        // A blocked storage quota is not a reason to refuse the toggle.
-      }
-      return next;
-    });
+    const { fit, set } = useSettings.getState();
+    set({ fit: fit === 'contain' ? 'cover' : 'contain' });
   }, []);
 
   return { mode, fills: mode === 'cover', toggle };

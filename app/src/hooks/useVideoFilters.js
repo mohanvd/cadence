@@ -1,13 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
-
-const STORAGE_KEY = 'cadence-video-filters';
-
-const DEFAULT_FILTERS = {
-  brightness: 100,
-  contrast: 100,
-  saturation: 100,
-  hue: 0,
-};
+import { useCallback, useMemo } from 'react';
+import { DEFAULT_FILTERS, useSettings } from '../store/settingsStore';
 
 export const FILTER_PRESETS = [
   { name: 'Normal', values: { ...DEFAULT_FILTERS } },
@@ -21,47 +13,34 @@ export const FILTER_PRESETS = [
   { name: 'Night Mode', values: { brightness: 80, contrast: 110, saturation: 80, hue: 0 } },
 ];
 
-function loadFilters() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) return { ...DEFAULT_FILTERS, ...JSON.parse(data) };
-  } catch { /* ignore */ }
-  return { ...DEFAULT_FILTERS };
-}
-
-function saveFilters(filters) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
-  } catch { /* ignore */ }
-}
-
 /**
  * Hook for video CSS filters: brightness, contrast, saturation, hue-rotate.
+ *
+ * The values live in the settings store, so the player and the Settings screen
+ * are looking at one set of them: a slider moved in Settings changes the film
+ * paused behind it.
  */
 export function useVideoFilters() {
-  const [filters, setFilters] = useState(loadFilters);
-  const [activePreset, setActivePreset] = useState('Normal');
+  const filters = useSettings((s) => s.filters);
+  const activePreset = useSettings((s) => s.filterPreset);
+  const set = useSettings((s) => s.set);
 
-  const updateFilter = useCallback((key, value) => {
-    setFilters((prev) => {
-      const next = { ...prev, [key]: value };
-      saveFilters(next);
-      return next;
-    });
-    setActivePreset(null);
-  }, []);
+  const updateFilter = useCallback(
+    (key, value) => {
+      set({ filters: { ...useSettings.getState().filters, [key]: value }, filterPreset: null });
+    },
+    [set],
+  );
 
-  const applyPreset = useCallback((preset) => {
-    setFilters({ ...preset.values });
-    saveFilters(preset.values);
-    setActivePreset(preset.name);
-  }, []);
+  const applyPreset = useCallback(
+    (preset) => set({ filters: { ...preset.values }, filterPreset: preset.name }),
+    [set],
+  );
 
-  const resetFilters = useCallback(() => {
-    setFilters({ ...DEFAULT_FILTERS });
-    saveFilters(DEFAULT_FILTERS);
-    setActivePreset('Normal');
-  }, []);
+  const resetFilters = useCallback(
+    () => set({ filters: { ...DEFAULT_FILTERS }, filterPreset: 'Normal' }),
+    [set],
+  );
 
   const isDefault = useMemo(() => {
     return (

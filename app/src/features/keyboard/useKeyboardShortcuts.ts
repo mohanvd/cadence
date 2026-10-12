@@ -1,5 +1,7 @@
 import * as React from 'react';
 import { usePlayerStore } from '@/store/playerStore';
+import { settings, useSettings, type Settings } from '@/store/settingsStore';
+import { settingsOpen } from '@/store/viewStore';
 
 /**
  * Keyboard shortcuts, defined as data.
@@ -12,8 +14,11 @@ import { usePlayerStore } from '@/store/playerStore';
  */
 
 export interface Binding {
+  /** Stable, so a rebinding saved against it survives a relabelling. */
+  id: string;
   /** `KeyboardEvent.key` values that trigger this action, lowercased. */
   keys: string[];
+  /** `{short}` and `{long}` stand for the seek distances; see `labelOf`. */
   label: string;
   /** Display form for the shortcuts sheet. */
   hint: string;
@@ -55,6 +60,7 @@ function stepSpeed(direction: 1 | -1): void {
 export const BINDINGS: Binding[] = [
   {
     keys: [' ', 'k'],
+    id: 'play',
     label: 'Play / pause',
     hint: 'Space',
     group: 'playback',
@@ -63,34 +69,39 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['arrowleft'],
-    label: 'Back 10 seconds',
+    id: 'back-short',
+    label: 'Back {short} seconds',
     hint: '←',
     group: 'navigation',
-    run: () => usePlayerStore.getState().seekBy(-10),
+    run: () => usePlayerStore.getState().seekBy(-settings().seekShort),
   },
   {
     keys: ['arrowright'],
-    label: 'Forward 10 seconds',
+    id: 'forward-short',
+    label: 'Forward {short} seconds',
     hint: '→',
     group: 'navigation',
-    run: () => usePlayerStore.getState().seekBy(10),
+    run: () => usePlayerStore.getState().seekBy(settings().seekShort),
   },
   {
     keys: ['j'],
-    label: 'Back 30 seconds',
+    id: 'back-long',
+    label: 'Back {long} seconds',
     hint: 'J',
     group: 'navigation',
-    run: () => usePlayerStore.getState().seekBy(-30),
+    run: () => usePlayerStore.getState().seekBy(-settings().seekLong),
   },
   {
     keys: ['l'],
-    label: 'Forward 30 seconds',
+    id: 'forward-long',
+    label: 'Forward {long} seconds',
     hint: 'L',
     group: 'navigation',
-    run: () => usePlayerStore.getState().seekBy(30),
+    run: () => usePlayerStore.getState().seekBy(settings().seekLong),
   },
   {
     keys: [','],
+    id: 'frame-back',
     label: 'Previous frame',
     hint: ',',
     group: 'navigation',
@@ -99,6 +110,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['.'],
+    id: 'frame-forward',
     label: 'Next frame',
     hint: '.',
     group: 'navigation',
@@ -106,6 +118,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['home'],
+    id: 'start',
     label: 'Jump to start',
     hint: 'Home',
     group: 'navigation',
@@ -113,6 +126,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['end'],
+    id: 'end',
     label: 'Jump to end',
     hint: 'End',
     group: 'navigation',
@@ -123,6 +137,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['arrowup'],
+    id: 'volume-up',
     label: 'Volume up',
     hint: '↑',
     group: 'audio',
@@ -133,6 +148,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['arrowdown'],
+    id: 'volume-down',
     label: 'Volume down',
     hint: '↓',
     group: 'audio',
@@ -143,6 +159,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['m'],
+    id: 'mute',
     label: 'Mute',
     hint: 'M',
     group: 'audio',
@@ -150,6 +167,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['>'],
+    id: 'speed-up',
     label: 'Speed up',
     hint: 'Shift + .',
     group: 'playback',
@@ -158,6 +176,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['<'],
+    id: 'speed-down',
     label: 'Slow down',
     hint: 'Shift + ,',
     group: 'playback',
@@ -166,6 +185,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['f'],
+    id: 'fullscreen',
     label: 'Fullscreen',
     hint: 'F',
     group: 'view',
@@ -173,6 +193,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['c'],
+    id: 'subtitles',
     label: 'Toggle subtitles',
     hint: 'C',
     group: 'view',
@@ -180,6 +201,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['r'],
+    id: 'loop',
     label: 'Loop file',
     hint: 'R',
     group: 'playback',
@@ -187,6 +209,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['b'],
+    id: 'bookmark',
     label: 'Add bookmark',
     hint: 'B',
     group: 'navigation',
@@ -194,6 +217,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['s'],
+    id: 'screenshot',
     label: 'Save frame as PNG',
     hint: 'S',
     group: 'view',
@@ -201,6 +225,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['z'],
+    id: 'zoom-in',
     label: 'Zoom in',
     hint: 'Z',
     group: 'view',
@@ -208,6 +233,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['z'],
+    id: 'zoom-out',
     label: 'Zoom out',
     hint: 'Shift + Z',
     group: 'view',
@@ -216,6 +242,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['g'],
+    id: 'ambient',
     label: 'Ambient glow',
     hint: 'G',
     group: 'view',
@@ -223,6 +250,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['?', '/'],
+    id: 'shortcuts',
     label: 'Keyboard shortcuts',
     hint: '?',
     group: 'view',
@@ -230,6 +258,7 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['n'],
+    id: 'next',
     label: 'Next file',
     hint: 'N',
     group: 'navigation',
@@ -237,12 +266,87 @@ export const BINDINGS: Binding[] = [
   },
   {
     keys: ['p'],
+    id: 'previous',
     label: 'Previous file',
     hint: 'P',
     group: 'navigation',
     run: (ctx) => ctx.previous?.(),
   },
 ];
+
+/* ── Chords ──
+ *
+ * A chord is what a binding is matched against: a key, and `shift+` in front
+ * of it when Shift was held. Only for letters and named keys, though. For a
+ * symbol the Shift is already in the character: `?` cannot be typed without
+ * it, and `>` is Shift and full stop. Matching those on whether Shift was down
+ * is what kept `?` from ever opening the shortcuts sheet: its binding asked for
+ * Shift to be up, which is the one way nobody can type a question mark.
+ */
+
+const isSymbol = (key: string): boolean => key.length === 1 && !/[a-z0-9 ]/.test(key);
+
+/** The chord a key press makes. */
+export function chordOf(event: { key: string; shiftKey: boolean }): string {
+  const key = event.key.toLowerCase();
+  return `${event.shiftKey && !isSymbol(key) ? 'shift+' : ''}${key}`;
+}
+
+/** The chords a binding answers to when nobody has rebound it. */
+export function defaultChords(binding: Binding): string[] {
+  return binding.keys.map((key) => `${binding.shift && !isSymbol(key) ? 'shift+' : ''}${key}`);
+}
+
+/** The chords a binding answers to now, rebound or not. */
+export function chordsOf(binding: Binding, keys: Settings['keys']): string[] {
+  return keys[binding.id] ?? defaultChords(binding);
+}
+
+const KEY_NAMES: Record<string, string> = {
+  ' ': 'Space',
+  arrowleft: '←',
+  arrowright: '→',
+  arrowup: '↑',
+  arrowdown: '↓',
+  home: 'Home',
+  end: 'End',
+  pageup: 'Page Up',
+  pagedown: 'Page Down',
+  enter: 'Enter',
+  backspace: 'Backspace',
+  delete: 'Delete',
+  insert: 'Insert',
+  tab: 'Tab',
+};
+
+/** How a chord is written on a key cap: `Shift + Z`, `Space`, `←`. */
+export function chordLabel(chord: string): string {
+  const shifted = chord.startsWith('shift+');
+  const key = shifted ? chord.slice('shift+'.length) : chord;
+  const name = KEY_NAMES[key] ?? (key.length === 1 ? key.toUpperCase() : key[0]!.toUpperCase() + key.slice(1));
+  return shifted ? `Shift + ${name}` : name;
+}
+
+/** A binding's label, with the seek distances it depends on filled in. */
+export function labelOf(binding: Binding, current: Pick<Settings, 'seekShort' | 'seekLong'>): string {
+  return binding.label
+    .replace('{short}', String(current.seekShort))
+    .replace('{long}', String(current.seekLong));
+}
+
+/** A binding's keys as the shortcuts sheet shows them. */
+export function hintOf(binding: Binding, keys: Settings['keys']): string {
+  return keys[binding.id] ? keys[binding.id]!.map(chordLabel).join(' / ') : binding.hint;
+}
+
+/**
+ * Keys a binding may not be given: the digits jump to a percentage of the
+ * film and are handled before any binding is looked at, and Escape is how
+ * every panel and the Settings screen itself are closed.
+ */
+export function isReservedChord(chord: string): boolean {
+  return /^[0-9]$/.test(chord) || chord === 'escape' || chord === 'shift+escape';
+}
 
 /** Typing in a field must never trigger a shortcut. */
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -261,7 +365,7 @@ export function useKeyboardShortcuts(context: BindingContext, enabled = true): v
     if (!enabled) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isTypingTarget(event.target)) return;
+      if (isTypingTarget(event.target) || settingsOpen()) return;
       // Leave browser and OS chords alone.
       if (event.ctrlKey || event.metaKey || event.altKey) return;
 
@@ -275,9 +379,11 @@ export function useKeyboardShortcuts(context: BindingContext, enabled = true): v
         return;
       }
 
-      const binding = BINDINGS.find(
-        (b) => b.keys.includes(key) && Boolean(b.shift) === event.shiftKey,
-      );
+      // Read at the moment of the press, so a key rebound in Settings works
+      // without the listener being bound again.
+      const chord = chordOf(event);
+      const { keys } = useSettings.getState();
+      const binding = BINDINGS.find((b) => chordsOf(b, keys).includes(chord));
       if (!binding) return;
 
       event.preventDefault();
