@@ -7,6 +7,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-12
+
 ### Added
 
 - **Settings, in a place of its own.** The gear in the window's bar, or
@@ -886,7 +888,8 @@ Choices made before this version are carried over the first time it runs.
   installed program, which is no longer a problem worth solving.
 - A router, for an application with one screen.
 
-[Unreleased]: https://github.com/mohanvd/cadence/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/mohanvd/cadence/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/mohanvd/cadence/releases/tag/v0.10.0
 [0.9.0]: https://github.com/mohanvd/cadence/releases/tag/v0.9.0
 [0.8.3]: https://github.com/mohanvd/cadence/releases/tag/v0.8.3
 [0.8.2]: https://github.com/mohanvd/cadence/releases/tag/v0.8.2
