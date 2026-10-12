@@ -7,6 +7,25 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Opening a file with Cadence opens it.** Double-clicking a video, or
+  choosing Cadence from "Open with", started the window and then closed the
+  film before it was shown, leaving the home screen. Music was played but kept
+  out of sight behind it. Both now come to the front, whether Cadence was
+  already running or not. The same was true of a pasted link, which is fixed
+  with it. Broken since 0.7.0.
+
+- **Cadence stays in "Open with" when another program claims the same
+  files.** It registered its file types under the bare names `Video` and
+  `Audio`, which any other program is free to use too, and when one did, the
+  files it had claimed stopped opening in Cadence. It now registers under names
+  of its own, lists itself under "Open with" for every type it plays, and
+  appears in Settings > Default apps, where Windows expects the choice to be
+  made. The command it registers also quotes its own path, which a user folder
+  with a space in its name needs. An installed copy moves to the new names on
+  its next update.
+
 ### Changed
 
 - **The source is public again, and the releases live beside it.** For a while

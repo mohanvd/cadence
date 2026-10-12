@@ -85,7 +85,9 @@ export default function App() {
     setVideoSource({ kind: 'file', file, name: file.name });
     addRecentFile({ name: file.name, size: file.size });
     setPlayerOpen(true);
-  }, []);
+    // Raised as well as opened: see `openFile` for what happens otherwise.
+    setScreen({ player: true });
+  }, [setScreen]);
 
   /**
    * Play a file the operating system handed us, identified by its path.
@@ -116,18 +118,6 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  /* Two ways a file arrives from outside the app, and both land here: the one
-     Cadence was launched with, collected once on startup, and any opened while
-     it is already running, which the shell routes to this window rather than
-     starting a second copy. */
-  useEffect(() => {
-    if (!isDesktop()) return undefined;
-    void takeLaunchFile().then((path) => {
-      if (path) void playPath(path);
-    });
-    return onOpenFile((path) => void playPath(path));
-  }, [playPath]);
-
   const playUrl = useCallback((url) => {
     const pathname = url.split('?')[0];
     const filename = pathname.split('/').pop() || 'video';
@@ -135,7 +125,8 @@ export default function App() {
     setVideoSource({ kind: 'url', url, name: filename });
     addRecentFile({ name: filename, size: 0, url });
     setPlayerOpen(true);
-  }, []);
+    setScreen({ player: true });
+  }, [setScreen]);
 
   /* The rest of the folder, and the two ways through it.
    *
@@ -258,12 +249,32 @@ export default function App() {
     (path) => {
       clearQueue();
       playPath(path);
-      // A file opened on purpose is a file somebody wants to watch, so the
-      // player comes to the front even if it was put away a moment ago.
+      /* A file opened on purpose is a file somebody wants to watch, so the
+         player comes to the front even if it was put away a moment ago.
+
+         Not optional. `playPath` opens the player without raising it, which is
+         right for a track picked from the library, and the effect above closes
+         any film that is open but not raised. A video handed over by Windows
+         used to go through `playPath` alone, so double-clicking one, or
+         choosing Cadence from "Open with", started the window and then shut
+         the film before it was shown. */
       setScreen({ player: true });
     },
-    [clearQueue, playPath],
+    [clearQueue, playPath, setScreen],
   );
+
+  /* Two ways a file arrives from outside the app, and both land here: the one
+     Cadence was launched with, collected once on startup, and any opened while
+     it is already running, which the shell routes to this window rather than
+     starting a second copy. Both go through `openFile`, because both are a file
+     opened on purpose. */
+  useEffect(() => {
+    if (!isDesktop()) return undefined;
+    void takeLaunchFile().then((path) => {
+      if (path) openFile(path);
+    });
+    return onOpenFile((path) => openFile(path));
+  }, [openFile]);
 
   // Load failures are now reported by the player surface itself, which can name
   // the offending codec rather than guessing from the source type.
