@@ -1,0 +1,83 @@
+name: Installer
+
+# Builds the installer and puts it through an install, an upgrade from the
+# last release and an uninstall, checking the registry at every step. See
+# scripts/test-installer.ps1 for what is checked.
+#
+# Its own workflow, not a job in CI, because it is a release build, LTO and
+# all, and costs ten minutes that a change to a React component should not
+# pay. It runs when something the installer is made from changes, and on
+# demand.
+#
+# Nothing here is signed and nothing is released: the updater artifacts are
+# switched off for the build, so no signing key is needed, and the installer
+# is kept as a workflow artifact for anybody who wants to try it by hand.
+on:
+  pull_request:
+    paths:
+      - 'src-tauri/installer/**'
+      - 'src-tauri/tauri.conf.json'
+      - 'src-tauri/icons/**'
+      - 'scripts/test-installer.ps1'
+      - '.github/workflows/installer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    name: Install, upgrade, uninstall
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - run: npm ci
+
+      # The same cache key as CI and the release, so the 138MB download is
+      # shared between all three.
+      - name: Cache FFmpeg
+        id: ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: src-tauri/ffmpeg
+          key: ffmpeg-${{ runner.os }}-${{ hashFiles('scripts/fetch-ffmpeg.mjs') }}
+
+      - name: Fetch FFmpeg
+        if: steps.ffmpeg.outputs.cache-hit != 'true'
+        run: npm run fetch:ffmpeg
+
+      - name: Build the installer
+        shell: bash
+        run: npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Fetch the last release, to upgrade from
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download --repo "$GITHUB_REPOSITORY" --pattern 'Cadence-Setup.exe' --dir previous
+
+      - name: Install, upgrade and uninstall
+        shell: pwsh
+        run: |
+          $new = Get-ChildItem src-tauri/target/release/bundle/nsis/Cadence_*_x64-setup.exe | Select-Object -First 1
+          ./scripts/test-installer.ps1 -New $new.FullName -Old (Resolve-Path previous/Cadence-Setup.exe)
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cadence-installer-unsigned
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: ignore
+          retention-days: 14

@@ -17,6 +17,21 @@ npm run app:dev
 For interface work that does not touch the desktop shell, `npm run dev` serves
 the frontend on its own and reloads far faster.
 
+## The brand
+
+Colours, type, spacing and motion are tokens in `brand/tokens/tokens.css`, and
+the icons, favicons, installer bitmaps and link previews are drawn from
+`brand/logo/` and `brand/social/`. None of the copies of them elsewhere in the
+repository is edited by hand:
+
+```bash
+npm run brand
+```
+
+writes every one of them, and the diff afterwards is the list of what changed.
+The artwork itself is drawn by `brand/source/artwork.py`, which is only needed
+to change the mark; see [brand/README.md](brand/README.md).
+
 ## Before pushing
 
 ```bash

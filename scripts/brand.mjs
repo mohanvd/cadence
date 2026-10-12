@@ -108,10 +108,20 @@ const iconSmall = read(brand('logo', 'cadence-icon-small.svg'));
     stdio: 'ignore',
   });
 
+  /* The .icns comes out of the generator different on every run, with the
+     same pictures in it, so copying it every time would put it in every diff.
+     It is copied only when the icon it is made from has changed, which the
+     PNG beside it, which is stable, can say. */
   const icons = at('src-tauri', 'icons');
+  const same = (name) =>
+    fs.existsSync(path.join(icons, name)) &&
+    fs.readFileSync(path.join(icons, name)).equals(fs.readFileSync(path.join(scratch, name)));
+  const iconUnchanged = same('icon.png');
   for (const name of fs.readdirSync(icons)) {
     const made = path.join(scratch, name);
-    if (fs.existsSync(made) && fs.statSync(made).isFile()) write(path.join(icons, name), fs.readFileSync(made));
+    if (!fs.existsSync(made) || !fs.statSync(made).isFile()) continue;
+    if (name === 'icon.icns' && iconUnchanged) continue;
+    write(path.join(icons, name), fs.readFileSync(made));
   }
 
   const res = at('src-tauri', 'gen', 'android', 'app', 'src', 'main', 'res');

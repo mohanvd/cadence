@@ -105,7 +105,7 @@ where equal steps in lightness look like equal steps.
 | `--cd-ink-750` | `#2F2D2C` | hairlines |
 | `--cd-ink-700` | `#413F3E` | hairlines that must be seen |
 | `--cd-ink-600` | `#5D5A59` | disabled |
-| `--cd-ink-500` | `#7C7A78` | subtle text, 4.6:1 on the ground |
+| `--cd-ink-500` | `#8E8C8A` | subtle text: 5.9:1 on the ground, and still 4.6:1 on a menu |
 | `--cd-ink-400` | `#A6A4A3` | muted text, 8.0:1 |
 | `--cd-ink-100` | `#F3F1F0` | text, 19:1 |
 

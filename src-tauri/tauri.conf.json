@@ -22,9 +22,9 @@
         "center": true,
         "decorations": false,
         "theme": "Dark",
-        "backgroundColor": "#0a0a0a",
+        "backgroundColor": "#0B0A09",
         "dragDropEnabled": true,
-      "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,MediaSessionService"
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,MediaSessionService"
       }
     ],
     "security": {
@@ -43,8 +43,8 @@
     "publisher": "Auva",
     "copyright": "Copyright © 2026 Mohanad Tarek",
     "category": "Video",
-    "shortDescription": "A keyboard-first media player.",
-    "longDescription": "Cadence is a keyboard-first media player that plays what the browser can't.",
+    "shortDescription": "Everything plays. A keyboard-first media player.",
+    "longDescription": "Cadence is a keyboard-first media player for Windows. It carries its own decoder, so the files other players hand back play here, and it keeps your music library in the same quiet window.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -1,17 +1,24 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Link2,
+  Bookmark,
+  Captions,
+  Maximize,
   Minus,
   Music,
-  Search,
+  Pause,
+  RotateCcw,
+  RotateCw,
+  Settings,
+  SkipBack,
+  SkipForward,
   Square,
   SquarePlay,
+  Volume2,
   X,
 } from 'lucide-react';
-
-/** The containers the drop card advertises, matching the player's own list. */
-const FORMATS = ['MP4', 'MKV', 'MP3', 'FLAC'];
+import type { CSSProperties } from 'react';
+import Mark from './Mark';
 
 /** The two sections the window's own bar carries, in its order. */
 const TABS = [
@@ -19,125 +26,160 @@ const TABS = [
   { id: 'music', label: 'Music', icon: Music, active: false },
 ];
 
+/** Where the bookmarks sit on the timeline, as fractions of the film. */
+const BOOKMARKS = [0.18, 0.41, 0.77];
+
 /**
- * The application's own window, rebuilt in the page.
+ * The application's own window, with a film playing in it, rebuilt in the page.
  *
- * This was a screenshot, and a screenshot was the wrong medium for it: fixed at
- * one resolution, heavier than the markup it depicts, and quietly out of date
- * the first time the interface changes.
+ * This was a screenshot once, and a screenshot is the wrong medium for it:
+ * fixed at one resolution, heavier than the markup it depicts, and quietly out
+ * of date the first time the interface changes. Then it was the empty window
+ * with its drop card, which was accurate and showed a player doing nothing.
+ * Now it is the thing a visitor is here for, a film playing, with the two
+ * facts about it that no other player can claim pinned beside it.
  *
- * The markup here is the player's, class for class, but written out rather than
- * imported. Importing the real component looked tidier and was not: it pulls in
- * the hook that owns the player's file intake, which pulls in the storage layer
- * and the shell bindings behind it, so a marketing page ended up depending on
- * the code that talks to the operating system.
+ * The chrome is the player's, written out rather than imported: the bar is
+ * `app/src/components/TitleBar.jsx` and the transport is
+ * `app/src/components/player/ControlBar.tsx`, and those files are what this is
+ * read against when the two next disagree. The film is not a film. It is a
+ * few gradients, so it costs nothing to download and never looks compressed.
  *
- * What that costs is that the drawing goes stale silently, and it had: this
- * window carried a wordmark and three controls long after the real bar grew
- * history arrows, the two sections and a search field. The bar below is
- * `app/src/components/TitleBar.jsx` as it actually stands, and that file is
- * what this is read against when the two next disagree.
- *
- * `inert` covers the whole thing. It is a picture of an interface, and every
- * control in it would otherwise be focusable, offering to do something none of
- * it can do.
+ * `inert` covers the window. It is a picture of an interface, and every control
+ * in it would otherwise be focusable, offering to do something none of it can.
  */
 export default function AppPreview() {
   return (
-    <div className="ld-stage">
+    <div className="stage">
       <div
-        className="ld-window"
+        className="window"
         role="img"
-        aria-label="The Cadence window: a title bar carrying Files and Music, and the area a file is dropped onto."
+        aria-label="The Cadence window playing a film, with subtitles, a timeline and the transport along the bottom."
       >
-        <div className="ld-window__inner" inert={true}>
-          <div className="ld-window__bar">
-            {/* Back and forward, once, for the whole window. Drawn in their
-                resting state: nothing has been opened yet, so both are dimmed
-                the way the real pair is when there is nowhere to go. */}
-            <span className="ld-window__history">
-              <span className="ld-window__arrow ld-window__arrow--off">
+        <div className="window__inner" inert={true}>
+          <div className="window__bar">
+            <span className="window__mark">
+              <Mark size={16} cut="small" />
+            </span>
+            <span className="window__history">
+              <span className="window__arrow">
                 <ArrowLeft size={15} strokeWidth={1.7} />
               </span>
-              <span className="ld-window__arrow ld-window__arrow--off">
+              <span className="window__arrow window__arrow--off">
                 <ArrowRight size={15} strokeWidth={1.7} />
               </span>
             </span>
 
-            <span className="ld-window__nav">
+            <span className="window__nav">
               {TABS.map(({ id, label, icon: Icon, active }) => (
-                <span
-                  key={id}
-                  className={`ld-window__tab${active ? ' ld-window__tab--on' : ''}`}
-                >
+                <span key={id} className={`window__tab${active ? ' window__tab--on' : ''}`}>
                   <Icon size={13} strokeWidth={1.7} />
                   {label}
                 </span>
               ))}
             </span>
 
-            {/* Centred in the window rather than pushed against the controls,
-                which is where the real one sits and why: the bar's contents are
-                different widths on the two sections, and the middle is the one
-                position that is the same on both. */}
-            <span className="ld-window__search">
-              <Search size={14} strokeWidth={1.7} className="ld-window__search-icon" />
-              <span className="ld-window__search-text">Search your music</span>
-            </span>
-
-            <span className="ld-window__controls">
-              <span className="ld-window__btn">
+            <span className="window__controls">
+              <span className="window__btn">
                 <Minus size={15} strokeWidth={1.7} />
               </span>
-              <span className="ld-window__btn">
+              <span className="window__btn">
                 <Square size={12} strokeWidth={1.7} />
               </span>
-              <span className="ld-window__btn ld-window__btn--close">
+              <span className="window__btn window__btn--close">
                 <X size={15} strokeWidth={1.7} />
               </span>
             </span>
           </div>
 
-          <div className="ld-window__body">
-            <h2 className="ld-window__title">Open a file and it plays</h2>
-            <p className="ld-window__sub">
-              Drop it anywhere on this window, or press the space bar once it is open.
+          <div className="film">
+            {/* Sky, sun, three ridges and a lake, back to front. */}
+            <span className="film__sky" />
+            <span className="film__sun" />
+            <span className="film__ridge film__ridge--far" />
+            <span className="film__ridge film__ridge--mid" />
+            <span className="film__ridge film__ridge--near" />
+            <span className="film__grain" />
+
+            <p className="film__title">The Long Light.mkv</p>
+
+            <p className="film__subtitle">
+              We leave when the light goes,
+              <br />
+              and not a minute before.
             </p>
 
-            <div className="xn-drop">
-              <span className="xn-drop__target">
-                <span className="xn-drop__icon">
-                  <SquarePlay size={34} strokeWidth={1.25} />
-                </span>
-                <span className="xn-drop__title">Drop something to play</span>
-                <span className="xn-drop__hint">
-                  or <span className="xn-drop__hint-link">browse your files</span>
-                </span>
-                <span className="xn-drop__formats">
-                  {FORMATS.map((format) => (
-                    <span key={format} className="xn-chip">
-                      {format}
-                    </span>
-                  ))}
-                </span>
-              </span>
-
-              <div className="xn-drop__divider">
-                <span>or paste a link</span>
+            <div className="transport">
+              <div className="timeline">
+                <span className="timeline__buffered" />
+                <span className="timeline__played" />
+                {BOOKMARKS.map((at) => (
+                  <span
+                    key={at}
+                    className="timeline__mark"
+                    style={{ '--at': at } as CSSProperties}
+                  />
+                ))}
+                <span className="timeline__head" />
               </div>
 
-              <div className="xn-url">
-                <Link2 size={15} className="xn-url__icon" aria-hidden />
-                <span className="xn-url__input">https://example.com/track.mp3</span>
-                <span className="xn-url__go">
-                  <ArrowRight size={15} />
+              <div className="transport__row">
+                <span className="transport__group">
+                  <span className="transport__btn transport__btn--play">
+                    <Pause size={22} strokeWidth={2} fill="currentColor" />
+                  </span>
+                  <span className="transport__btn">
+                    <SkipBack size={18} strokeWidth={1.8} />
+                  </span>
+                  <span className="transport__btn">
+                    <SkipForward size={18} strokeWidth={1.8} />
+                  </span>
+                  <span className="transport__btn">
+                    <RotateCcw size={18} strokeWidth={1.8} />
+                  </span>
+                  <span className="transport__btn">
+                    <RotateCw size={18} strokeWidth={1.8} />
+                  </span>
+                  <span className="transport__btn">
+                    <Volume2 size={18} strokeWidth={1.8} />
+                  </span>
+                  <span className="transport__time">
+                    1:12:08 <span className="transport__time-total">/ 2:04:51</span>
+                  </span>
+                </span>
+
+                <span className="transport__group">
+                  <span className="transport__chip">1×</span>
+                  <span className="transport__btn transport__btn--on">
+                    <Captions size={18} strokeWidth={1.8} />
+                  </span>
+                  <span className="transport__btn">
+                    <Bookmark size={18} strokeWidth={1.8} />
+                  </span>
+                  <span className="transport__btn">
+                    <Settings size={18} strokeWidth={1.8} />
+                  </span>
+                  <span className="transport__btn">
+                    <Maximize size={18} strokeWidth={1.8} />
+                  </span>
                 </span>
               </div>
             </div>
-
-            <p className="ld-window__version">Cadence {__APP_VERSION__}</p>
           </div>
         </div>
+      </div>
+
+      {/* The two facts about this frame worth reading, pinned to it. Outside
+          the window's `img` role because they are prose, and a screen reader
+          should hear them as such. Plain blocks rather than <aside>: they are
+          notes on a picture, not regions of the page to jump between. */}
+      <div className="callout callout--codec">
+        <p className="callout__lede">HEVC Main 10 in Matroska</p>
+        <p className="callout__body">Handed to the decoder untouched</p>
+      </div>
+      <div className="callout callout--subs">
+        <p className="callout__lede">Styled subtitles</p>
+        <p className="callout__body">ASS, drawn by libass, in the film's own fonts</p>
       </div>
     </div>
   );

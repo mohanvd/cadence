@@ -68,6 +68,7 @@ export default function FeatureBento() {
   return (
     <section className="xn-section" id="features">
       <header className="xn-section__head rise">
+        <p className="xn-section__eyebrow">The engine</p>
         <h2 className="xn-section__title">
           Built around the part everything else gets wrong
         </h2>

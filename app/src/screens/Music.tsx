@@ -205,7 +205,7 @@ export default function Music({ query, onPlay, onShuffle, playing }: MusicProps)
         {/* The sections, as pills in the content rather than in a bar of their
             own. A second full-width strip under the title bar is what made
             this window look like two applications stacked. */}
-        <nav className="flex gap-1">
+        <nav className="flex gap-1" aria-label="Library">
           {TABS.map(({ id, label, icon }) => (
             <button
               key={id}

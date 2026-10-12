@@ -11,6 +11,11 @@ const REPO = `https://github.com/${REPO_PATH}`;
 
 export const REPO_URL = REPO;
 export const RELEASES_URL = `${REPO}/releases`;
+export const CHANGELOG_URL = `${REPO}/blob/main/CHANGELOG.md`;
+export const ISSUES_URL = `${REPO}/issues/new/choose`;
+export const SECURITY_URL = `${REPO}/security/policy`;
+export const BRAND_URL = `${REPO}/tree/main/brand`;
+export const LICENCE_URL = `${REPO}/blob/main/LICENSE`;
 export const CONTACT_EMAIL = 'cadence@auva.dev';
 export const CONTACT_URL = `mailto:${CONTACT_EMAIL}`;
 

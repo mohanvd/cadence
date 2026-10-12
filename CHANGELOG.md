@@ -7,7 +7,26 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **About Cadence**, at the bottom of Settings: the version, with a button to
+  copy it for a bug report, and what Cadence is built on, with each part's
+  licence.
+
+- **A sleeve for every record.** Albums with no art in their files wore the
+  same grey square, and a library with a few dozen of those is hard to find
+  anything in. Each now gets a sleeve of its own, coloured from the folder it
+  lives in, so every track on a record shares one.
+
 ### Fixed
+
+- **The crash screen has a way out.** If the interface itself fails, the
+  window's own close button and drag region fail with it, because they are
+  part of it. The screen that replaces it now carries both.
+
+- **Faint text is readable on every surface.** The lightest grey the
+  interface uses passed on the background and fell short on cards, chips and
+  menus. It is a little lighter now, and passes on all of them.
 
 - **Opening a file with Cadence opens it.** Double-clicking a video, or
   choosing Cadence from "Open with", started the window and then closed the
@@ -23,10 +42,26 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of its own, lists itself under "Open with" for every type it plays, and
   appears in Settings > Default apps, where Windows expects the choice to be
   made. The command it registers also quotes its own path, which a user folder
-  with a space in its name needs. An installed copy moves to the new names on
-  its next update.
+  with a space in its name needs. An installed copy picks this up on its next
+  update, and a file type already set to always open in Cadence stays that
+  way.
 
 ### Changed
+
+- **Cadence has a face.** A mark, five beats falling away whose outline is the
+  play button, on a new icon in the taskbar, the Start menu, Explorer and the
+  title bar. The interface is warmer: Ember is the new default accent, chosen
+  because a player is used with the lights off, and the greys are tinted to
+  match. Blue and the other accents are still in Settings, and a choice made
+  there before is kept.
+
+- **The home screen follows the theme.** It stayed Midnight whichever theme
+  was picked in Settings, because its colours were written as fixed values
+  rather than read from the theme the rest of the player uses.
+
+- **A new website**, at the same address, and a brand guide in
+  [brand/](brand/README.md) with every logo file and the design tokens the
+  player and the site are both drawn from.
 
 - **The source is public again, and the releases live beside it.** For a while
   the source was private and the installers sat in a second repository that

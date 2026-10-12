@@ -35,7 +35,7 @@
   --cd-ink-750: oklch(0.300 0.004 60); /* #2F2D2C  hairlines */
   --cd-ink-700: oklch(0.370 0.004 60); /* #413F3E  hairlines that must be seen */
   --cd-ink-600: oklch(0.470 0.004 60); /* #5D5A59  disabled */
-  --cd-ink-500: oklch(0.580 0.004 60); /* #7C7A78  4.6:1, the faintest text allowed */
+  --cd-ink-500: oklch(0.640 0.004 60); /* #8E8C8A  the faintest text allowed: 4.6:1 even on ink-800 */
   --cd-ink-400: oklch(0.720 0.003 60); /* #A6A4A3  8.0:1 */
   --cd-ink-300: oklch(0.820 0.003 60); /* #C5C4C2 */
   --cd-ink-200: oklch(0.900 0.003 60); /* #DFDDDC */

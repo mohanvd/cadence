@@ -8,9 +8,10 @@ import CapabilityList from '../components/CapabilityList';
 import Assurances from '../components/Assurances';
 import Closing from '../components/Closing';
 import Footer from '../components/Footer';
+import Mark from '../components/Mark';
 import { REPO_URL, INSTALLER_URL, resolveInstallerSize } from '../links';
 
-// The palette and the faces, then everything this page draws with them.
+// The tokens, the faces and the document; then everything this page draws.
 import '../styles/base.css';
 import '../styles/landing.css';
 
@@ -18,11 +19,12 @@ import '../styles/landing.css';
 // and nothing else needs it.
 const installerSize = await resolveInstallerSize();
 
-// "Media player", not "video player". The application grew a music library and
-// the page kept describing half of it, including in the one line that search
-// results and link previews actually show.
+// The brand's one-sentence description, which is also the line search results
+// and link previews show. See brand/README.md.
+const title = 'Cadence: everything plays';
 const description =
-  'A minimal, keyboard-first media player for Windows. Plays the files other players hand back, and keeps your music library in the same window.';
+  'A keyboard-first media player for Windows. Plays the MKV, HEVC and FLAC files other players hand back, and keeps your music library in the same quiet window. Free.';
+const site = 'https://cadence.auva.dev';
 ---
 
 <!doctype html>
@@ -30,19 +32,22 @@ const description =
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Cadence: a media player for Windows</title>
+    <title>{title}</title>
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#08080a" />
+    <meta name="theme-color" content="#0B0A09" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="canonical" href={site} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <!--
-      Paints the shell before the stylesheet arrives, so the first frame is not
+      Paints the ground before the stylesheet arrives, so the first frame is not
       a white flash.
     -->
     <style>
       html,
       body {
-        background-color: #08080a;
+        background-color: #0b0a09;
         margin: 0;
         padding: 0;
         min-height: 100vh;
@@ -51,13 +56,32 @@ const description =
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Cadence" />
-    <meta property="og:url" content="https://cadence.auva.dev" />
-    <meta property="og:title" content="Cadence: a media player for Windows" />
+    <meta property="og:url" content={site} />
+    <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
+    <meta property="og:image" content={`${site}/og-image.png`} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Cadence. Everything plays. A keyboard-first media player for Windows." />
 
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Cadence: a media player for Windows" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={`${site}/og-image.png`} />
+
+    <script type="application/ld+json" set:html={JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Cadence',
+      operatingSystem: 'Windows 10, Windows 11',
+      applicationCategory: 'MultimediaApplication',
+      description,
+      url: site,
+      softwareVersion: __APP_VERSION__,
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      author: { '@type': 'Person', name: 'Mohanad Tarek' },
+      publisher: { '@type': 'Organization', name: 'Auva', url: 'https://auva.dev' },
+    })} />
   </head>
 
   <body>
@@ -65,41 +89,40 @@ const description =
       No `client:` directive on any of these. They are rendered here, once, and
       the page ships as HTML and CSS.
     -->
-    <a class="ld-skip" href="#main">Skip to content</a>
+    <a class="skip" href="#main">Skip to content</a>
 
-    <nav class="navbar">
-      <div class="navbar__left">
-        <a class="navbar__brand" href="#top">
-          <span class="navbar__brand-bold">Cadence</span>
-        </a>
-      </div>
+    <nav class="nav" aria-label="Main">
+      <a class="lockup" href="#top" aria-label="Cadence">
+        <Mark size={22} cut="small" />
+        <span class="lockup__word">Cadence</span>
+      </a>
 
       <!--
         Hidden on narrow viewports rather than folded into a menu button: three
         in-page anchors are not worth a drawer, and a drawer is not worth the
         JavaScript this page does not otherwise ship.
       -->
-      <div class="navbar__links">
-        <a class="navbar__action" href="#features">Features</a>
-        <a class="navbar__action" href="#music">Music</a>
-        <a class="navbar__action" href="#keyboard">Keyboard</a>
+      <div class="nav__links">
+        <a class="nav__link" href="#features">Features</a>
+        <a class="nav__link" href="#music">Music</a>
+        <a class="nav__link" href="#keyboard">Keyboard</a>
       </div>
 
-      <div class="navbar__actions">
-        <a class="navbar__action navbar__action--repo" href={REPO_URL}>GitHub</a>
-        <a class="ld-nav-cta" href={INSTALLER_URL}>Download</a>
+      <div class="nav__actions">
+        <a class="nav__link nav__link--repo" href={REPO_URL}>GitHub</a>
+        <a class="button button--primary button--sm" href={INSTALLER_URL}>Download</a>
       </div>
     </nav>
 
-    <main class="ld-main" id="main">
+    <main class="page" id="main">
       <!--
-        The hero's light, and the only coloured thing above the fold. Behind the
-        column rather than inside it: it has to run wider than the measure and
-        under the window, and a child of a 1120px flex column can do neither.
+        The hero's light, and the only coloured thing above the fold besides the
+        mark. Behind the column rather than inside it: it has to run wider than
+        the measure and under the window.
       -->
-      <div class="ld-aura" aria-hidden></div>
+      <div class="aura" aria-hidden></div>
 
-      <div class="ld-column" id="top">
+      <div class="column" id="top">
         <Hero installerSize={installerSize} />
         <AppPreview />
         <FeatureBento />

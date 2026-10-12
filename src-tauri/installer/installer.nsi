@@ -88,18 +88,43 @@ ${StrLoc}
 !macroend
 
 !macro CADENCE_UNASSOCIATE EXT FILECLASS
+  ; The default is cleared when it is Cadence's, and when it names a class that
+  ; is not there any more, which after an upgrade from 0.8.3 is the old
+  ; "Video" or "Audio" that CADENCE_REMOVE_OLD_CLASS has just taken away. A
+  ; default naming nothing opens nothing; an empty one lets Windows ask.
   ReadRegStr $R0 SHCTX "Software\Classes\.${EXT}" ""
   ${If} $R0 == "${FILECLASS}"
     DeleteRegValue SHCTX "Software\Classes\.${EXT}" ""
+  ${ElseIf} $R0 != ""
+    ClearErrors
+    EnumRegKey $R1 SHCTX "Software\Classes\$R0" 0
+    ${If} ${Errors}
+      DeleteRegValue SHCTX "Software\Classes\.${EXT}" ""
+    ${EndIf}
   ${EndIf}
   DeleteRegValue SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "${FILECLASS}"
   DeleteRegKey SHCTX "Software\Classes\${FILECLASS}"
 !macroend
 
-; The class names 0.8.3 and earlier registered under. Removed only when the
-; command in them is still Cadence's, because another program may have taken
-; the name since, which is exactly what went wrong with it.
-!macro CADENCE_RETIRE_CLASS FILECLASS
+; The class names 0.8.3 and earlier registered under, "Video" and "Audio".
+;
+; Kept rather than deleted when they are still Cadence's. Somebody who ticked
+; "Always use this app" chose a class name, and Windows remembers the name: a
+; class deleted from under that choice makes Windows forget it and ask again,
+; which is the opposite of what this installer is for. So a class whose
+; command is still Cadence's is repaired, with the path quoted, and one that
+; another program has taken is left to that program, which is why the new
+; classes have names of their own. The uninstaller removes them.
+!macro CADENCE_REPAIR_OLD_CLASS FILECLASS
+  ReadRegStr $R0 SHCTX "Software\Classes\${FILECLASS}\shell\open\command" ""
+  ${If} $R0 == "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+  ${OrIf} $R0 == "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
+    WriteRegStr SHCTX "Software\Classes\${FILECLASS}\DefaultIcon" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\",0"
+    WriteRegStr SHCTX "Software\Classes\${FILECLASS}\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
+  ${EndIf}
+!macroend
+
+!macro CADENCE_REMOVE_OLD_CLASS FILECLASS
   ReadRegStr $R0 SHCTX "Software\Classes\${FILECLASS}\shell\open\command" ""
   ${If} $R0 == "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
   ${OrIf} $R0 == "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
@@ -749,10 +774,10 @@ Section Install
   ;
   ; ---- Cadence ----
   ; CADENCE_ASSOCIATE rather than APP_ASSOCIATE: see the macro for why. Runs on
-  ; every update too, which is how a copy installed by 0.8.3 or earlier is moved
-  ; onto the new class names without being reinstalled.
-  !insertmacro CADENCE_RETIRE_CLASS "Video"
-  !insertmacro CADENCE_RETIRE_CLASS "Audio"
+  ; every update too, which is how a copy installed by 0.8.3 or earlier gains
+  ; the new class names without being reinstalled.
+  !insertmacro CADENCE_REPAIR_OLD_CLASS "Video"
+  !insertmacro CADENCE_REPAIR_OLD_CLASS "Audio"
   {{#each file_associations as |association| ~}}
     {{#each association.ext as |ext| ~}}
        !insertmacro CADENCE_ASSOCIATE "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}"
@@ -913,6 +938,12 @@ Section Uninstall
   {{/each}}
 
   ; Delete app associations
+  ;
+  ; ---- Cadence ----
+  ; The old classes first, so that CADENCE_UNASSOCIATE finds the extensions
+  ; that pointed at them pointing at nothing, and clears them.
+  !insertmacro CADENCE_REMOVE_OLD_CLASS "Video"
+  !insertmacro CADENCE_REMOVE_OLD_CLASS "Audio"
   {{#each file_associations as |association| ~}}
     {{#each association.ext as |ext| ~}}
       !insertmacro CADENCE_UNASSOCIATE "{{ext}}" "{{or association.name ext}}"
