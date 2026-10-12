@@ -70,28 +70,29 @@ on a machine without the font, including on GitHub.
 
 <img src="icons/preview.svg" alt="Every Cadence icon, named." width="100%">
 
-Cadence draws every icon it shows, in the player and on the site, from one set
-of its own: [`icons/glyphs.mjs`](icons/glyphs.mjs). It replaced Lucide, whose
-proportions and play button were the two things in the window that plainly
-came from another drawing.
+Every icon Cadence shows, in the player and on the site, comes from one set:
+[`icons/glyphs.mjs`](icons/glyphs.mjs). The glyphs are Google's
+[Material Symbols](https://fonts.google.com/icons), under the names the player
+calls them by. They replaced a set drawn in-house: a symbol people have met in
+a thousand other places needs no learning, and a gear that only Cadence draws
+does.
 
-- **One stroke**, set in screen pixels by the component that draws it, so a
-  14px icon and a 24px icon carry the same line: 1.75px in the interface,
-  1.25px for the window's own controls. Round caps and joins, the roundness of
-  the mark's bars.
-- **Keylines.** The live area is 3 to 21 on a 24 grid. A circle is 18 across,
-  a square 16, an upright rectangle 14 by 18 and a wide one 18 by 14, which is
-  where shapes of different kinds look the same size.
-- **Transport is solid**, built from the mark's pieces: rounded bars, and a
-  play triangle with its corners turned. Everything else is outline.
-- **Optical centring.** Play sits a unit right of its box's centre, as the
-  mark does, because its weight is on the left.
-- **Sound is the mark.** Anything that stands for audio is the mark's own run
-  of bars.
+- **One family.** The Rounded style, whose corners are the roundness of the
+  mark's bars, at weight 400, grade 0 and optical size 24. One weight and one
+  optical size, so no two icons in the window disagree about a line.
+- **Transport is solid.** Play, pause and the skips are the filled cut.
+  Everything else is outline.
+- **The box is the icon.** A glyph keeps Material's own 24dp box and the
+  padding inside it. A component asks for a size in pixels and gets that box,
+  so icons of one size line up without being nudged.
+- **Named for the job.** `remove` is the bin and `louder` is the plus,
+  whatever Google calls them; the comment beside each glyph gives Google's
+  name.
 
 `npm run brand` writes the set into `app/` and `site/` as `glyphs.ts`, and
-draws the sheet above. To add one, draw it in `glyphs.mjs` to the rules above,
-run the script, and use it by name.
+draws the sheet above. To add one, find it on Google's page with the settings
+above, copy the path of its 24px SVG into `glyphs.mjs`, run the script, and
+use it by name.
 
 ## Files
 
@@ -110,7 +111,7 @@ run the script, and use it by name.
 | `social/readme-banner.*` | The banner at the top of the README. |
 | `tokens/tokens.css` | Every colour, size, duration and typeface. The source of truth. |
 | `tokens/tokens.json` | The same, as design tokens, for importing into a design tool. |
-| `icons/glyphs.mjs` | Every icon, as SVG on a 24 grid. The source of truth. |
+| `icons/glyphs.mjs` | Every icon: Material Symbols, as SVG paths. The source of truth. |
 | `icons/preview.svg` | All of them on one sheet, named. |
 
 ## Colour

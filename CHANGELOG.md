@@ -7,6 +7,15 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **The icons are Material Symbols.** Every icon in the player and on the site
+  is now Google's, in the Rounded style, in place of the set Cadence drew for
+  itself. They sit in the same boxes at the same sizes, so nothing has moved.
+  A few menu items also have an icon that says what they do: editing is a
+  pencil rather than a gear, saving a playlist is a file rather than a folder,
+  and Discord's settings no longer borrow the artist's.
+
 ## [0.10.0] - 2026-10-12
 
 ### Added

@@ -33,7 +33,7 @@ export default function Closing({ installerSize }: { installerSize: string }) {
       </p>
 
       <a className="button button--primary button--lg" href={INSTALLER_URL}>
-        <Download size={17} strokeWidth={2.2} aria-hidden />
+        <Download size={17} aria-hidden />
         Download for Windows
       </a>
 

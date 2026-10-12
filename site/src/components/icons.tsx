@@ -1,41 +1,34 @@
 import type { ComponentType } from 'react';
-import { GLYPHS, type GlyphName } from './glyphs';
+import { GLYPHS, GLYPH_VIEW_BOX, type GlyphName } from './glyphs';
 
 /**
- * Cadence's own icons, under the names the page already used.
+ * The player's icons, under the names the page already used.
  *
- * The glyphs are the player's, drawn in `brand/icons/glyphs.mjs` and copied in
- * as `./glyphs.ts` by `npm run brand`. The page used to draw with Lucide, and
- * its picture of the player was the one place the player's real icons and
- * somebody else's sat side by side. Keeping Lucide's names means each section
- * changed one import line and nothing else.
+ * The glyphs are Google's Material Symbols, in the Rounded style, chosen and
+ * named in `brand/icons/glyphs.mjs` and copied in as `./glyphs.ts` by
+ * `npm run brand`. They are the same ones the player draws, so the page's
+ * picture of the player is a picture of the player. The exports keep the names
+ * the sections imported when the page drew with Lucide, which is why they do
+ * not match the glyphs' own.
  *
- * `strokeWidth` is in grid units, as Lucide's is, because that is what every
- * call site already passes. The page is drawn once at build time and ships no
- * script, so these are plain SVG in the HTML.
+ * The page is drawn once at build time and ships no script, so these are plain
+ * SVG in the HTML.
  */
 
 interface IconProps {
   size?: number;
-  strokeWidth?: number;
   className?: string;
   'aria-hidden'?: boolean | 'true' | 'false';
-  /** Accepted for Lucide's sake and ignored: a glyph says which parts are solid. */
-  fill?: string;
 }
 
 function glyph(name: GlyphName): ComponentType<IconProps> {
-  function Glyph({ size = 24, strokeWidth = 2, className, 'aria-hidden': hidden = true }: IconProps) {
+  function Glyph({ size = 24, className, 'aria-hidden': hidden = true }: IconProps) {
     return (
       <svg
         width={size}
         height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        viewBox={GLYPH_VIEW_BOX}
+        fill="currentColor"
         className={className}
         aria-hidden={hidden}
         focusable="false"

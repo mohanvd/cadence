@@ -1,60 +1,36 @@
-import { GLYPHS, type GlyphName } from './glyphs';
+import { GLYPHS, GLYPH_VIEW_BOX, type GlyphName } from './glyphs';
 
 /**
  * The application's icon vocabulary, in one place.
  *
- * The glyphs are Cadence's own, drawn in `brand/icons/glyphs.mjs` to the same
- * geometry as the mark and copied in as `./glyphs.ts` by `npm run brand`. They
- * replaced Lucide, which is a fine set and somebody else's: next to the mark,
- * its proportions and its play button were the two things in the window that
- * plainly came from another drawing.
+ * The glyphs are Google's Material Symbols, in the Rounded style, chosen and
+ * named in `brand/icons/glyphs.mjs` and copied in as `./glyphs.ts` by
+ * `npm run brand`. They replaced a set drawn in-house, which was in one hand
+ * and was also nobody's idea of what a settings gear or a queue looks like: a
+ * symbol people have met in a thousand other places needs no learning.
  *
- * Two rules, and the second one is arithmetic rather than taste:
+ * Two rules:
  *
- *   • Transport is solid. Play, pause and the skips are filled, built from the
- *     mark's own rounded bars; everything else is outline. Solid is how the eye
- *     finds the thing to press over a moving picture, without a colour or a
- *     border doing the work. Each glyph says for itself which parts are solid.
+ *   • Transport is solid. Play, pause and the skips are the filled cut;
+ *     everything else is outline. Solid is how the eye finds the thing to
+ *     press over a moving picture, without a colour or a border doing the
+ *     work. The set decides which is which, not the call site.
  *
- *   • Every outline glyph lands on the same stroke *as drawn on screen*, no
- *     matter what size it is asked for.
- *
- * The second rule is the one that was being broken everywhere. A set drawn on
- * a 24 unit grid comes out at 2px in a 24px box and 1.5px in an 18px one if the
- * stroke is left alone. Call sites were picking a size and a stroke
- * independently, and the result was seven different weights between 0.85px and
- * 2px: a title bar lighter than the control row, a drop card heavier than both,
- * and a window that looked assembled out of several other people's
- * applications. Passing a size here rather than sizing the glyph from the
- * outside is what makes that impossible to do again.
+ *   • A call site passes a size and nothing else. The box asked for is the box
+ *     drawn, with Material's own padding inside it, so two icons at one size
+ *     line up without either being nudged.
  */
-
-/** What every outline glyph measures on screen, whatever box it sits in. */
-export const ICON_STROKE = 1.75;
-
-/**
- * The window controls, which are lighter on purpose.
- *
- * They are the one part of the interface that is not Cadence talking: minimise,
- * maximise and close belong to Windows, they sit where Windows puts them, and
- * every other application on the desktop draws them at about this weight.
- * Matching the control row here would be consistency with the wrong thing.
- */
-export const CHROME_STROKE = 1.25;
 
 export type IconName = GlyphName;
 
 export function Icon({
   name,
   size = 18,
-  stroke = ICON_STROKE,
   className,
 }: {
   name: IconName;
-  /** Rendered box, in pixels. The stroke is compensated to match. */
+  /** Rendered box, in pixels. */
   size?: number;
-  /** Only the window controls pass this. See `CHROME_STROKE`. */
-  stroke?: number;
   className?: string;
 }) {
   return (
@@ -64,12 +40,8 @@ export function Icon({
       width={size}
       height={size}
       style={{ width: size, height: size }}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={(stroke * 24) / size}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      viewBox={GLYPH_VIEW_BOX}
+      fill="currentColor"
       className={className}
       aria-hidden="true"
       focusable="false"

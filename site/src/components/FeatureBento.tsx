@@ -81,7 +81,7 @@ export default function FeatureBento() {
             className={`xn-feat rise xn-feat--${span}${accent ? ' xn-feat--accent' : ''}`}
           >
             <span className="xn-feat__icon">
-              <Icon size={17} strokeWidth={1.6} />
+              <Icon size={17} />
             </span>
 
             <p className="xn-feat__lede">{lede}</p>

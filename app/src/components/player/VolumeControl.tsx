@@ -197,7 +197,7 @@ export function VolumeControl() {
                 )}
               >
                 {/* A drawn plus rather than a typed one: every other mark on
-                    this bar is a Lucide glyph on the same grid and stroke, and
+                    this bar is a glyph from the one set on the one grid, and
                     a text character next to them reads as a different set. */}
                 {boosted ? (
                   `${boost.toFixed(boost % 1 === 0 ? 0 : 1)}×`

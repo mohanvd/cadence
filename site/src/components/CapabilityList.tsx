@@ -69,7 +69,7 @@ export default function CapabilityList() {
       <ul className="xn-caps rise">
         {CAPABILITIES.map(({ icon: Icon, label, note }) => (
           <li key={label} className="xn-caps__item">
-            <Icon size={14} strokeWidth={1.6} className="xn-caps__icon" aria-hidden />
+            <Icon size={14} className="xn-caps__icon" aria-hidden />
             <span className="xn-caps__text">
               {label}
               {note && <span className="xn-caps__note">, {note}</span>}

@@ -108,28 +108,28 @@ export function TrackMenu({
         )}
 
         {onEdit && (
-          <ContextMenuItem icon="settings" onSelect={onEdit}>
+          <ContextMenuItem icon="edit" onSelect={onEdit}>
             Edit details…
           </ContextMenuItem>
         )}
 
         {onAddToPlaylist && one && (
-          <ContextMenuItem icon="louder" onSelect={() => onAddToPlaylist(one)}>
+          <ContextMenuItem icon="playlistAdd" onSelect={() => onAddToPlaylist(one)}>
             Add to a playlist…
           </ContextMenuItem>
         )}
         {onRename && (
-          <ContextMenuItem icon="bookmark" onSelect={onRename}>
+          <ContextMenuItem icon="edit" onSelect={onRename}>
             Rename
           </ContextMenuItem>
         )}
         {onRemove && (
-          <ContextMenuItem icon="remove" onSelect={onRemove}>
+          <ContextMenuItem icon="playlistRemove" onSelect={onRemove}>
             Remove from this playlist
           </ContextMenuItem>
         )}
         {onExport && (
-          <ContextMenuItem icon="folder" onSelect={onExport}>
+          <ContextMenuItem icon="export" onSelect={onExport}>
             Save as a file…
           </ContextMenuItem>
         )}
@@ -142,7 +142,7 @@ export function TrackMenu({
         {one && (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem icon="folder" onSelect={() => void revealFile(one.path)}>
+            <ContextMenuItem icon="reveal" onSelect={() => void revealFile(one.path)}>
               Show in Explorer
             </ContextMenuItem>
           </>

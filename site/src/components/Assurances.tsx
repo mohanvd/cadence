@@ -51,7 +51,7 @@ export default function Assurances() {
         {CLAIMS.map(({ icon: Icon, title, body }) => (
           <li key={title} className="ld-claim rise">
             <span className="ld-claim__icon">
-              <Icon size={16} strokeWidth={1.6} aria-hidden />
+              <Icon size={16} aria-hidden />
             </span>
             <h3 className="ld-claim__title">{title}</h3>
             <p className="ld-claim__body">{body}</p>

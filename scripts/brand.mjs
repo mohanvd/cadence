@@ -92,19 +92,20 @@ write(at('site', 'src', 'styles', 'brand-tokens.css'), generated + tokens);
 }
 
 /* ── The icon set ──
-   brand/icons/glyphs.mjs is the master. Each project gets it as a typed
-   module of SVG fragments, which its own Icon component draws; neither may
+   brand/icons/glyphs.mjs is the master: Material Symbols, under Cadence's
+   own names. Each project gets it as a typed module of SVG fragments, which its own Icon component draws; neither may
    read the other's files, so each gets a copy. */
 {
-  const { GLYPHS } = await import(pathToFileURL(brand('icons', 'glyphs.mjs')).href);
+  const { GLYPHS, GLYPH_VIEW_BOX } = await import(pathToFileURL(brand('icons', 'glyphs.mjs')).href);
   const entries = Object.entries(GLYPHS)
     .map(([name, markup]) => `  ${name}: ${JSON.stringify(markup)},`)
     .join('\n');
   const module =
     '/* Generated from brand/icons/glyphs.mjs by `npm run brand`. Edit that file,\n' +
     '   not this one: this one is overwritten.\n\n' +
-    '   Each value is the inside of an <svg viewBox="0 0 24 24"> drawn with\n' +
-    '   fill="none" stroke="currentColor" and round caps and joins. */\n\n' +
+    `   Each value is the inside of an <svg viewBox="${GLYPH_VIEW_BOX}"> drawn with\n` +
+    '   fill="currentColor". */\n\n' +
+    `export const GLYPH_VIEW_BOX = ${JSON.stringify(GLYPH_VIEW_BOX)};\n\n` +
     `export const GLYPHS = {\n${entries}\n} as const;\n\n` +
     'export type GlyphName = keyof typeof GLYPHS;\n';
   write(at('app', 'src', 'components', 'ui', 'glyphs.ts'), module);
@@ -123,7 +124,7 @@ write(at('site', 'src', 'styles', 'brand-tokens.css'), generated + tokens);
     const y = Math.floor(i / cols) * cell;
     body +=
       `<rect x="${x + 4}" y="${y + 4}" width="${cell - 8}" height="${cell - 8}" rx="12" fill="#12110F" stroke="#2F2D2C"/>` +
-      `<svg x="${x + 36}" y="${y + 22}" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#F3F1F0" stroke-width="${(2 * 24) / 40}" stroke-linecap="round" stroke-linejoin="round">${GLYPHS[name].replaceAll('currentColor', '#F3F1F0')}</svg>` +
+      `<svg x="${x + 36}" y="${y + 22}" width="40" height="40" viewBox="${GLYPH_VIEW_BOX}" fill="#F3F1F0">${GLYPHS[name]}</svg>` +
       `<text x="${x + cell / 2}" y="${y + 88}" text-anchor="middle" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="11" fill="#A6A4A3">${name}</text>`;
   });
   write(

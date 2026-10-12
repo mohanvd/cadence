@@ -86,6 +86,7 @@ small asset, would turn a loaded library into a linked one.
 | [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) | Microsoft proprietary | Ships with Windows; Cadence does not redistribute it. |
 | [libass](https://github.com/libass/libass) | ISC | Inside FFmpeg, and inside JASSUB. |
 | [dav1d](https://code.videolan.org/videolan/dav1d), [libvpx](https://www.webmproject.org/code/), [libopus](https://opus-codec.org) | BSD-style | Inside FFmpeg. |
+| [Material Symbols](https://github.com/google/material-design-icons) | Apache-2.0 | Every icon in the player and on the site: the Rounded style, copied as SVG paths into `brand/icons/glyphs.mjs`. |
 
 ## Built with
 

@@ -63,17 +63,17 @@ export default function AppPreview() {
             </span>
             <span className="window__history">
               <span className="window__arrow">
-                <ArrowLeft size={15} strokeWidth={1.7} />
+                <ArrowLeft size={15} />
               </span>
               <span className="window__arrow window__arrow--off">
-                <ArrowRight size={15} strokeWidth={1.7} />
+                <ArrowRight size={15} />
               </span>
             </span>
 
             <span className="window__nav">
               {TABS.map(({ id, label, icon: Icon, active }) => (
                 <span key={id} className={`window__tab${active ? ' window__tab--on' : ''}`}>
-                  <Icon size={13} strokeWidth={1.7} />
+                  <Icon size={13} />
                   {label}
                 </span>
               ))}
@@ -81,13 +81,13 @@ export default function AppPreview() {
 
             <span className="window__controls">
               <span className="window__btn">
-                <Minus size={15} strokeWidth={1.7} />
+                <Minus size={15} />
               </span>
               <span className="window__btn">
-                <Square size={12} strokeWidth={1.7} />
+                <Square size={12} />
               </span>
               <span className="window__btn window__btn--close">
-                <X size={15} strokeWidth={1.7} />
+                <X size={15} />
               </span>
             </span>
           </div>
@@ -126,22 +126,22 @@ export default function AppPreview() {
               <div className="transport__row">
                 <span className="transport__group">
                   <span className="transport__btn transport__btn--play">
-                    <Pause size={22} strokeWidth={2} fill="currentColor" />
+                    <Pause size={22} />
                   </span>
                   <span className="transport__btn">
-                    <SkipBack size={18} strokeWidth={1.8} />
+                    <SkipBack size={18} />
                   </span>
                   <span className="transport__btn">
-                    <SkipForward size={18} strokeWidth={1.8} />
+                    <SkipForward size={18} />
                   </span>
                   <span className="transport__btn">
-                    <RotateCcw size={18} strokeWidth={1.8} />
+                    <RotateCcw size={18} />
                   </span>
                   <span className="transport__btn">
-                    <RotateCw size={18} strokeWidth={1.8} />
+                    <RotateCw size={18} />
                   </span>
                   <span className="transport__btn">
-                    <Volume2 size={18} strokeWidth={1.8} />
+                    <Volume2 size={18} />
                   </span>
                   <span className="transport__time">
                     1:12:08 <span className="transport__time-total">/ 2:04:51</span>
@@ -151,16 +151,16 @@ export default function AppPreview() {
                 <span className="transport__group">
                   <span className="transport__chip">1×</span>
                   <span className="transport__btn transport__btn--on">
-                    <Captions size={18} strokeWidth={1.8} />
+                    <Captions size={18} />
                   </span>
                   <span className="transport__btn">
-                    <Bookmark size={18} strokeWidth={1.8} />
+                    <Bookmark size={18} />
                   </span>
                   <span className="transport__btn">
-                    <Settings size={18} strokeWidth={1.8} />
+                    <Settings size={18} />
                   </span>
                   <span className="transport__btn">
-                    <Maximize size={18} strokeWidth={1.8} />
+                    <Maximize size={18} />
                   </span>
                 </span>
               </div>

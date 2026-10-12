@@ -68,7 +68,7 @@ export default function MusicLibrary() {
             {POINTS.map(({ icon: Icon, title, body }) => (
               <li key={title} className="ld-music__point rise">
                 <span className="ld-music__point-icon">
-                  <Icon size={15} strokeWidth={1.7} aria-hidden />
+                  <Icon size={15} aria-hidden />
                 </span>
                 <div>
                   <h3 className="ld-music__point-title">{title}</h3>
@@ -96,7 +96,7 @@ export default function MusicLibrary() {
                 key={id}
                 className={`ld-shelf__tab${active ? ' ld-shelf__tab--on' : ''}`}
               >
-                <Icon size={13} strokeWidth={1.7} aria-hidden />
+                <Icon size={13} aria-hidden />
                 {label}
               </span>
             ))}
@@ -122,7 +122,7 @@ export default function MusicLibrary() {
               <div className="ld-shelf__now-bar" />
             </div>
             <span className="ld-shelf__now-play">
-              <Pause size={14} strokeWidth={2} fill="currentColor" aria-hidden />
+              <Pause size={14} aria-hidden />
             </span>
           </div>
         </div>

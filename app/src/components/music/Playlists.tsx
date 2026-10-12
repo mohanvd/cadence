@@ -210,7 +210,7 @@ export function Playlists({
           >
             <IconAction
               label={`Save ${open.name} as a file`}
-              icon="folder"
+              icon="export"
               onClick={() => void exportFile(open.id, open.name)}
               className="ml-auto"
             />
@@ -316,7 +316,7 @@ function IconAction({
   className,
 }: {
   label: string;
-  icon: 'shuffle' | 'remove' | 'folder';
+  icon: 'shuffle' | 'remove' | 'export';
   onClick: () => void;
   disabled?: boolean;
   className?: string;

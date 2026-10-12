@@ -81,7 +81,7 @@ const SECTIONS: { id: SectionId; label: string; icon: IconName }[] = [
   { id: 'subtitles', label: 'Subtitles', icon: 'captions' },
   { id: 'library', label: 'Music library', icon: 'music' },
   { id: 'keyboard', label: 'Keyboard', icon: 'keyboard' },
-  { id: 'discord', label: 'Discord', icon: 'artist' },
+  { id: 'discord', label: 'Discord', icon: 'chat' },
   { id: 'about', label: 'About', icon: 'info' },
 ];
 

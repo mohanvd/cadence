@@ -29,7 +29,7 @@ export default function Hero({ installerSize }: { installerSize: string }) {
       <a className="hero__pill" href="#music">
         <span className="hero__pill-tag">{__APP_VERSION__}</span>
         Films and music, in one window
-        <ArrowRight size={13} strokeWidth={2.2} aria-hidden />
+        <ArrowRight size={13} aria-hidden />
       </a>
 
       <h1 className="hero__title">
@@ -44,7 +44,7 @@ export default function Hero({ installerSize }: { installerSize: string }) {
 
       <div className="hero__actions">
         <a className="button button--primary" href={INSTALLER_URL}>
-          <Download size={17} strokeWidth={2.2} aria-hidden />
+          <Download size={17} aria-hidden />
           Download for Windows
         </a>
         <a className="button button--ghost" href={RELEASES_URL}>

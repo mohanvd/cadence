@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CHROME_STROKE, Icon } from './ui/icons';
+import { Icon } from './ui/icons';
 import { Mark } from './ui/mark';
 import { isDesktop } from '../lib/desktop';
 import { useHistory, useView, useViewStore } from '../store/viewStore';
@@ -86,7 +86,7 @@ export default function TitleBar({ screen, onScreen, search }) {
             disabled={!history.canBack}
             aria-label="Back"
           >
-            <Icon name="back" size={15} stroke={CHROME_STROKE} />
+            <Icon name="back" size={15} />
           </button>
           <button
             type="button"
@@ -95,7 +95,7 @@ export default function TitleBar({ screen, onScreen, search }) {
             disabled={!history.canForward}
             aria-label="Forward"
           >
-            <Icon name="forwardArrow" size={15} stroke={CHROME_STROKE} />
+            <Icon name="forwardArrow" size={15} />
           </button>
         </div>
       )}
@@ -118,7 +118,7 @@ export default function TitleBar({ screen, onScreen, search }) {
               data-active={screen === id ? '' : undefined}
               onClick={() => onScreen(id)}
             >
-              <Icon name={icon} size={13} stroke={CHROME_STROKE} />
+              <Icon name={icon} size={13} />
               {label}
             </button>
           ))}
@@ -146,7 +146,7 @@ export default function TitleBar({ screen, onScreen, search }) {
           aria-pressed={settingsOpen}
           title="Settings (Ctrl+,)"
         >
-          <Icon name="settings" size={15} stroke={CHROME_STROKE} />
+          <Icon name="settings" size={15} />
         </button>
       )}
 
@@ -157,7 +157,7 @@ export default function TitleBar({ screen, onScreen, search }) {
           onClick={() => command('minimize')}
           aria-label="Minimise"
         >
-          <Icon name="minimise" size={15} stroke={CHROME_STROKE} />
+          <Icon name="minimise" size={15} />
         </button>
         <button
           type="button"
@@ -165,7 +165,7 @@ export default function TitleBar({ screen, onScreen, search }) {
           onClick={() => command('toggle')}
           aria-label={maximized ? 'Restore' : 'Maximise'}
         >
-          <Icon name={maximized ? 'restore' : 'maximise'} size={12} stroke={CHROME_STROKE} />
+          <Icon name={maximized ? 'restore' : 'maximise'} size={12} />
         </button>
         <button
           type="button"
@@ -173,7 +173,7 @@ export default function TitleBar({ screen, onScreen, search }) {
           onClick={() => command('close')}
           aria-label="Close"
         >
-          <Icon name="close" size={15} stroke={CHROME_STROKE} />
+          <Icon name="close" size={15} />
         </button>
       </div>
     </header>
