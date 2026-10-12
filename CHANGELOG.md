@@ -7,7 +7,26 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **About Cadence**, at the bottom of Settings: the version, with a button to
+  copy it for a bug report, and what Cadence is built on, with each part's
+  licence.
+
+- **A sleeve for every record.** Albums with no art in their files wore the
+  same grey square, and a library with a few dozen of those is hard to find
+  anything in. Each now gets a sleeve of its own, coloured from the folder it
+  lives in, so every track on a record shares one.
+
 ### Fixed
+
+- **The crash screen has a way out.** If the interface itself fails, the
+  window's own close button and drag region fail with it, because they are
+  part of it. The screen that replaces it now carries both.
+
+- **Faint text is readable on every surface.** The lightest grey the
+  interface uses passed on the background and fell short on cards, chips and
+  menus. It is a little lighter now, and passes on all of them.
 
 - **Opening a file with Cadence opens it.** Double-clicking a video, or
   choosing Cadence from "Open with", started the window and then closed the
