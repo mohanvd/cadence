@@ -171,15 +171,16 @@ export default function AppPreview() {
 
       {/* The two facts about this frame worth reading, pinned to it. Outside
           the window's `img` role because they are prose, and a screen reader
-          should hear them as such. */}
-      <aside className="callout callout--codec">
+          should hear them as such. Plain blocks rather than <aside>: they are
+          notes on a picture, not regions of the page to jump between. */}
+      <div className="callout callout--codec">
         <p className="callout__lede">HEVC Main 10 in Matroska</p>
         <p className="callout__body">Handed to the decoder untouched</p>
-      </aside>
-      <aside className="callout callout--subs">
+      </div>
+      <div className="callout callout--subs">
         <p className="callout__lede">Styled subtitles</p>
         <p className="callout__body">ASS, drawn by libass, in the film's own fonts</p>
-      </aside>
+      </div>
     </div>
   );
 }
