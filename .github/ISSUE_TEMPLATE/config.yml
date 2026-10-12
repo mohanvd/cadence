@@ -1,1 +1,8 @@
 blank_issues_enabled: true
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/mohanvd/cadence/security/policy
+    about: Privately, by email, not here. An issue is public from the moment it is opened.
+  - name: Download Cadence
+    url: https://cadence.auva.dev
+    about: The installer, and what Cadence does.

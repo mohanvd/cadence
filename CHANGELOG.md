@@ -28,6 +28,21 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Cadence has a face.** A mark, five beats falling away whose outline is the
+  play button, on a new icon in the taskbar, the Start menu, Explorer and the
+  title bar. The interface is warmer: Ember is the new default accent, chosen
+  because a player is used with the lights off, and the greys are tinted to
+  match. Blue and the other accents are still in Settings, and a choice made
+  there before is kept.
+
+- **The home screen follows the theme.** It stayed Midnight whichever theme
+  was picked in Settings, because its colours were written as fixed values
+  rather than read from the theme the rest of the player uses.
+
+- **A new website**, at the same address, and a brand guide in
+  [brand/](brand/README.md) with every logo file and the design tokens the
+  player and the site are both drawn from.
+
 - **The source is public again, and the releases live beside it.** For a while
   the source was private and the installers sat in a second repository that
   held nothing else. They are one repository again, at

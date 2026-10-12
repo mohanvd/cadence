@@ -14,8 +14,8 @@ body:
     id: version
     attributes:
       label: Cadence version
-      description: Printed under the wordmark at the bottom of the home screen.
-      placeholder: '0.1.0'
+      description: Printed at the bottom of the home screen.
+      placeholder: '0.8.3'
     validations:
       required: true
 
