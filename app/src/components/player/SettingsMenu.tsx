@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icons';
+import { Mark } from '@/components/ui/mark';
 import {
   MenuItem,
   MenuLabel,
@@ -27,7 +28,7 @@ import {
   useAppearanceStore,
 } from '@/store/appearanceStore';
 
-type Panel = 'root' | 'video' | 'audio' | 'timer' | 'zoom' | 'appearance' | 'discord';
+type Panel = 'root' | 'video' | 'audio' | 'timer' | 'zoom' | 'appearance' | 'discord' | 'about';
 
 /**
  * The settings popover.
@@ -186,6 +187,11 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
             {!music && (
               <MenuItem onSelect={features.takeScreenshot}>Save frame as PNG</MenuItem>
             )}
+
+            <MenuSeparator />
+            <MenuItem onSelect={() => setPanel('about')} trailing={<span>{__APP_VERSION__}</span>}>
+              About Cadence
+            </MenuItem>
 
           </>
         )}
@@ -362,6 +368,12 @@ export function SettingsMenu({ features, ambient, musicMode, fit, music }: Setti
           </PanelFrame>
         )}
 
+        {panel === 'about' && (
+          <PanelFrame title="About Cadence" onBack={() => setPanel('root')}>
+            <AboutPanel />
+          </PanelFrame>
+        )}
+
         {panel === 'appearance' && (
           <PanelFrame title="Appearance" onBack={() => setPanel('root')}>
             <AppearancePanel />
@@ -459,6 +471,88 @@ function PanelFrame({
       </button>
       <MenuSeparator />
       <div className="max-h-[min(60vh,26rem)] overflow-y-auto scroll-slim">{children}</div>
+    </div>
+  );
+}
+
+/** What Cadence is built on, and the terms each part comes under. */
+const COMPONENTS = [
+  { name: 'FFmpeg', licence: 'LGPL-3.0' },
+  { name: 'libass (JASSUB)', licence: 'LGPL-2.1' },
+  { name: 'Tauri', licence: 'MIT, Apache-2.0' },
+  { name: 'Inter, Schibsted Grotesk', licence: 'OFL-1.1' },
+];
+
+/**
+ * Which Cadence this is, who made it, and what it is made of.
+ *
+ * The version is the first thing a bug report asks for, so it can be copied
+ * rather than retyped. The components are listed because two of them are
+ * LGPL, and somebody using a program built on them is owed being told so where
+ * they can see it, not only in a text file beside the DLLs. The addresses are
+ * text rather than links: this window cannot open a browser, and a link that
+ * does nothing when pressed is worse than an address that can be read.
+ */
+function AboutPanel() {
+  const [copied, setCopied] = React.useState(false);
+
+  const copyVersion = React.useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(`Cadence ${__APP_VERSION__}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // A clipboard that refuses is not worth an error over a version number.
+    }
+  }, []);
+
+  return (
+    <div className="px-2.5 pb-2">
+      <div className="flex items-center gap-3 py-2">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-[12px] border border-line bg-surface-2 shadow-[var(--cd-sheen-strong)]">
+          <Mark size={30} cut="full" />
+        </span>
+        <div className="min-w-0">
+          <p className="font-display text-[15px] font-bold tracking-[-0.02em] text-fg">Cadence</p>
+          <p className="text-[12px] text-fg-muted">Everything plays.</p>
+        </div>
+      </div>
+
+      <MenuItem
+        onSelect={() => void copyVersion()}
+        trailing={<span>{copied ? 'Copied' : 'Copy'}</span>}
+      >
+        Version {__APP_VERSION__}
+      </MenuItem>
+
+      <p className="mt-2 text-[12px] leading-relaxed text-fg-subtle">
+        Made by Mohanad Tarek, part of Auva. Free to use on every machine you
+        own. Updates arrive on their own and apply the next time you restart.
+      </p>
+      <p className="mt-2 text-[12px] text-fg-muted">cadence.auva.dev</p>
+      <p className="text-[12px] text-fg-muted">github.com/mohanvd/cadence</p>
+
+      <MenuSeparator />
+
+      <p className="pt-1 pb-1.5 text-[11px] font-semibold tracking-[0.08em] text-fg-subtle uppercase">
+        Built on
+      </p>
+      <ul className="space-y-1">
+        {COMPONENTS.map(({ name, licence }) => (
+          <li
+            key={name}
+            className="flex items-baseline justify-between gap-3 text-[12px] [font-variant-numeric:proportional-nums]"
+          >
+            <span className="truncate text-fg">{name}</span>
+            <span className="shrink-0 text-fg-subtle">{licence}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[11.5px] leading-relaxed text-fg-subtle">
+        FFmpeg is installed as separate libraries beside Cadence, with its
+        licence, and can be replaced with a build of your own. Its source is
+        at ffmpeg.org.
+      </p>
     </div>
   );
 }
