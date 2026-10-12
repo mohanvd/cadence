@@ -173,8 +173,12 @@ Six things are worth knowing, because none of them has anywhere to say so:
   names with an "Open with" entry rather than through Tauri's `APP_ASSOCIATE`.
   Each is commented in place. It has to be re-pinned when the CLI is upgraded.
 - The updater runs that same installer with `/P /R /UPDATE`. Anything done to
-  the template has to leave those working, and the only way to prove it is two
-  real releases.
+  the template has to leave those working. The `Installer` workflow proves the
+  registry half of that on every change to the template: it builds the
+  installer, upgrades the last release to it, uninstalls, and checks what each
+  step left behind (`scripts/test-installer.ps1`). Whether the updater itself
+  then finds and applies the release can still only be proved by two real
+  releases.
 - The icons, favicons, installer bitmaps, link previews and the design tokens
   in `app/` and `site/` are all generated from `brand/` by `npm run brand`.
   Edit the master there, run the script, and commit what it wrote. See

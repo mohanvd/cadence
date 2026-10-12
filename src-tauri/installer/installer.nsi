@@ -88,9 +88,19 @@ ${StrLoc}
 !macroend
 
 !macro CADENCE_UNASSOCIATE EXT FILECLASS
+  ; The default is cleared when it is Cadence's, and when it names a class that
+  ; is not there any more, which after an upgrade from 0.8.3 is the old
+  ; "Video" or "Audio" that CADENCE_REMOVE_OLD_CLASS has just taken away. A
+  ; default naming nothing opens nothing; an empty one lets Windows ask.
   ReadRegStr $R0 SHCTX "Software\Classes\.${EXT}" ""
   ${If} $R0 == "${FILECLASS}"
     DeleteRegValue SHCTX "Software\Classes\.${EXT}" ""
+  ${ElseIf} $R0 != ""
+    ClearErrors
+    EnumRegKey $R1 SHCTX "Software\Classes\$R0" 0
+    ${If} ${Errors}
+      DeleteRegValue SHCTX "Software\Classes\.${EXT}" ""
+    ${EndIf}
   ${EndIf}
   DeleteRegValue SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "${FILECLASS}"
   DeleteRegKey SHCTX "Software\Classes\${FILECLASS}"
@@ -928,13 +938,17 @@ Section Uninstall
   {{/each}}
 
   ; Delete app associations
+  ;
+  ; ---- Cadence ----
+  ; The old classes first, so that CADENCE_UNASSOCIATE finds the extensions
+  ; that pointed at them pointing at nothing, and clears them.
+  !insertmacro CADENCE_REMOVE_OLD_CLASS "Video"
+  !insertmacro CADENCE_REMOVE_OLD_CLASS "Audio"
   {{#each file_associations as |association| ~}}
     {{#each association.ext as |ext| ~}}
       !insertmacro CADENCE_UNASSOCIATE "{{ext}}" "{{or association.name ext}}"
     {{/each}}
   {{/each}}
-  !insertmacro CADENCE_REMOVE_OLD_CLASS "Video"
-  !insertmacro CADENCE_REMOVE_OLD_CLASS "Audio"
   DeleteRegKey SHCTX "Software\Classes\Applications\${MAINBINARYNAME}.exe"
   DeleteRegKey SHCTX "${MANUPRODUCTKEY}\Capabilities"
   DeleteRegValue SHCTX "Software\RegisteredApplications" "${PRODUCTNAME}"
