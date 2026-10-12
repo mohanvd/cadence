@@ -1,4 +1,4 @@
-import { Download } from 'lucide-react';
+import { Download } from './icons';
 import { INSTALLER_URL } from '../links';
 import Mark from './Mark';
 

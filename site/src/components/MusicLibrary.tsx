@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { Disc3, FolderInput, ListMusic, Pause, Radio, Search, Waves } from 'lucide-react';
+import { Disc3, FolderInput, ListMusic, Music, Pause, Search, User } from './icons';
 
 /**
  * The half of Cadence the page used to leave out entirely.
@@ -20,8 +20,8 @@ import { Disc3, FolderInput, ListMusic, Pause, Radio, Search, Waves } from 'luci
 /** The library's four views, in the order the window lists them. */
 const TABS = [
   { id: 'albums', label: 'Albums', icon: Disc3, active: true },
-  { id: 'artists', label: 'Artists', icon: Radio, active: false },
-  { id: 'songs', label: 'Songs', icon: Waves, active: false },
+  { id: 'artists', label: 'Artists', icon: User, active: false },
+  { id: 'songs', label: 'Songs', icon: Music, active: false },
   { id: 'playlists', label: 'Playlists', icon: ListMusic, active: false },
 ];
 

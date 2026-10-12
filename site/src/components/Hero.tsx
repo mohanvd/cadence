@@ -1,4 +1,4 @@
-import { ArrowRight, Download } from 'lucide-react';
+import { ArrowRight, Download } from './icons';
 import GithubMark from './GithubMark';
 import { RELEASES_URL, INSTALLER_URL } from '../links';
 

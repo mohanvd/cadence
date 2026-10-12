@@ -16,7 +16,7 @@ import {
   SquarePlay,
   Volume2,
   X,
-} from 'lucide-react';
+} from './icons';
 import type { CSSProperties } from 'react';
 import Mark from './Mark';
 

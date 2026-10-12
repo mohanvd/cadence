@@ -84,8 +84,10 @@ installer is not allowed to make it.
 
 **Stays out of the way**
 
-- Every control is one key away. Right-click almost anything for what you can
-  do with it
+- Every control is one key away, and every key can be changed. Right-click
+  almost anything for what you can do with it
+- Settings for all of it in one place, Ctrl+comma from anywhere, with a search
+  to find any one of them
 - The Windows media keys and Now Playing panel, and Discord, if you switch it
   on
 - Drag a file anywhere onto the window, open one from the dialog, or

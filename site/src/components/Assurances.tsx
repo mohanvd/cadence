@@ -1,4 +1,4 @@
-import { BadgeCheck, KeyRound, RefreshCw, WifiOff } from 'lucide-react';
+import { BadgeCheck, KeyRound, RefreshCw, WifiOff } from './icons';
 
 /**
  * The things a player has to promise before anyone lets it near their files.

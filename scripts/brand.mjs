@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -89,6 +89,47 @@ write(at('site', 'src', 'styles', 'brand-tokens.css'), generated + tokens);
     };
   }
   write(brand('tokens', 'tokens.json'), JSON.stringify(tree, null, 2) + '\n');
+}
+
+/* ── The icon set ──
+   brand/icons/glyphs.mjs is the master. Each project gets it as a typed
+   module of SVG fragments, which its own Icon component draws; neither may
+   read the other's files, so each gets a copy. */
+{
+  const { GLYPHS } = await import(pathToFileURL(brand('icons', 'glyphs.mjs')).href);
+  const entries = Object.entries(GLYPHS)
+    .map(([name, markup]) => `  ${name}: ${JSON.stringify(markup)},`)
+    .join('\n');
+  const module =
+    '/* Generated from brand/icons/glyphs.mjs by `npm run brand`. Edit that file,\n' +
+    '   not this one: this one is overwritten.\n\n' +
+    '   Each value is the inside of an <svg viewBox="0 0 24 24"> drawn with\n' +
+    '   fill="none" stroke="currentColor" and round caps and joins. */\n\n' +
+    `export const GLYPHS = {\n${entries}\n} as const;\n\n` +
+    'export type GlyphName = keyof typeof GLYPHS;\n';
+  write(at('app', 'src', 'components', 'ui', 'glyphs.ts'), module);
+  write(at('site', 'src', 'components', 'glyphs.ts'), module);
+
+  /* The sheet in the brand guide: every glyph at the size the player draws
+     it, named. Text rather than outlines, because this is a page to read, and
+     GitHub draws it with whatever sans-serif it has. */
+  const names = Object.keys(GLYPHS);
+  const cols = 8;
+  const cell = 112;
+  const rows = Math.ceil(names.length / cols);
+  let body = '';
+  names.forEach((name, i) => {
+    const x = (i % cols) * cell;
+    const y = Math.floor(i / cols) * cell;
+    body +=
+      `<rect x="${x + 4}" y="${y + 4}" width="${cell - 8}" height="${cell - 8}" rx="12" fill="#12110F" stroke="#2F2D2C"/>` +
+      `<svg x="${x + 36}" y="${y + 22}" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#F3F1F0" stroke-width="${(2 * 24) / 40}" stroke-linecap="round" stroke-linejoin="round">${GLYPHS[name].replaceAll('currentColor', '#F3F1F0')}</svg>` +
+      `<text x="${x + cell / 2}" y="${y + 88}" text-anchor="middle" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="11" fill="#A6A4A3">${name}</text>`;
+  });
+  write(
+    brand('icons', 'preview.svg'),
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${cols * cell}" height="${rows * cell}" viewBox="0 0 ${cols * cell} ${rows * cell}"><rect width="100%" height="100%" rx="16" fill="#0B0A09"/>${body}</svg>\n`,
+  );
 }
 
 /* ── Icons ── */

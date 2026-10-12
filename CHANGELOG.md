@@ -30,6 +30,15 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   next file in a folder plays by itself; which tab Cadence opens on; and
   whether the interface animates, independently of Windows.
 
+### Changed
+
+- **Cadence draws its own icons.** Every icon in the player and on the
+  website is now from one set drawn for Cadence, to the mark's own geometry:
+  one line weight at every size, the same rounded ends as the mark's bars,
+  and play, pause and the skips built from its pieces. They replace a stock
+  set whose proportions were the one thing in the window that plainly came
+  from somewhere else.
+
 ### Fixed
 
 - **? opens the list of shortcuts.** It never did: only / worked, because the

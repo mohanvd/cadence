@@ -5,6 +5,7 @@ import {
   Frame,
   Gauge,
   Images,
+  Keyboard,
   Lightbulb,
   ListVideo,
   MonitorDown,
@@ -12,11 +13,12 @@ import {
   Palette,
   Radio,
   Repeat,
+  Settings,
   Timer,
   Bookmark,
   WifiOff,
   ZoomIn,
-} from 'lucide-react';
+} from './icons';
 
 /**
  * The long tail, as an index rather than as more cards.
@@ -46,7 +48,9 @@ const CAPABILITIES = [
   { icon: Camera, label: 'Save the current frame as a PNG' },
   { icon: MousePointerClick, label: 'Wheel for volume, trackpad swipe to scrub' },
   { icon: Radio, label: 'Media keys and the OS now-playing panel' },
-  { icon: Palette, label: 'Six accents, three themes, three densities' },
+  { icon: Palette, label: 'Seven accents, three themes, three densities' },
+  { icon: Keyboard, label: 'Every shortcut can be changed', note: 'to any key' },
+  { icon: Settings, label: 'Settings for all of it', note: 'and a search to find one' },
   { icon: MonitorDown, label: 'Opens files straight from the desktop' },
   { icon: WifiOff, label: 'Never needs a connection' },
 ];

@@ -66,6 +66,33 @@ cap heights between mark and name. In running text the name is always written
 The words are converted to outlines in every logo file, so they render the same
 on a machine without the font, including on GitHub.
 
+## Icons
+
+<img src="icons/preview.svg" alt="Every Cadence icon, named." width="100%">
+
+Cadence draws every icon it shows, in the player and on the site, from one set
+of its own: [`icons/glyphs.mjs`](icons/glyphs.mjs). It replaced Lucide, whose
+proportions and play button were the two things in the window that plainly
+came from another drawing.
+
+- **One stroke**, set in screen pixels by the component that draws it, so a
+  14px icon and a 24px icon carry the same line: 1.75px in the interface,
+  1.25px for the window's own controls. Round caps and joins, the roundness of
+  the mark's bars.
+- **Keylines.** The live area is 3 to 21 on a 24 grid. A circle is 18 across,
+  a square 16, an upright rectangle 14 by 18 and a wide one 18 by 14, which is
+  where shapes of different kinds look the same size.
+- **Transport is solid**, built from the mark's pieces: rounded bars, and a
+  play triangle with its corners turned. Everything else is outline.
+- **Optical centring.** Play sits a unit right of its box's centre, as the
+  mark does, because its weight is on the left.
+- **Sound is the mark.** Anything that stands for audio is the mark's own run
+  of bars.
+
+`npm run brand` writes the set into `app/` and `site/` as `glyphs.ts`, and
+draws the sheet above. To add one, draw it in `glyphs.mjs` to the rules above,
+run the script, and use it by name.
+
 ## Files
 
 | File | What it is |
@@ -83,6 +110,8 @@ on a machine without the font, including on GitHub.
 | `social/readme-banner.*` | The banner at the top of the README. |
 | `tokens/tokens.css` | Every colour, size, duration and typeface. The source of truth. |
 | `tokens/tokens.json` | The same, as design tokens, for importing into a design tool. |
+| `icons/glyphs.mjs` | Every icon, as SVG on a 24 grid. The source of truth. |
+| `icons/preview.svg` | All of them on one sheet, named. |
 
 ## Colour
 

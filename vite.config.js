@@ -77,9 +77,9 @@ export default defineConfig({
           if (id.includes('@radix-ui')) {
             return 'ui';
           }
-          if (id.includes('lucide-react')) {
-            return 'icons';
-          }
+          // The icons are Cadence's own now, a few kilobytes of SVG strings in
+          // app/src/components/ui/glyphs.ts, and travel with the code that
+          // draws them rather than in a chunk of their own.
         },
       },
     },

@@ -1,4 +1,4 @@
-import { Boxes, Captions, Cpu, RotateCcw, Tags } from 'lucide-react';
+import { Boxes, Captions, Cpu, RotateCcw, Tags } from './icons';
 
 /**
  * The five things worth stopping for.
