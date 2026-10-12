@@ -80,9 +80,9 @@ export function Mark({ size = 24, cut, tone = 'signal', label = false, ...props 
             x2={last.x + last.w}
             y2={first.y + first.h}
           >
-            <stop offset="0" stopColor="var(--cd-amber)" />
-            <stop offset="0.55" stopColor="var(--cd-ember-500)" />
-            <stop offset="1" stopColor="var(--cd-flame)" />
+            <stop offset="0" style={{ stopColor: 'var(--cd-amber)' }} />
+            <stop offset="0.55" style={{ stopColor: 'var(--cd-ember-500)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--cd-flame)' }} />
           </linearGradient>
         </defs>
       )}
