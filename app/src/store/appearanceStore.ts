@@ -24,6 +24,9 @@ export interface AccentOption {
 }
 
 export const ACCENTS: readonly AccentOption[] = [
+  /* Cadence's own, and first because it is the default. Warm because a player
+     is used with the lights off; see brand/README.md. */
+  { id: 'ember', label: 'Ember', hue: 45, chroma: 0.17 },
   { id: 'blue', label: 'Blue', hue: 250, chroma: 0.17 },
   { id: 'violet', label: 'Violet', hue: 292, chroma: 0.17 },
   { id: 'magenta', label: 'Magenta', hue: 340, chroma: 0.17 },
@@ -68,7 +71,7 @@ export interface AppearanceState {
 const STORAGE_KEY = 'cadence-appearance';
 
 const DEFAULTS = {
-  accentId: 'blue',
+  accentId: 'ember',
   themeId: 'midnight',
   densityId: 'comfortable' as DensityId,
 };
@@ -125,14 +128,17 @@ export function applyAppearance(state: typeof DEFAULTS): void {
 
   const theme = THEMES.find((t) => t.id === state.themeId) ?? THEMES[0]!;
   const { base } = theme;
-  root.style.setProperty('--color-base', `oklch(${base} 0 0)`);
+  // The brand's warm neutral: the hue and chroma of the ink ramp in
+  // brand/tokens/tokens.css, at whatever lightness this theme starts from.
+  const ink = (lightness: number) => `oklch(${lightness.toFixed(3)} ${lightness === 0 ? 0 : 0.004} 60)`;
+  root.style.setProperty('--color-base', ink(base));
   // The ramp is relative to the base so "True black" does not end up with
   // menus floating at the same lightness as a Midnight menu would.
-  root.style.setProperty('--color-surface-1', `oklch(${base + 0.033} 0.002 285)`);
-  root.style.setProperty('--color-surface-2', `oklch(${base + 0.071} 0.003 285)`);
-  root.style.setProperty('--color-surface-3', `oklch(${base + 0.117} 0.004 285)`);
-  root.style.setProperty('--color-line', `oklch(${base + 0.135} 0.004 285)`);
-  root.style.setProperty('--color-line-strong', `oklch(${base + 0.205} 0.005 285)`);
+  root.style.setProperty('--color-surface-1', ink(base + 0.033));
+  root.style.setProperty('--color-surface-2', ink(base + 0.071));
+  root.style.setProperty('--color-surface-3', ink(base + 0.117));
+  root.style.setProperty('--color-line', ink(base + 0.155));
+  root.style.setProperty('--color-line-strong', ink(base + 0.225));
   // Body text is fixed: it has to stay legible over video regardless of how
   // dark the chrome behind it is.
 
