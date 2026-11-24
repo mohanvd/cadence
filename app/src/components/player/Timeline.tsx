@@ -7,6 +7,7 @@ import {
   useCurrentTime,
   useDuration,
   usePlayerActions,
+  usePlayerStore,
 } from '@/store/playerStore';
 
 /**
@@ -40,12 +41,17 @@ export function Timeline({ markers = [] }: TimelineProps) {
   const currentTime = useCurrentTime();
   const duration = useDuration();
   const buffered = useBuffered();
-  const { seek, pause, play } = usePlayerActions();
+  const { seek, seekBy, pause, play } = usePlayerActions();
 
   const trackRef = React.useRef<HTMLDivElement>(null);
   const [dragTime, setDragTime] = React.useState<number | null>(null);
   const [hoverTime, setHoverTime] = React.useState<number | null>(null);
   const resumeAfterDrag = React.useRef(false);
+  /* Refs as well as state: the handlers below run between renders, and one
+     reading a drag that has already ended, or a position the pointer has
+     already left, is how a click could leave the player paused for good. */
+  const dragging = React.useRef(false);
+  const lastDragTime = React.useRef(0);
   const preview = useThumbnailPreview();
 
   // While dragging, the thumb follows the pointer, not the engine.
@@ -65,15 +71,23 @@ export function Timeline({ markers = [] }: TimelineProps) {
   );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (duration <= 0) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    if (duration <= 0 || event.button !== 0) return;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      /* A pointer already gone: the drag still works without capture. */
+    }
 
-    // Pausing during the drag stops the decoder thrashing on every intermediate
-    // position; playback resumes on release if it was running.
-    resumeAfterDrag.current = !document.querySelector('video')?.paused;
+    /* Pausing during the drag keeps the sound from stuttering through every
+       position passed over; playback resumes on release if it was running.
+       Asked of the store rather than of "the first video on the page", which
+       was not always the one playing. */
+    resumeAfterDrag.current = !usePlayerStore.getState().paused;
     if (resumeAfterDrag.current) pause();
 
     const time = timeFromClientX(event.clientX);
+    dragging.current = true;
+    lastDragTime.current = time;
     setDragTime(time);
     seek(time);
   };
@@ -83,8 +97,11 @@ export function Timeline({ markers = [] }: TimelineProps) {
     const time = timeFromClientX(event.clientX);
     setHoverTime(time);
     preview.request(time);
-    if (dragTime === null) return;
+    if (!dragging.current) return;
+    lastDragTime.current = time;
     setDragTime(time);
+    // The engine keeps one seek in flight and drops the ones overtaken, so
+    // this can be called as often as the pointer moves.
     seek(time);
   };
 
@@ -93,10 +110,16 @@ export function Timeline({ markers = [] }: TimelineProps) {
     preview.request(null);
   };
 
-  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (dragTime === null) return;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    seek(dragTime);
+  /**
+   * End the drag, however it ends: released, cancelled by the system, or the
+   * capture taken away. Only the first of those does anything. A drag that
+   * was never ended was a player paused for good, with a thumb that no longer
+   * followed the film.
+   */
+  const finishDrag = (time: number) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    seek(time);
     setDragTime(null);
     if (resumeAfterDrag.current) {
       resumeAfterDrag.current = false;
@@ -104,14 +127,26 @@ export function Timeline({ markers = [] }: TimelineProps) {
     }
   };
 
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging.current) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    finishDrag(timeFromClientX(event.clientX));
+  };
+
+  const handlePointerCancel = () => finishDrag(lastDragTime.current);
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    /* Handled here and marked so: the window-wide shortcuts leave a key that
+       has been handled alone, rather than seeking a second time. */
     const step = event.shiftKey ? 60 : 5;
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      seek(Math.max(0, currentTime - step));
+      seekBy(-step);
     } else if (event.key === 'ArrowRight') {
       event.preventDefault();
-      seek(Math.min(duration, currentTime + step));
+      seekBy(step);
     } else if (event.key === 'Home') {
       event.preventDefault();
       seek(0);
@@ -185,6 +220,8 @@ export function Timeline({ markers = [] }: TimelineProps) {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onLostPointerCapture={handlePointerCancel}
         onPointerLeave={handlePointerLeave}
         onKeyDown={handleKeyDown}
         className={cn(

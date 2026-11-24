@@ -45,7 +45,25 @@ function Run($file, [string[]] $arguments) {
 if ($Old) {
   Write-Host "`nInstalling the old release"
   Run $Old @('/S')
-  Check 'the old installer registered the bare Video class' ((Value "$classes\Video\shell\open\command") -like "*cadence.exe*")
+
+  <# The bare classes are what 0.8.3 and earlier left behind, and the latest
+     release no longer registers them, so upgrading from it alone would skip
+     the repair this test is for. Machines that went through 0.8.3 still have
+     them, though, so they are planted as 0.8.3 left them: the path unquoted,
+     and the extension pointing at the class. #>
+  if ((Value "$classes\Video\shell\open\command") -like "*cadence.exe*") {
+    Write-Host '  ..    the old release left the bare classes itself'
+  } else {
+    Write-Host '  ..    the old release has no bare classes; planting what 0.8.3 left'
+    foreach ($pair in @(@('Video', '.mkv'), @('Audio', '.mp3'))) {
+      $class, $ext = $pair
+      New-Item "$classes\$class\shell\open\command" -Force | Out-Null
+      Set-ItemProperty "$classes\$class\shell\open\command" '(default)' "$exe `"%1`""
+      if (-not (Test-Path "$classes\$ext")) { New-Item "$classes\$ext" -Force | Out-Null }
+      Set-ItemProperty "$classes\$ext" '(default)' $class
+    }
+  }
+  Check 'the bare Video class is there to be upgraded' ((Value "$classes\Video\shell\open\command") -like "*cadence.exe*")
 }
 
 # Two file types that belong to somebody else, claimed after Cadence was

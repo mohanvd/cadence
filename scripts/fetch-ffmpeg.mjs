@@ -75,19 +75,27 @@ async function main() {
   const { size } = await stat(archive);
   console.log(`Fetched ${(size / 1024 / 1024).toFixed(1)}MB, extracting...`);
 
-  // Expand-Archive rather than a zip library: this build only runs on Windows,
-  // where it is already installed, and a dependency for one call is not worth
-  // the supply chain it brings with it.
-  await run('powershell', [
-    '-NoProfile',
-    '-Command',
-    `Expand-Archive -LiteralPath "${archive}" -DestinationPath "${scratch}" -Force`,
-  ]);
+  /* Windows' own tar rather than a zip library: this build only runs on
+     Windows, where it is already installed, and a dependency for one call is
+     not worth the supply chain it brings with it.
+
+     Not PowerShell's Expand-Archive, which this used to be. Started from a
+     PowerShell 7 step, Windows PowerShell inherits a module path it cannot
+     load the archive module from, and on the windows-2025 runners it then
+     extracted nothing while reporting success. The tar in System32 is
+     bsdtar, which reads zip and has no modules to find. Named by its full
+     path, because a Git for Windows tar earlier on the PATH is GNU tar, which
+     does not. */
+  const tar = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe');
+  await run(tar, ['-xf', archive, '-C', scratch]);
 
   const [extracted] = (await readdir(scratch, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory())
     .map((entry) => join(scratch, entry.name));
-  if (!extracted) throw new Error('the archive held no directory');
+  if (!extracted) {
+    const found = (await readdir(scratch)).join(', ');
+    throw new Error(`the archive held no directory (extracted: ${found})`);
+  }
 
   await rm(target, { recursive: true, force: true });
   await mkdir(target, { recursive: true });

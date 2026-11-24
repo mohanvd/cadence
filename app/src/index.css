@@ -649,6 +649,17 @@ video::cue {
   display: none;
 }
 
+/* Fullscreen covers the whole screen. Said here rather than left to the
+   browser's own fullscreen rules, because the offset above is ours and a
+   38px black band across the top of a fullscreen film is the result of
+   relying on somebody else to cancel it. */
+.player-overlay:fullscreen {
+  inset: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
 /* Room for the bar along the bottom, on the screens that scroll. */
 .app-shell--playing .xn-home__scroll {
   padding-bottom: 78px;

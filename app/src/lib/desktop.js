@@ -34,6 +34,28 @@ export async function toPlayableUrl(path) {
 }
 
 /**
+ * Put the window itself in or out of fullscreen, in step with the page.
+ *
+ * The player fullscreens its own element, and in WebView2 that element fills
+ * the webview and no more: the window keeps its size and the taskbar stays on
+ * screen. So the window follows. Asked only when it is not already there,
+ * which makes this harmless if the webview ever starts doing it by itself.
+ *
+ * @param {boolean} on
+ * @returns {Promise<void>}
+ */
+export async function setWindowFullscreen(on) {
+  if (!isDesktop()) return;
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const win = getCurrentWindow();
+    if ((await win.isFullscreen()) !== on) await win.setFullscreen(on);
+  } catch {
+    /* The page's own fullscreen still fills the window. */
+  }
+}
+
+/**
  * The filename component of a path, for display and for recent-file records.
  *
  * @param {string} path
