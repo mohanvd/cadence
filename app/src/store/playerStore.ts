@@ -100,6 +100,25 @@ const INITIAL: PlayerSnapshot = {
 };
 
 /**
+ * What belongs to the file rather than to the viewer.
+ *
+ * Opening a file resets this and nothing else. Resetting the whole snapshot
+ * also put the volume, the amplifier and the speed back to their defaults on
+ * every open, and since those are saved as they change, the saved values were
+ * overwritten with the defaults too: the speed somebody had chosen lasted only
+ * until the next episode.
+ */
+const PLAYBACK_INITIAL = {
+  paused: INITIAL.paused,
+  currentTime: INITIAL.currentTime,
+  duration: INITIAL.duration,
+  buffered: INITIAL.buffered,
+  seeking: INITIAL.seeking,
+  loading: INITIAL.loading,
+  ended: INITIAL.ended,
+} satisfies Partial<PlayerSnapshot>;
+
+/**
  * What should actually reach the speakers.
  *
  * The slider is a fraction and the boost is the ceiling it runs to, so full
@@ -124,6 +143,24 @@ let loadToken = 0;
  * file is genuinely unplayable, and saying so is more use than trying again.
  */
 const MAX_RECOVERIES = 2;
+
+/**
+ * How many times a file that was playing and then failed is opened again,
+ * where it stopped. A different budget from the one above: these failures
+ * teach nothing about codecs, and spending that budget on them is how a
+ * dropped stream used to get H.264 distrusted for good.
+ */
+const MAX_RETRIES = 2;
+
+interface Attempt {
+  options: ProbeOptions;
+  recoveries: number;
+  retries: number;
+  /** Where to pick the file up, for an attempt replacing one that failed. */
+  resumeAt: number;
+  /** Whether to start playing once open. False for a retry of a paused film. */
+  autoplay?: boolean;
+}
 
 /**
  * Record what a failed attempt just proved.
@@ -179,8 +216,7 @@ async function attempt(
   source: MediaSourceInput,
   container: HTMLElement,
   token: number,
-  options: ProbeOptions,
-  recoveries: number,
+  { options, recoveries, retries, resumeAt, autoplay = true }: Attempt,
 ): Promise<void> {
   const set = usePlayerStore.setState;
   const get = usePlayerStore.getState;
@@ -189,7 +225,8 @@ async function attempt(
   // before the next one allocates.
   get().engine?.destroy();
   set({
-    ...INITIAL,
+    ...PLAYBACK_INITIAL,
+    currentTime: resumeAt,
     loading: true,
     engine: null,
     videoEl: null,
@@ -235,9 +272,13 @@ async function attempt(
       ended: state.ended,
       /* Volume is not mirrored back. The store is the only thing that sets it,
          and what the backend holds is the gain, which is the slider times the
-         boost; writing that into the slider's own value would move it. */
+         boost; writing that into the slider's own value would move it.
+
+         Nor is the speed, for the same reason: it is the viewer's, and the
+         store is where it is set. Mirroring it is how a media element putting
+         its own rate back to normal on a new source became the speed menu
+         saying, and saving, normal. */
       muted: state.muted,
-      rate: state.rate,
     });
   });
 
@@ -263,22 +304,61 @@ async function attempt(
        in the first place. */
     const played = tracks.filter((track) => track.type !== 'subtitle');
     const merged = played.length > 0 ? [...played, ...subtitles] : probe.tracks;
+    /* Kept when it is still there. A streamed file reports its metadata again
+       after every seek out of the buffer, and choosing the first track each
+       time put the menu back on it while the commentary carried on playing. */
+    const chosen = get().selectedAudioId;
+    const stillThere = merged.some((t) => t.type === 'audio' && t.id === chosen);
     set({
       duration: resolved,
       tracks: merged,
-      selectedAudioId:
-        merged.find((t) => t.type === 'audio' && t.playable)?.id ?? null,
+      selectedAudioId: stillThere
+        ? chosen
+        : (merged.find((t) => t.type === 'audio' && t.playable)?.id ?? null),
     });
   });
 
-  engine.on('error', ({ message, fatal }) => {
-    if (token !== loadToken) return;
+  /* One answer per engine. A broken stream fails on several fronts at once,
+     and each report used to start its own recovery. */
+  let answered = false;
+
+  engine.on('error', ({ message, fatal, decode }) => {
+    if (token !== loadToken || answered) return;
+    if (fatal) answered = true;
+
+    /* Where it was, so whatever is opened next carries on from there instead
+       of starting the film again, and in the same state. */
+    const at = get().currentTime;
+    const autoplay = !get().paused || at === 0;
+
+    /* Something that had been playing went wrong: a dropped stream, a disk
+       that slept, a bad patch of file. Nothing about the codec was learned, so
+       nothing is: the same file is opened the same way, where it stopped. */
+    if (fatal && !decode && retries < MAX_RETRIES) {
+      void stillOnDisk(source).then((there) => {
+        if (token !== loadToken) return;
+        if (there) {
+          void attempt(source, container, token, {
+            options,
+            recoveries,
+            retries: retries + 1,
+            resumeAt: at,
+            autoplay,
+          });
+          return;
+        }
+        void whyItFailed(source, message).then((reason) => {
+          if (token === loadToken) set({ error: reason, loading: false });
+        });
+      });
+      return;
+    }
 
     /* A fatal error here is usually not the file's fault but the routing's:
        the browser said it would take a codec and then would not. Ask again
        knowing that, rather than showing an apology built on the same wrong
        assumption. */
-    if (fatal && recoveries < MAX_RECOVERIES) {
+    if (fatal && decode && recoveries < MAX_RECOVERIES) {
       /* Except when the file has gone. A codec verdict is learned from a
          failure and kept for good, and a file that is not on the disk is a
          failure that says nothing about any codec, but it looks identical
@@ -290,7 +370,14 @@ async function attempt(
         if (token !== loadToken) return;
         const next = there ? learn(source, probe, options.forceStream ?? false) : null;
         if (next) {
-          void attempt(source, container, token, next, recoveries + 1);
+          void attempt(source, container, token, {
+            options: next,
+            recoveries: recoveries + 1,
+            retries,
+            resumeAt: at,
+            // Refused before it played, so it was always meant to be playing.
+            autoplay: true,
+          });
           return;
         }
         void whyItFailed(source, message).then((reason) => {
@@ -334,10 +421,14 @@ async function attempt(
      it; the store keeps it either way. */
   engine.setVolume(gainOf(get().volume, get().boost, canProcessAudio));
   engine.setMuted(get().muted);
+  // The speed too, which no engine was ever told: each one started at normal.
+  engine.setRate(get().rate);
 
   try {
-    await engine.load(source);
+    await engine.load(source, resumeAt);
     if (token !== loadToken) return;
+    // A retry for a film the viewer had paused stays paused.
+    if (!autoplay) return;
 
     /* Then start it.
        
@@ -399,14 +490,20 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   openSource: async (source, container) => {
     const token = ++loadToken;
-    await attempt(source, container, token, {}, 0);
+    await attempt(source, container, token, {
+      options: {},
+      recoveries: 0,
+      retries: 0,
+      resumeAt: 0,
+    });
   },
 
   closeSource: () => {
     loadToken += 1;
     get().engine?.destroy();
     set({
-      ...INITIAL,
+      // The viewer's volume, amplifier and speed outlive the file.
+      ...PLAYBACK_INITIAL,
       engine: null,
       videoEl: null,
       source: null,
@@ -418,9 +515,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   togglePlay: () => {
-    const { engine, paused } = get();
+    const { engine } = get();
     if (!engine) return;
-    if (paused) void engine.play().catch(() => {});
+    /* Asked of the engine, not the store's copy, which trails it by up to a
+       frame. Two presses in that frame both used to read the same stale
+       answer and cancel each other out. */
+    if (engine.state.paused) void engine.play().catch(() => {});
     else engine.pause();
   },
 
@@ -437,8 +537,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   seekBy: (delta) => {
-    const { engine, currentTime } = get();
-    engine?.seek(currentTime + delta);
+    const { engine } = get();
+    // From where the last seek was going, so held keys add up.
+    if (engine) engine.seek(engine.state.currentTime + delta);
   },
 
   setVolume: (volume) => {
@@ -470,6 +571,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   setRate: (rate) => {
+    if (!Number.isFinite(rate) || rate <= 0) return;
     get().engine?.setRate(rate);
     set({ rate });
   },

@@ -121,7 +121,13 @@ export interface EngineEvents {
   loadedmetadata: { duration: number; tracks: MediaTrack[] };
   timeupdate: { currentTime: number };
   ended: void;
-  error: { message: string; fatal: boolean; cause?: unknown };
+  /**
+   * `decode` is true only when the browser itself refused the media before a
+   * single frame played: the one failure that says something about a codec.
+   * A stream that dropped, a disk that went to sleep, a corrupt packet an hour
+   * in, all leave it false, and are retried rather than learned from.
+   */
+  error: { message: string; fatal: boolean; cause?: unknown; decode?: boolean };
   /** Emitted when a backend falls back to another after a load failure. */
   backendchange: { from: BackendKind; to: BackendKind; reason: string };
 }
@@ -145,7 +151,8 @@ export interface PlaybackEngine {
 
   /** Mount the rendering surface into `container`. Called once. */
   attach(container: HTMLElement): void;
-  load(source: MediaSourceInput): Promise<void>;
+  /** @param startAt seconds to begin at, for a retry picking up where it failed. */
+  load(source: MediaSourceInput, startAt?: number): Promise<void>;
 
   play(): Promise<void>;
   pause(): void;

@@ -168,11 +168,25 @@ export function MusicTransport({
 function SeekBar() {
   const currentTime = useCurrentTime();
   const duration = useDuration();
-  const { seek, pause, play } = usePlayerActions();
+  const { seek, seekBy, pause, play } = usePlayerActions();
 
   const trackRef = React.useRef<HTMLDivElement>(null);
   const [dragTime, setDragTime] = React.useState<number | null>(null);
   const resume = React.useRef(false);
+  // See the film timeline: refs, because the handlers run between renders.
+  const dragging = React.useRef(false);
+  const lastDragTime = React.useRef(0);
+
+  const finishDrag = (time: number) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    seek(time);
+    setDragTime(null);
+    if (resume.current) {
+      resume.current = false;
+      play();
+    }
+  };
 
   const shown = dragTime ?? currentTime;
   const percent = duration > 0 ? Math.min(100, (shown / duration) * 100) : 0;
@@ -203,40 +217,46 @@ function SeekBar() {
         aria-valuenow={Math.round(shown)}
         aria-valuetext={`${formatTime(shown, duration)} of ${formatTime(duration, duration)}`}
         onPointerDown={(event) => {
-          if (duration <= 0) return;
-          event.currentTarget.setPointerCapture(event.pointerId);
+          if (duration <= 0 || event.button !== 0) return;
+          try {
+            event.currentTarget.setPointerCapture(event.pointerId);
+          } catch {
+            /* Works without capture too. */
+          }
           // Pausing through the drag stops the decoder chasing every
           // intermediate position; it resumes on release if it was running.
           resume.current = !usePlayerStore.getState().paused;
           if (resume.current) pause();
           const time = timeAt(event.clientX);
+          dragging.current = true;
+          lastDragTime.current = time;
           setDragTime(time);
           seek(time);
         }}
         onPointerMove={(event) => {
-          if (dragTime === null || duration <= 0) return;
+          if (!dragging.current || duration <= 0) return;
           const time = timeAt(event.clientX);
+          lastDragTime.current = time;
           setDragTime(time);
           seek(time);
         }}
         onPointerUp={(event) => {
-          if (dragTime === null) return;
-          event.currentTarget.releasePointerCapture(event.pointerId);
-          seek(dragTime);
-          setDragTime(null);
-          if (resume.current) {
-            resume.current = false;
-            play();
+          if (!dragging.current) return;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
           }
+          finishDrag(timeAt(event.clientX));
         }}
+        onPointerCancel={() => finishDrag(lastDragTime.current)}
+        onLostPointerCapture={() => finishDrag(lastDragTime.current)}
         onKeyDown={(event) => {
           const step = event.shiftKey ? 30 : 5;
           if (event.key === 'ArrowLeft') {
             event.preventDefault();
-            seek(Math.max(0, currentTime - step));
+            seekBy(-step);
           } else if (event.key === 'ArrowRight') {
             event.preventDefault();
-            seek(Math.min(duration, currentTime + step));
+            seekBy(step);
           }
         }}
         className={cn(

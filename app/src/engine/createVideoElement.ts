@@ -13,6 +13,9 @@ export function createVideoElement(): HTMLVideoElement {
   video.preload = 'auto';
   // The engine owns the UI; the browser's own controls must never appear.
   video.controls = false;
+  // Keep voices at their own pitch when sped up. A property of the element,
+  // so it survives every source the element is given afterwards.
+  video.preservesPitch = true;
 
   /*
    * Remove the browser's built-in extraction affordances.

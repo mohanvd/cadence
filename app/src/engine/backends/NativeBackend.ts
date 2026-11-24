@@ -29,6 +29,24 @@ export class NativeBackend extends BaseBackend {
    */
   private readonly probed: readonly MediaTrack[];
 
+  /** The speed asked for, re-applied whenever the element could have lost it. */
+  private rate = 1;
+  /**
+   * Where the viewer last asked to go while the element was still busy going
+   * somewhere else. Applied when that seek lands, so a drag along the timeline
+   * is one seek at a time, each to wherever the pointer is by then, rather
+   * than a pile of them each cancelling the last before a frame is shown.
+   */
+  private pendingSeek: number | null = null;
+  /** Where to start once the length is known, for a retry resuming mid-film. */
+  private startAt = 0;
+  /**
+   * Whether anything has actually played. A failure before it is the browser
+   * refusing the file; a failure after it is something going wrong with a
+   * file the browser was already playing, and says nothing about the codec.
+   */
+  private presented = false;
+
   constructor(probe?: ProbeResult) {
     super();
     this.probed = probe?.tracks ?? [];
@@ -49,8 +67,17 @@ export class NativeBackend extends BaseBackend {
         duration: video.duration || 0,
         tracks: this._tracks,
       });
+      if (this.startAt > 0) {
+        const at = this.startAt;
+        this.startAt = 0;
+        this.seek(at);
+      }
     };
     const onTimeUpdate = () => {
+      /* Mid-seek the element reports where it was, not where it is going, and
+         passing that on is what made the thumb snap back for a moment after
+         every release. The target is already in the state. */
+      if (video.seeking || this.pendingSeek !== null) return;
       this.setState({ currentTime: video.currentTime });
       this.emit('timeupdate', { currentTime: video.currentTime });
     };
@@ -68,25 +95,53 @@ export class NativeBackend extends BaseBackend {
     };
     const onPlay = () => this.setState({ paused: false, ended: false }, true);
     const onPause = () => this.setState({ paused: true }, true);
+    /* A new source pauses the element without a pause event, only this one.
+       Read the element rather than trust the last event, or the button and
+       the picture disagree about whether anything is playing, and the next
+       press does nothing at all. */
+    const onEmptied = () => this.setState({ paused: video.paused }, true);
     const onSeeking = () => this.setState({ seeking: true }, true);
-    const onSeeked = () => this.setState({ seeking: false }, true);
+    const onSeeked = () => {
+      if (this.pendingSeek !== null) {
+        const next = this.pendingSeek;
+        this.pendingSeek = null;
+        video.currentTime = next;
+        return;
+      }
+      this.setState({ seeking: false, currentTime: video.currentTime }, true);
+      this.emit('timeupdate', { currentTime: video.currentTime });
+    };
     const onWaiting = () => this.setState({ loading: true });
-    const onPlaying = () => this.setState({ loading: false }, true);
+    const onPlaying = () => {
+      this.presented = true;
+      this.setState({ loading: false, paused: video.paused }, true);
+    };
+    const onCanPlay = () => {
+      if (!video.seeking) this.setState({ loading: false });
+    };
     const onEnded = () => {
       this.setState({ ended: true, paused: true }, true);
       this.emit('ended', undefined);
     };
     const onError = () => {
       const code = video.error?.code;
+      const refused =
+        code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED || code === MediaError.MEDIA_ERR_DECODE;
       this.fail(
         code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
           ? 'This file uses a format the browser cannot play.'
           : (video.error?.message ?? 'Playback failed.'),
         true,
         video.error,
+        refused && !this.presented,
       );
     };
-    const onRateChange = () => this.setState({ rate: video.playbackRate });
+    /* The element puts its speed back to `defaultPlaybackRate` whenever it is
+       given a source, which is how a film came to drop to normal speed by
+       itself. Anything other than what was asked for is put back. */
+    const onRateChange = () => {
+      if (Math.abs(video.playbackRate - this.rate) > 1e-3) this.applyRate();
+    };
     const onVolumeChange = () =>
       this.setState({ volume: video.volume, muted: video.muted });
 
@@ -96,10 +151,12 @@ export class NativeBackend extends BaseBackend {
       ['progress', onProgress],
       ['play', onPlay],
       ['pause', onPause],
+      ['emptied', onEmptied],
       ['seeking', onSeeking],
       ['seeked', onSeeked],
       ['waiting', onWaiting],
       ['playing', onPlaying],
+      ['canplay', onCanPlay],
       ['ended', onEnded],
       ['error', onError],
       ['ratechange', onRateChange],
@@ -156,12 +213,18 @@ export class NativeBackend extends BaseBackend {
     return tracks;
   }
 
-  async load(source: MediaSourceInput): Promise<void> {
+  async load(source: MediaSourceInput, startAt = 0): Promise<void> {
     const video = this.video;
     if (!video) throw new Error('NativeBackend.load called before attach');
 
     this.releaseObjectUrl();
-    this.setState({ loading: true, ended: false, currentTime: 0, buffered: 0 }, true);
+    this.pendingSeek = null;
+    this.presented = false;
+    this.startAt = Math.max(0, startAt);
+    this.setState(
+      { loading: true, ended: false, currentTime: this.startAt, buffered: 0 },
+      true,
+    );
 
     if (source.kind === 'file') {
       const url = URL.createObjectURL(source.file);
@@ -190,6 +253,7 @@ export class NativeBackend extends BaseBackend {
        rather than an error. Everything else is ours to route. */
     this.chain.attach(video, source.kind !== 'url');
     video.load();
+    this.applyRate();
   }
 
   private releaseObjectUrl(): void {
@@ -200,21 +264,42 @@ export class NativeBackend extends BaseBackend {
   }
 
   async play(): Promise<void> {
-    await this.video?.play();
+    const video = this.video;
+    if (!video) return;
+    try {
+      await video.play();
+    } catch (err) {
+      // Refused or interrupted: say what the element is really doing.
+      this.setState({ paused: video.paused }, true);
+      throw err;
+    }
   }
 
   pause(): void {
-    this.video?.pause();
+    const video = this.video;
+    if (!video) return;
+    video.pause();
+    this.setState({ paused: true }, true);
   }
 
   seek(seconds: number): void {
     const video = this.video;
-    if (!video) return;
-    const target = Math.max(0, Math.min(seconds, video.duration || 0));
-    video.currentTime = target;
+    if (!video || !Number.isFinite(seconds)) return;
+    /* Clamped only once there is a length to clamp to. Before the metadata the
+       element reports NaN, and clamping to that sent every early seek, a
+       resume among them, back to the start. */
+    const known = Number.isFinite(video.duration) && video.duration > 0;
+    const target = Math.max(0, known ? Math.min(seconds, video.duration) : seconds);
     // Reflect immediately so the scrubber does not snap back while the element
     // works through the seek.
-    this.setState({ currentTime: target, seeking: true }, true);
+    this.setState({ currentTime: target, seeking: true, ended: false }, true);
+
+    if (video.seeking) {
+      this.pendingSeek = target;
+      return;
+    }
+    this.pendingSeek = null;
+    video.currentTime = target;
   }
 
   /** @param gain up to 1 the element can carry; past that the chain does. */
@@ -225,13 +310,26 @@ export class NativeBackend extends BaseBackend {
 
   setMuted(muted: boolean): void {
     if (this.video) this.video.muted = muted;
+    this.setState({ muted });
   }
 
   setRate(rate: number): void {
-    if (!this.video) return;
-    this.video.playbackRate = rate;
-    // Keep pitch stable when speeding through lectures.
-    this.video.preservesPitch = true;
+    if (!Number.isFinite(rate) || rate <= 0) return;
+    this.rate = rate;
+    this.applyRate();
+  }
+
+  /**
+   * Both rates, not only the live one. The default is what the element falls
+   * back to on every new source, so setting it too is what makes a speed stay
+   * set rather than last until the next load.
+   */
+  private applyRate(): void {
+    const video = this.video;
+    if (!video) return;
+    video.defaultPlaybackRate = this.rate;
+    video.playbackRate = this.rate;
+    this.setState({ rate: this.rate });
   }
 
   selectTrack(type: 'audio' | 'subtitle', id: string | null): void {

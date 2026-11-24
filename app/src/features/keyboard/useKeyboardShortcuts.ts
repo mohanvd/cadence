@@ -366,6 +366,10 @@ export function useKeyboardShortcuts(context: BindingContext, enabled = true): v
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target) || settingsOpen()) return;
+      /* Already handled by whatever has focus: the timeline's own arrows, a
+         slider in a menu, a menu's own navigation. Acting on it again here
+         was every arrow on a focused timeline seeking twice. */
+      if (event.defaultPrevented) return;
       // Leave browser and OS chords alone.
       if (event.ctrlKey || event.metaKey || event.altKey) return;
 

@@ -55,7 +55,7 @@ export abstract class BaseBackend implements PlaybackEngine {
 
   protected abstract onAttach(container: HTMLElement): void;
 
-  abstract load(source: MediaSourceInput): Promise<void>;
+  abstract load(source: MediaSourceInput, startAt?: number): Promise<void>;
   abstract play(): Promise<void>;
   abstract pause(): void;
   abstract seek(seconds: number): void;
@@ -150,8 +150,24 @@ export abstract class BaseBackend implements PlaybackEngine {
     window.clearTimeout(handle);
   }
 
-  protected fail(message: string, fatal = true, cause?: unknown): void {
-    this.emit('error', { message, fatal, cause });
+  /** Set once a fatal error has been reported, so it is reported once. */
+  private failed = false;
+
+  /**
+   * Report a failure.
+   *
+   * A fatal one is reported once. A broken stream tends to fail on several
+   * fronts at the same moment, the element, the buffer and the fetch, and each
+   * report used to start its own recovery: two new engines racing each other,
+   * and two codecs distrusted for one fault.
+   */
+  protected fail(message: string, fatal = true, cause?: unknown, decode = false): void {
+    if (this.destroyed) return;
+    if (fatal) {
+      if (this.failed) return;
+      this.failed = true;
+    }
+    this.emit('error', { message, fatal, cause, decode });
     if (fatal) this.setState({ loading: false }, true);
   }
 

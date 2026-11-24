@@ -18,6 +18,7 @@ import { useNowPlaying } from '@/features/playback/useNowPlaying';
 import { useVideoFit } from '@/features/playback/useVideoFit';
 import { useSettings } from '@/store/settingsStore';
 import { settingsOpen } from '@/store/viewStore';
+import { setWindowFullscreen } from '@/lib/desktop';
 import { MusicStage } from './MusicStage';
 import { Toaster, useToaster } from '@/components/ui/toaster';
 import { PortalContainerProvider } from '@/components/ui/portal-container';
@@ -49,6 +50,12 @@ const SUBTITLE_EXTENSIONS = ['srt', 'vtt', 'ass', 'ssa'];
 
 /** Hide the cursor and chrome after this long without pointer movement. */
 const IDLE_MS = 2600;
+
+/**
+ * How long a click on the picture waits to see whether it is half of a
+ * double-click. Long enough for a quick pair, short enough not to feel late.
+ */
+const CLICK_DELAY_MS = 230;
 
 export interface PlayerSurfaceProps {
   source: MediaSourceInput;
@@ -127,7 +134,11 @@ export function PlayerSurface({
   const playbackLabel = usePlaybackLabel();
 
   const [chromeVisible, setChromeVisible] = React.useState(true);
-  const [isFullscreen, setIsFullscreen] = React.useState(false);
+  // Read rather than assumed: the player can mount while the page is already
+  // fullscreen, and a button showing the wrong one of the two is the glitch.
+  const [isFullscreen, setIsFullscreen] = React.useState(() =>
+    typeof document !== 'undefined' && Boolean(document.fullscreenElement),
+  );
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
   const ambient = useSettings((s) => s.ambient);
   const feedbackRef = React.useRef<GestureFeedbackHandle>(null);
@@ -251,11 +262,38 @@ export function PlayerSurface({
     shellRef.current?.focus({ preventScroll: true });
   }, [source]);
 
+  /**
+   * Keep the window, the button and the page agreeing about fullscreen.
+   *
+   * The window follows the page (see `setWindowFullscreen`), on every change
+   * whatever caused it: the button, F, a double-click, or Escape, which the
+   * browser handles itself and tells nobody about but this event.
+   */
   React.useEffect(() => {
-    const handler = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    const handler = () => {
+      const on = Boolean(document.fullscreenElement);
+      fullscreenBusyUntil.current = 0;
+      setIsFullscreen(on);
+      void setWindowFullscreen(on);
+    };
     document.addEventListener('fullscreenchange', handler);
-    return () => document.removeEventListener('fullscreenchange', handler);
+    return () => {
+      document.removeEventListener('fullscreenchange', handler);
+      /* Leaving the player takes its element out of the page, which ends the
+         page's fullscreen without this listener there to hear it; the window
+         would have stayed fullscreen over the library. */
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+      void setWindowFullscreen(false);
+    };
   }, []);
+
+  /* A player put away is `display: none`, and a hidden element left
+     fullscreen is a black screen with nothing on it. */
+  React.useEffect(() => {
+    if (minimised && document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {});
+    }
+  }, [minimised]);
 
   const revealChrome = React.useCallback(() => {
     setChromeVisible(true);
@@ -272,12 +310,25 @@ export function PlayerSurface({
     return () => window.clearTimeout(idleTimer.current);
   }, [revealChrome]);
 
+  /* One change at a time. A second request while the first is still under way
+     reads the old state and asks for the same thing again, or the opposite,
+     which is the flicker in and out a quick double press produced. */
+  /* Cleared when the change lands, when it fails, or after a second at most:
+     a request the browser never answers must not leave the button dead. */
+  const fullscreenBusyUntil = React.useRef(0);
   const toggleFullscreen = React.useCallback(() => {
-    if (document.fullscreenElement) {
-      void document.exitFullscreen().catch(() => {});
-      return;
-    }
-    void shellRef.current?.requestFullscreen().catch(() => {});
+    if (performance.now() < fullscreenBusyUntil.current) return;
+    const shell = shellRef.current;
+    const change = document.fullscreenElement
+      ? document.exitFullscreen()
+      : shell?.requestFullscreen({ navigationUI: 'hide' });
+    if (!change) return;
+    fullscreenBusyUntil.current = performance.now() + 1000;
+    void change
+      .catch(() => {})
+      .finally(() => {
+        fullscreenBusyUntil.current = 0;
+      });
   }, []);
 
   const toggleAmbient = React.useCallback(() => {
@@ -368,13 +419,40 @@ export function PlayerSurface({
     [endPan],
   );
 
-  const handleSurfaceClick = React.useCallback(() => {
-    if (dragMoved.current) {
-      dragMoved.current = false;
-      return;
-    }
-    togglePlayWithFeedback();
-  }, [togglePlayWithFeedback]);
+  /**
+   * A click on the picture plays or pauses; a double-click goes fullscreen.
+   *
+   * The two used to share their first click, so every double-click paused the
+   * film and started it again on the way into fullscreen, a stutter in the
+   * sound and two flashes over the picture. The single click now waits a
+   * moment to be sure it is one, and the second click of a pair cancels it.
+   */
+  const clickTimer = React.useRef<number | undefined>(undefined);
+  React.useEffect(() => () => window.clearTimeout(clickTimer.current), []);
+
+  const handleSurfaceClick = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (dragMoved.current) {
+        dragMoved.current = false;
+        return;
+      }
+      window.clearTimeout(clickTimer.current);
+      clickTimer.current = undefined;
+      // The second click of a double: the double-click handler has it.
+      if (event.detail > 1) return;
+      clickTimer.current = window.setTimeout(() => {
+        clickTimer.current = undefined;
+        togglePlayWithFeedback();
+      }, CLICK_DELAY_MS);
+    },
+    [togglePlayWithFeedback],
+  );
+
+  const handleSurfaceDoubleClick = React.useCallback(() => {
+    window.clearTimeout(clickTimer.current);
+    clickTimer.current = undefined;
+    toggleFullscreen();
+  }, [toggleFullscreen]);
 
   /**
    * Wheel over the picture adjusts volume; a horizontal trackpad swipe scrubs.
@@ -504,7 +582,7 @@ export function PlayerSurface({
               musicMode.enabled && 'invisible',
             )}
             onClick={handleSurfaceClick}
-            onDoubleClick={toggleFullscreen}
+            onDoubleClick={handleSurfaceDoubleClick}
             onPointerDown={handlePanStart}
             onPointerMove={handlePanMove}
             onPointerUp={handlePanEnd}

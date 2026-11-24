@@ -7,6 +7,32 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Clicking the timeline no longer leaves the film stuck.** A click on the
+  scrub bar could leave the button saying playing over a paused picture, and
+  every press after that did nothing. Play and pause now always say what the
+  film is really doing, through seeks, drags and files that FFmpeg streams.
+- **Dragging the timeline is smooth.** A drag used to restart FFmpeg for every
+  pixel the pointer crossed on a streamed file, and pile up seeks on any other.
+  Now one seek is in flight at a time, and a streamed file waits for the
+  pointer to settle before it is reopened.
+- **The speed stays where it was set.** It went back to normal on every seek in
+  a streamed file and every time a new file opened, and the setting was saved
+  as normal with it.
+- **Films are no longer cut off part-way.** A stream that stopped early was
+  taken as the end of the film, and a full buffer on a high-bitrate file was
+  taken as an error. The first now carries on from where it stopped, and the
+  second waits for room. Neither is any longer blamed on the codec, which used
+  to have every later film converted for no reason.
+- **Fullscreen fills the screen.** The window follows the player into and out
+  of fullscreen, double-clicking the picture no longer pauses and restarts the
+  film on the way in, and leaving or putting away the player leaves fullscreen
+  with it.
+- **Arrow keys on a focused slider move it once.** The timeline and the volume
+  slider handle their own arrows, and the player's shortcuts no longer act on
+  the same press a second time.
+
 ## [0.10.1] - 2026-10-12
 
 ### Changed

@@ -23,12 +23,35 @@ import type { BackendKind, MediaSourceInput, MediaTrack, ProbeResult } from '../
  *   - A seek is a new stream. There is no byte to range over, so the shell
  *     restarts FFmpeg at a timestamp and the fragments that come back are
  *     shifted into place with `timestampOffset`.
+ *
+ * The second one is where most of the care below goes. Rebuilding the source
+ * resets the element: it pauses, its speed goes back to the default, its clock
+ * reads zero for a moment. None of that is anything the viewer did, so none of
+ * it is allowed to reach the state. Whether the film should be playing is kept
+ * here, as the viewer's intent, and the element is brought back into line with
+ * it once the new stream is ready.
  */
 
 /** Stop pulling fragments once this many seconds are buffered ahead. */
 const BUFFER_TARGET_SECONDS = 30;
-/** Start pulling again when the cushion falls below this. */
-const BUFFER_RESUME_SECONDS = 12;
+/** Start pulling again once the cushion is down to this share of the target. */
+const BUFFER_RESUME_RATIO = 0.4;
+/** The least the cushion is allowed to shrink to when memory runs short. */
+const MIN_TARGET_SECONDS = 6;
+/**
+ * How long a seek out of the buffer waits for the next one before FFmpeg is
+ * restarted. A drag along the timeline, or a key held down, is dozens of seeks
+ * a second, and each of them used to start and kill a process.
+ */
+const SEEK_SETTLE_MS = 140;
+/** A stream that stops this far short of the end has not finished. */
+const EARLY_END_SECONDS = 2;
+/** How many times a broken stream is picked up again before giving up. */
+const MAX_STREAM_RETRIES = 4;
+/** Playing this far past the last recovery earns the retries back. */
+const RETRY_RESET_SECONDS = 60;
+
+class AppendRejected extends Error {}
 
 export class StreamBackend extends BaseBackend {
   readonly kind: BackendKind = 'stream';
@@ -48,11 +71,33 @@ export class StreamBackend extends BaseBackend {
   private abort: AbortController | null = null;
 
   /**
-   * Bumped on every seek. A pump that was in flight when the seek happened
-   * checks this before appending, so fragments from the stream the viewer just
-   * left cannot land in the buffer for the one they went to.
+   * Bumped whenever the stream being played stops being the one wanted. A pump
+   * that was in flight checks this before appending, so fragments from the
+   * stream the viewer just left cannot land in the buffer for the one they went
+   * to.
    */
   private generation = 0;
+
+  /** Whether the viewer wants this playing, whatever the element is doing. */
+  private wantPlaying = false;
+  /**
+   * True from the moment a new stream is decided on until the element has been
+   * pointed at it and told where to be. In between, the element's own events
+   * describe the source being thrown away and are not passed on.
+   */
+  private rebuilding = false;
+  private seekTimer: number | null = null;
+  /** The speed asked for, put back after every rebuild. */
+  private rate = 1;
+  /** Whether anything has played: see `NativeBackend.presented`. */
+  private presented = false;
+  /** How far ahead to buffer; lowered when the browser runs out of room. */
+  private targetAhead = BUFFER_TARGET_SECONDS;
+  private retries = 0;
+  /** Where the last recovery picked the stream up. */
+  private lastRecoveryAt = 0;
+  /** How far the last stream got before it stopped short. */
+  private lastStopEnd = -1;
 
   private readonly probedTracks: readonly MediaTrack[];
   private readonly copyVideo: boolean;
@@ -76,7 +121,7 @@ export class StreamBackend extends BaseBackend {
     this.bindEvents(video);
   }
 
-  async load(source: MediaSourceInput): Promise<void> {
+  async load(source: MediaSourceInput, startAt = 0): Promise<void> {
     /* A link is an input like any other as far as FFmpeg is concerned, and it
        is the reason this accepts one: a video the browser will not open is
        still a video the shell can demux and hand back in fragments. A `File`
@@ -91,7 +136,43 @@ export class StreamBackend extends BaseBackend {
     const audio = this.probedTracks.find((track) => track.type === 'audio');
     this.audioStreamIndex = audio ? Number(audio.id) : null;
 
-    await this.openAt(0);
+    await this.openAt(this.clamp(startAt));
+  }
+
+  private clamp(seconds: number): number {
+    const value = Number.isFinite(seconds) ? seconds : 0;
+    return Math.max(0, this.duration > 0 ? Math.min(value, this.duration) : value);
+  }
+
+  /** The state's idea of paused: the viewer's intent while a rebuild is on. */
+  private syncPaused(): void {
+    const video = this.video;
+    if (!video) return;
+    const paused = this.rebuilding ? !this.wantPlaying : video.paused;
+    this.setState(paused ? { paused } : { paused, ended: false }, true);
+  }
+
+  /**
+   * Start leaving the current stream.
+   *
+   * The element is paused so the film does not carry on, audibly, from the
+   * place the viewer has just asked to leave. The state does not see that
+   * pause: it is still showing whatever the viewer last asked for.
+   */
+  private beginRebuild(): void {
+    this.generation += 1;
+    if (!this.rebuilding) {
+      this.rebuilding = true;
+      this.video?.pause();
+    }
+    this.syncPaused();
+  }
+
+  private clearSeekTimer(): void {
+    if (this.seekTimer !== null) {
+      window.clearTimeout(this.seekTimer);
+      this.seekTimer = null;
+    }
   }
 
   /**
@@ -104,24 +185,17 @@ export class StreamBackend extends BaseBackend {
    */
   private async openAt(seconds: number): Promise<void> {
     const video = this.video;
-    if (!video) return;
+    if (!video || this.destroyed) return;
 
-    /* Read before anything is torn down.
-     *
-     * Rebuilding the Media Source hands the element a new `src`, and a media
-     * element with a new source is a paused one. Without carrying this across,
-     * every seek out of the buffer stops the film, and so does opening
-     * anything with a saved position: the resume is itself a seek, so a file
-     * would start, jump to where it was left, and sit there. */
-    const wasPlaying = !video.paused;
-
-    this.generation += 1;
+    this.clearSeekTimer();
+    this.beginRebuild();
     const generation = this.generation;
+    const stale = () => this.destroyed || generation !== this.generation;
 
     await this.teardownStream();
-    if (this.destroyed || generation !== this.generation) return;
+    if (stale()) return;
 
-    this.setState({ loading: true }, true);
+    this.setState({ loading: true, ended: false, currentTime: seconds, buffered: 0 }, true);
 
     const url = await streamUrl(this.path, {
       start: seconds,
@@ -129,16 +203,19 @@ export class StreamBackend extends BaseBackend {
       copyVideo: this.copyVideo,
       copyAudio: this.copyAudio,
     });
+    if (stale()) return;
     if (!url) {
       this.fail('Playback support is missing from this installation.');
       return;
     }
-    if (this.destroyed || generation !== this.generation) return;
 
     const mediaSource = new MediaSource();
     this.mediaSource = mediaSource;
     this.objectUrl = URL.createObjectURL(mediaSource);
     video.src = this.objectUrl;
+    /* A new source puts the speed back to the default; the default is ours,
+       but say it again in case anything else touched it. */
+    this.applyRate();
     /* Idempotent, and this runs again on every seek that rebuilds the source:
        the element is the same one, so the routing is not rebuilt with it. */
     this.chain.attach(video, true);
@@ -146,7 +223,7 @@ export class StreamBackend extends BaseBackend {
     mediaSource.addEventListener(
       'sourceopen',
       () => {
-        if (generation !== this.generation) return;
+        if (stale()) return;
         // Known from inspection, and the only place it can come from: the
         // fragments carry no total.
         if (this.duration > 0) {
@@ -161,11 +238,30 @@ export class StreamBackend extends BaseBackend {
            zero seconds long and clamps anything asked of it back to the
            start. */
         if (seconds > 0) video.currentTime = seconds;
-        if (wasPlaying) void video.play().catch(() => {});
+
+        this.rebuilding = false;
+        if (this.wantPlaying) this.startElement();
+        this.syncPaused();
+
         void this.pump(url, seconds, generation);
       },
       { once: true },
     );
+  }
+
+  /** Ask the element to play, and own up if it will not. */
+  private startElement(): void {
+    const video = this.video;
+    if (!video) return;
+    const generation = this.generation;
+    video.play().catch((err: unknown) => {
+      if (this.destroyed || generation !== this.generation) return;
+      // Interrupted by a pause or a new stream, both of which speak for
+      // themselves.
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      this.wantPlaying = false;
+      this.syncPaused();
+    });
   }
 
   /**
@@ -175,52 +271,137 @@ export class StreamBackend extends BaseBackend {
   private async pump(url: string, offset: number, generation: number): Promise<void> {
     const mediaSource = this.mediaSource;
     if (!mediaSource || !this.video) return;
+    const stale = () => this.destroyed || generation !== this.generation;
 
     const abort = new AbortController();
     this.abort = abort;
 
-    let response: Response;
     try {
-      response = await fetch(url, { signal: abort.signal });
-    } catch (err) {
-      if (abort.signal.aborted) return;
-      this.fail('Could not reach the playback pipeline.', true, err);
+      let response: Response;
+      try {
+        response = await fetch(url, { signal: abort.signal });
+      } catch (err) {
+        if (abort.signal.aborted || stale()) return;
+        this.fail('Could not reach the playback pipeline.', true, err);
+        return;
+      }
+
+      if (!response.ok || !response.body) {
+        const detail = await response.text().catch(() => '');
+        if (stale()) return;
+        this.fail(detail || 'The file could not be opened.');
+        return;
+      }
+
+      const reader = response.body.getReader();
+      this.reader = reader;
+
+      try {
+        for (;;) {
+          if (stale()) return;
+
+          await this.waitForRoom(generation);
+          if (stale()) return;
+
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (!value?.byteLength) continue;
+          if (stale()) return;
+
+          const buffer = this.sourceBuffer ?? this.openBuffer(offset);
+          if (!buffer || stale()) return;
+
+          await this.appendWithRoom(buffer, value, generation);
+        }
+      } catch (err) {
+        if (abort.signal.aborted || stale()) return;
+        /* A fragment the decoder would not take puts the element itself in
+           error, and its own report is the one that knows whether this was
+           a codec or a bad patch of file. */
+        if (err instanceof AppendRejected) return;
+        void this.streamStopped(generation, err);
+        return;
+      }
+
+      if (stale()) return;
+      void this.streamStopped(generation, null);
+    } finally {
+      /* Superseded mid-read: let go of the connection, which is what tells the
+         shell to stop the FFmpeg behind it. */
+      if (stale()) abort.abort();
+    }
+  }
+
+  /** The end of what is buffered, wherever the playhead is. */
+  private bufferedEnd(): number {
+    const ranges = this.sourceBuffer?.buffered ?? this.video?.buffered;
+    if (!ranges || ranges.length === 0) return 0;
+    return ranges.end(ranges.length - 1);
+  }
+
+  /**
+   * The stream has stopped, on its own or with an error.
+   *
+   * At the end of the file that is the end, and the Media Source is told so.
+   * Short of it, FFmpeg died or the connection dropped, and declaring the end
+   * there is what cut films off part-way through: the element took the
+   * shortened stream at its word and played its last frame. Instead the
+   * viewer is left to play what did arrive, and the stream is picked up again
+   * from where it stopped once they reach it.
+   */
+  private async streamStopped(generation: number, cause: unknown): Promise<void> {
+    const video = this.video;
+    const mediaSource = this.mediaSource;
+    if (!video || !mediaSource) return;
+    const stale = () => this.destroyed || generation !== this.generation;
+
+    const end = this.bufferedEnd();
+    const short = this.duration > 0 && end < this.duration - EARLY_END_SECONDS;
+
+    if (!short && cause === null) {
+      this.endStream(mediaSource);
       return;
     }
 
-    if (!response.ok || !response.body) {
-      const detail = await response.text().catch(() => '');
-      this.fail(detail || 'The file could not be opened.');
+    /* Little or nothing new arrived since the last time it stopped: what is
+       past this point cannot be read, and saying so beats trying forever. A
+       stream that ended cleanly is taken as finished, which is also what a
+       file a little shorter than its header claims looks like; one that
+       failed is a failure. */
+    const gained = this.lastStopEnd < 0 ? Infinity : end - this.lastStopEnd;
+    if (gained < (cause === null ? 4 : 0.5) || this.retries >= MAX_STREAM_RETRIES) {
+      if (cause === null) {
+        this.endStream(mediaSource);
+        return;
+      }
+      this.fail('The stream stopped unexpectedly.', true, cause);
       return;
     }
+    this.lastStopEnd = end;
 
-    const reader = response.body.getReader();
-    this.reader = reader;
-
-    try {
-      for (;;) {
-        if (this.destroyed || generation !== this.generation) return;
-
-        await this.waitForRoom(generation);
-        if (this.destroyed || generation !== this.generation) return;
-
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (!value?.byteLength) continue;
-
-        const buffer = this.sourceBuffer ?? this.openBuffer(offset);
-        if (!buffer || generation !== this.generation) return;
-
-        await this.append(buffer, value);
-      }
-
-      if (generation === this.generation && mediaSource.readyState === 'open') {
-        mediaSource.endOfStream();
-      }
-    } catch (err) {
-      if (abort.signal.aborted || this.destroyed) return;
-      this.fail('The stream stopped unexpectedly.', true, err);
+    // Play out what arrived, then carry on from the end of it.
+    while (!stale() && video.currentTime < end - 0.5) {
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
     }
+    if (stale()) return;
+    this.recoverAt(video.currentTime);
+  }
+
+  private endStream(mediaSource: MediaSource): void {
+    if (mediaSource.readyState !== 'open') return;
+    if (this.sourceBuffer?.updating) return;
+    try {
+      mediaSource.endOfStream();
+    } catch {
+      /* Already ended. */
+    }
+  }
+
+  /** Pick the stream up again at `seconds`, within the retry allowance. */
+  private recoverAt(seconds: number): void {
+    this.retries += 1;
+    this.lastRecoveryAt = seconds;
+    void this.openAt(this.clamp(seconds));
   }
 
   /**
@@ -250,7 +431,7 @@ export class StreamBackend extends BaseBackend {
       audioFallback: fallbackFor(this.audioFallbacks, chosenAudio),
     });
     if (!MediaSource.isTypeSupported(mime)) {
-      this.fail(`The browser will not accept ${mime}.`);
+      this.fail(`The browser will not accept ${mime}.`, true, undefined, true);
       return null;
     }
 
@@ -258,7 +439,7 @@ export class StreamBackend extends BaseBackend {
     try {
       buffer = mediaSource.addSourceBuffer(mime);
     } catch (err) {
-      this.fail('The browser refused this stream.', true, err);
+      this.fail('The browser refused this stream.', true, err, true);
       return null;
     }
 
@@ -278,8 +459,10 @@ export class StreamBackend extends BaseBackend {
         buffer.removeEventListener('error', failed);
         fn();
       };
+      // `updateend` also follows an abort, which is what a detached buffer gets.
       const done = () => settle(resolve);
-      const failed = () => settle(() => reject(new Error('the browser rejected a fragment')));
+      const failed = () =>
+        settle(() => reject(new AppendRejected('the browser rejected a fragment')));
 
       buffer.addEventListener('updateend', done);
       buffer.addEventListener('error', failed);
@@ -290,6 +473,54 @@ export class StreamBackend extends BaseBackend {
         settle(() => reject(err));
       }
     });
+  }
+
+  /**
+   * Append, waiting for room when the browser's buffer is full.
+   *
+   * A high-bitrate file fills the browser's allowance well before the thirty
+   * seconds this asks for, and the append that does not fit throws. That used
+   * to stop the film with an error, and worse, the error was then read as the
+   * codec's fault. The browser has already freed what it safely could behind
+   * the playhead by the time it throws, so what is left is to shorten the
+   * cushion to what fits and let playback use some of it up.
+   */
+  private async appendWithRoom(
+    buffer: SourceBuffer,
+    chunk: Uint8Array,
+    generation: number,
+  ): Promise<void> {
+    const video = this.video;
+    if (!video) return;
+    const stale = () => this.destroyed || generation !== this.generation;
+
+    for (let stuck = 0; ; ) {
+      if (stale()) return;
+      try {
+        await this.append(buffer, chunk);
+        return;
+      } catch (err) {
+        const full = err instanceof DOMException && err.name === 'QuotaExceededError';
+        if (!full || stale()) throw err;
+
+        const ahead = Math.max(0, this.bufferedEnd() - video.currentTime);
+        this.targetAhead = Math.max(MIN_TARGET_SECONDS, Math.min(this.targetAhead, ahead - 2));
+
+        // Paused, it waits as long as it takes; playing, a few seconds at a time.
+        const from = video.currentTime;
+        const since = performance.now();
+        while (
+          !stale() &&
+          video.currentTime - from < 1 &&
+          (video.paused || performance.now() - since < 3000)
+        ) {
+          await new Promise((resolve) => window.setTimeout(resolve, 200));
+        }
+
+        if (video.currentTime - from >= 1) stuck = 0;
+        else if (!video.paused && (stuck += 1) > 20) throw err;
+      }
+    }
   }
 
   /** Resolve once playback has drawn the cushion down far enough to want more. */
@@ -304,12 +535,12 @@ export class StreamBackend extends BaseBackend {
       return ranges.end(ranges.length - 1) - video.currentTime;
     };
 
-    if (ahead() < BUFFER_TARGET_SECONDS) return Promise.resolve();
+    if (ahead() < this.targetAhead) return Promise.resolve();
 
     return new Promise((resolve) => {
       const timer = window.setInterval(() => {
         const stale = this.destroyed || generation !== this.generation;
-        if (stale || ahead() < BUFFER_RESUME_SECONDS) {
+        if (stale || ahead() < this.targetAhead * BUFFER_RESUME_RATIO) {
           window.clearInterval(timer);
           resolve();
         }
@@ -317,24 +548,26 @@ export class StreamBackend extends BaseBackend {
     });
   }
 
+  /**
+   * Let go of the stream being played.
+   *
+   * Deliberately without `endOfStream()`. Ending the old Media Source told the
+   * element the film was exactly as long as what had been buffered, and if the
+   * playhead was near the end of it the element announced the film over, which
+   * the queue took as its cue to move on to the next one.
+   */
   private async teardownStream(): Promise<void> {
     this.abort?.abort();
     this.abort = null;
 
+    const reader = this.reader;
+    this.reader = null;
     try {
-      await this.reader?.cancel();
+      await reader?.cancel();
     } catch {
       /* Already closed. */
     }
-    this.reader = null;
 
-    if (this.mediaSource?.readyState === 'open') {
-      try {
-        this.mediaSource.endOfStream();
-      } catch {
-        /* Already ended. */
-      }
-    }
     this.sourceBuffer = null;
     this.mediaSource = null;
 
@@ -346,16 +579,23 @@ export class StreamBackend extends BaseBackend {
 
   private bindEvents(video: HTMLVideoElement): void {
     const onLoadedMetadata = () => {
+      if (this.rebuilding) return;
       const duration = this.duration || video.duration || 0;
       this.setState({ duration, loading: false }, true);
       this.emit('loadedmetadata', { duration, tracks: this._tracks });
     };
     const onTimeUpdate = () => {
-      this.setState({ currentTime: video.currentTime });
-      this.emit('timeupdate', { currentTime: video.currentTime });
+      if (this.rebuilding) return;
+      const currentTime = video.currentTime;
+      if (this.retries > 0 && currentTime > this.lastRecoveryAt + RETRY_RESET_SECONDS) {
+        this.retries = 0;
+        this.lastStopEnd = -1;
+      }
+      this.setState({ currentTime });
+      this.emit('timeupdate', { currentTime });
     };
     const onProgress = () => {
-      if (video.buffered.length === 0) return;
+      if (this.rebuilding || video.buffered.length === 0) return;
       // The range covering the playhead, not simply the last one: after a seek
       // backwards the final range can be far ahead of playback.
       let end = 0;
@@ -366,17 +606,60 @@ export class StreamBackend extends BaseBackend {
       }
       this.setState({ buffered: end });
     };
-    const onPlay = () => this.setState({ paused: false, ended: false }, true);
-    const onPause = () => this.setState({ paused: true }, true);
-    const onWaiting = () => this.setState({ loading: true });
-    const onPlaying = () => this.setState({ loading: false, seeking: false }, true);
+    /* The element's own play and pause carry the viewer's intent only when
+       nothing is being rebuilt, and are read off the element as it is now
+       rather than as the event says: a pause queued by the rebuild can arrive
+       after the new stream has already been told to play. */
+    const onPlayOrPause = () => {
+      if (!this.rebuilding) this.wantPlaying = !video.paused;
+      this.syncPaused();
+    };
+    const onWaiting = () => {
+      if (!this.rebuilding) this.setState({ loading: true });
+    };
+    const onPlaying = () => {
+      if (this.rebuilding) return;
+      this.presented = true;
+      this.setState({ loading: false, seeking: false, paused: video.paused }, true);
+    };
+    const onSeeked = () => {
+      if (this.rebuilding) return;
+      this.setState({ seeking: false, currentTime: video.currentTime }, true);
+    };
+    const onCanPlay = () => {
+      if (this.rebuilding || video.seeking) return;
+      this.setState({ loading: false, seeking: false });
+    };
     const onEnded = () => {
+      if (this.rebuilding) return;
+      this.wantPlaying = false;
       this.setState({ ended: true, paused: true }, true);
       this.emit('ended', undefined);
     };
-    const onError = () =>
-      this.fail(video.error?.message ?? 'Playback failed.', true, video.error);
-    const onRateChange = () => this.setState({ rate: video.playbackRate });
+    const onError = () => {
+      /* The element in error over a source already thrown away is not news,
+         and setting the next source clears it. */
+      if (this.rebuilding || !video.error) return;
+      const refused =
+        video.error.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
+        video.error.code === MediaError.MEDIA_ERR_DECODE;
+
+      /* Before anything has played, the browser is refusing what it was given,
+         and the engine above is the one to try another way. After, it is a bad
+         patch of file, and the thing to do is step over it. */
+      if (refused && !this.presented) {
+        this.fail(video.error.message || 'Playback failed.', true, video.error, true);
+        return;
+      }
+      if (this.retries < MAX_STREAM_RETRIES) {
+        this.recoverAt(video.currentTime + 1);
+        return;
+      }
+      this.fail(video.error.message || 'Playback failed.', true, video.error);
+    };
+    const onRateChange = () => {
+      if (Math.abs(video.playbackRate - this.rate) > 1e-3) this.applyRate();
+    };
     const onVolumeChange = () =>
       this.setState({ volume: video.volume, muted: video.muted });
 
@@ -384,10 +667,13 @@ export class StreamBackend extends BaseBackend {
       ['loadedmetadata', onLoadedMetadata],
       ['timeupdate', onTimeUpdate],
       ['progress', onProgress],
-      ['play', onPlay],
-      ['pause', onPause],
+      ['play', onPlayOrPause],
+      ['pause', onPlayOrPause],
+      ['emptied', onPlayOrPause],
       ['waiting', onWaiting],
       ['playing', onPlaying],
+      ['seeked', onSeeked],
+      ['canplay', onCanPlay],
       ['ended', onEnded],
       ['error', onError],
       ['ratechange', onRateChange],
@@ -401,11 +687,32 @@ export class StreamBackend extends BaseBackend {
   }
 
   async play(): Promise<void> {
-    await this.video?.play();
+    const video = this.video;
+    if (!video) return;
+    this.wantPlaying = true;
+
+    /* Played again from the end. The element would rewind to the start by
+       itself, but only what was streamed last is in its buffer, and the start
+       of the film is not, so it sat there waiting for data nobody was going to
+       send. */
+    if (!this.rebuilding && this._state.ended) {
+      void this.openAt(0);
+      return;
+    }
+
+    // Mid-rebuild, intent is all there is to record: the new stream will play.
+    if (this.rebuilding) {
+      this.syncPaused();
+      return;
+    }
+    this.startElement();
+    this.syncPaused();
   }
 
   pause(): void {
+    this.wantPlaying = false;
     this.video?.pause();
+    this.syncPaused();
   }
 
   /**
@@ -415,25 +722,33 @@ export class StreamBackend extends BaseBackend {
    */
   seek(seconds: number): void {
     const video = this.video;
-    if (!video) return;
+    if (!video || !Number.isFinite(seconds)) return;
 
-    const target = Math.max(
-      0,
-      this.duration > 0 ? Math.min(seconds, this.duration) : seconds,
-    );
+    const target = this.clamp(seconds);
 
-    const ranges = video.buffered;
-    for (let i = 0; i < ranges.length; i += 1) {
-      if (target >= ranges.start(i) && target <= ranges.end(i)) {
-        video.currentTime = target;
-        return;
+    /* Only the stream being played can be seeked inside. Mid-rebuild, what the
+       element holds is the stream being left, and landing in it put the film
+       at a place the viewer had already moved on from. */
+    if (!this.rebuilding) {
+      const ranges = video.buffered;
+      for (let i = 0; i < ranges.length; i += 1) {
+        if (target >= ranges.start(i) && target <= ranges.end(i)) {
+          video.currentTime = target;
+          this.setState({ currentTime: target, seeking: true, ended: false }, true);
+          return;
+        }
       }
     }
 
     // The fragments are offset back onto the real timeline, so the element ends
     // up at the timestamp the viewer asked for rather than at zero.
-    this.setState({ seeking: true, currentTime: target }, true);
-    void this.openAt(target);
+    this.setState({ seeking: true, currentTime: target, ended: false }, true);
+    this.beginRebuild();
+    this.clearSeekTimer();
+    this.seekTimer = window.setTimeout(() => {
+      this.seekTimer = null;
+      void this.openAt(target);
+    }, SEEK_SETTLE_MS);
   }
 
   /** @param gain up to 1 the element can carry; past that the chain does. */
@@ -444,10 +759,23 @@ export class StreamBackend extends BaseBackend {
 
   setMuted(muted: boolean): void {
     if (this.video) this.video.muted = muted;
+    this.setState({ muted });
   }
 
   setRate(rate: number): void {
-    if (this.video) this.video.playbackRate = rate;
+    if (!Number.isFinite(rate) || rate <= 0) return;
+    this.rate = rate;
+    this.applyRate();
+  }
+
+  /** Both rates: see `NativeBackend.applyRate`. Matters most here, where every
+      seek out of the buffer is a new source. */
+  private applyRate(): void {
+    const video = this.video;
+    if (!video) return;
+    video.defaultPlaybackRate = this.rate;
+    video.playbackRate = this.rate;
+    this.setState({ rate: this.rate });
   }
 
   /**
@@ -464,7 +792,8 @@ export class StreamBackend extends BaseBackend {
     if (!Number.isFinite(index) || index === this.audioStreamIndex) return;
 
     this.audioStreamIndex = index;
-    void this.openAt(this.video?.currentTime ?? 0);
+    // The state's clock, not the element's: mid-rebuild the element's is zero.
+    void this.openAt(this._state.currentTime);
   }
 
   getVideoElement(): HTMLVideoElement | null {
@@ -478,11 +807,13 @@ export class StreamBackend extends BaseBackend {
   protected onDestroy(): void {
     // Invalidates every pump still in flight before anything is torn down.
     this.generation += 1;
+    this.clearSeekTimer();
     void this.teardownStream();
     this.chain.release(this.video);
     this.detachListeners?.();
     this.detachListeners = null;
     if (this.video) {
+      this.video.pause();
       this.video.removeAttribute('src');
       this.video.load();
       this.video.remove();
